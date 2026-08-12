@@ -20,6 +20,7 @@
     "lint": "eslint . --ignore-pattern .next"
   },
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "fast-xml-parser": "^5.10.1",
     "next": "16.3.0",
     "react": "19.2.6",

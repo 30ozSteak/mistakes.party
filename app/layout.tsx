@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { connection } from "next/server";
+import { Analytics } from "@vercel/analytics/next";
 import { DrawingPlayground } from "./components/DrawingPlayground";
 import "./globals.css";
 
@@ -51,6 +52,7 @@ export default async function RootLayout({
       <body>
         <DrawingPlayground />
         <div className="site-surface">{children}</div>
+        <Analytics />
       </body>
     </html>
   );
