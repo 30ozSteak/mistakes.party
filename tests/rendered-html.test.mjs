@@ -42,6 +42,11 @@ test("exports the portfolio index", async () => {
   assert.match(html, /href="#work">WORK<\/a>/);
   assert.match(html, /href="#github">GITHUB<\/a>/);
   assert.match(html, /href="#about">ABOUT<\/a>/);
+  assert.match(html, /aria-label="Open primary navigation"/);
+  assert.match(html, /aria-controls="mobile-navigation"/);
+  assert.match(html, /aria-expanded="false"/);
+  assert.match(html, /aria-hidden="true"[^>]*id="mobile-navigation" inert=""/);
+  assert.match(html, /aria-label="Mobile navigation"/);
   assert.match(html, /id="work"/);
   assert.match(html, /id="github"/);
   assert.match(html, /id="about"/);
@@ -88,6 +93,9 @@ test("exports every internal project page", async () => {
     assert.match(html, new RegExp(title));
     assert.equal((html.match(/<h1[ >]/g) || []).length, 1);
     assert.match(html, /MISTAKES\.PARTY © 2026/);
+    assert.match(html, /href="\/#work">WORK<\/a>/);
+    assert.match(html, /href="\/#github">GITHUB<\/a>/);
+    assert.match(html, /href="\/#about">ABOUT<\/a>/);
     assert.match(html, /CONTEXT/);
     assert.match(html, /THE MOVE/);
     assert.match(html, /OUTCOME/);
