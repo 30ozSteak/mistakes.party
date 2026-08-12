@@ -20,19 +20,43 @@ export type GithubRepo = {
   disabled: boolean;
 };
 
+export type GithubRepoDetail = GithubRepo & {
+  description: string | null;
+};
+
+export type GithubRepoDetailResult =
+  | { status: "found"; repo: GithubRepoDetail }
+  | { status: "not-found" }
+  | { status: "unavailable" };
+
 type UnknownRecord = Record<string, unknown>;
 
 function isRecord(value: unknown): value is UnknownRecord {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-function isRepoName(value: unknown): value is string {
+export function isGithubRepoName(value: unknown): value is string {
   return (
     typeof value === "string" &&
     REPO_NAME_PATTERN.test(value) &&
     value !== "." &&
     value !== ".."
   );
+}
+
+function normalizeRepoDescription(value: unknown): string | null {
+  if (value === null) return null;
+  if (
+    typeof value !== "string" ||
+    value.length === 0 ||
+    value.length > 500 ||
+    value !== value.trim() ||
+    /[\u0000-\u001f\u007f]/.test(value)
+  ) {
+    return null;
+  }
+
+  return value;
 }
 
 function isLanguage(value: unknown): value is string | null {
@@ -92,7 +116,7 @@ export function normalizeGithubRepoUrl(
     const [, owner, repoName] = match;
     if (
       owner.toLowerCase() !== GITHUB_OWNER.toLowerCase() ||
-      !isRepoName(repoName) ||
+      !isGithubRepoName(repoName) ||
       (expectedRepoName !== undefined &&
         repoName.toLowerCase() !== expectedRepoName.toLowerCase())
     ) {
@@ -123,7 +147,7 @@ export function parseGithubRepo(value: unknown): GithubRepo | null {
   if (
     !Number.isSafeInteger(id) ||
     (id as number) <= 0 ||
-    !isRepoName(name) ||
+    !isGithubRepoName(name) ||
     !isLanguage(language) ||
     !Number.isSafeInteger(stars) ||
     (stars as number) < 0 ||
@@ -149,6 +173,21 @@ export function parseGithubRepo(value: unknown): GithubRepo | null {
     archived,
     disabled,
   };
+}
+
+export function parseGithubRepoDetail(value: unknown): GithubRepoDetail | null {
+  const repo = parseGithubRepo(value);
+  if (!repo || !isRecord(value)) return null;
+
+  return {
+    ...repo,
+    description: normalizeRepoDescription(value.description),
+  };
+}
+
+export function githubRepoUrl(repoName: unknown): string | null {
+  if (!isGithubRepoName(repoName)) return null;
+  return `${GITHUB_ORIGIN}/${GITHUB_OWNER}/${repoName}`;
 }
 
 export function parseGithubRepos(value: unknown): GithubRepo[] {

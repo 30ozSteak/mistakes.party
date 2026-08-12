@@ -41,6 +41,10 @@ function assertSecurityHeaders(headers, html) {
   assert.match(policy, /(?:^|; )frame-ancestors 'none'(?:;|$)/);
   assert.match(policy, /(?:^|; )form-action 'self'(?:;|$)/);
   assert.match(policy, /connect-src [^;]*https:\/\/api\.github\.com/);
+  assert.match(
+    policy,
+    /connect-src [^;]*wss:\/\/mistakes-party-drawing-realtime\.mistakes\.workers\.dev/,
+  );
   assert.match(policy, /(?:^|; )upgrade-insecure-requests(?:;|$)/);
 
   const scripts = [...html.matchAll(/<script\b[^>]*>/gi)].map(
@@ -117,7 +121,15 @@ test("renders the portfolio index", async () => {
   assert.match(html, /class="github-feed" aria-busy="true"/);
   assert.doesNotMatch(html, /class="github-status"/);
   assert.equal((html.match(/href="\/work\//g) || []).length, 3);
-  assert.equal((html.match(/aria-label="View source for /g) || []).length, 3);
+  assert.equal((html.match(/href="\/archive\//g) || []).length, 7);
+  assert.match(
+    html,
+    /<a[^>]*aria-label="LIGHTHOUSE CHECKER"[^>]*class="index-row"[^>]*href="\/work\/lighthouse-checker\/"[^>]*>[\s\S]*?<div class="index-main"><h4 class="index-title">LIGHTHOUSE CHECKER<\/h4><\/div><span class="index-meta">TOOL \/ CODE(?:<!-- -->)? · (?:<!-- -->)?PUBLIC<\/span><\/a>/,
+  );
+  assert.match(
+    html,
+    /<a[^>]*aria-label="APPLAUSE BUTTON"[^>]*class="index-row"[^>]*href="\/archive\/applause-button\/"[^>]*>[\s\S]*?<div class="index-main"><h4 class="index-title">APPLAUSE BUTTON<\/h4><\/div><span class="index-meta">FORK \/ WEB<\/span><\/a>/,
+  );
   assert.doesNotMatch(
     html,
     /\bNICK\b|\bSTEAKS\b|\bWEIRD\b|WORK THAT LEFT A MARK|THE GITHUB WIRE|KEEP CLICKING|MAKE IT USEFUL\. MAKE IT LOUD/i,
@@ -145,8 +157,10 @@ test("renders the portfolio index", async () => {
   );
   assert.match(
     html,
-    /class="index-main" href="\/blogs\/"><h4 class="index-title">ALL BLOGS<\/h4>/,
+    /<a[^>]*aria-label="ALL BLOGS"[^>]*class="index-row"[^>]*href="\/blogs\/"[^>]*>[\s\S]*?<div class="index-main"><h4 class="index-title">ALL BLOGS<\/h4><\/div>/,
   );
+  assert.doesNotMatch(html, /class="index-action"/);
+  assert.doesNotMatch(html, />\s*(?:SOURCE|OPEN|READ)\s*(?:↗|→)?\s*</i);
   assert.match(html, /MISTAKES\.PARTY IS A DENVER HOME/);
   assert.match(html, /SAY HELLO/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
@@ -174,7 +188,49 @@ test("renders the complete Medium feed on the blogs page", async () => {
   );
   assert.match(html, /aria-current="page" href="\/blogs\/">BLOGS<\/a>/);
   assert.match(html, /READ ON MEDIUM ↗/);
+  assert.doesNotMatch(html, /class="index-action"/);
+  assert.doesNotMatch(html, />\s*(?:SOURCE|OPEN|READ)\s*(?:↗|→)?\s*</i);
   assert.doesNotMatch(html, /content:encoded|post\.clientViewed/i);
+});
+
+test("renders internal source detail pages with prominent external CTAs", async () => {
+  const archive = await readRenderedPage("/archive/applause-button/");
+  assertDrawingPlayground(archive.html);
+  assertSecurityHeaders(archive.headers, archive.html);
+  assert.match(archive.html, /<title>APPLAUSE BUTTON — MISTAKES\.PARTY<\/title>/i);
+  assert.match(archive.html, /<h1>APPLAUSE BUTTON<\/h1>/);
+  assert.match(archive.html, /FOLLOW THE SOURCE/);
+  assert.match(
+    archive.html,
+    /href="https:\/\/github\.com\/30ozSteak\/applause-button">VIEW ON GITHUB ↗<\/a>/,
+  );
+
+  const code = await readRenderedPage("/code/");
+  assertDrawingPlayground(code.html);
+  assertSecurityHeaders(code.headers, code.html);
+  assert.match(code.html, /<title>Public Code — MISTAKES\.PARTY<\/title>/i);
+  assert.match(code.html, /<h1>ALL REPOS<\/h1>/);
+  assert.match(
+    code.html,
+    /href="https:\/\/github\.com\/30ozSteak\?tab=repositories">BROWSE GITHUB ↗<\/a>/,
+  );
+});
+
+test("renders a Medium fixture detail page with its authoritative source CTA", async () => {
+  const { headers, html } = await readRenderedPage("/blogs/medium-post-01/");
+
+  assertDrawingPlayground(html);
+  assertSecurityHeaders(headers, html);
+  assert.match(html, /<title>MEDIUM POST 01 — MISTAKES\.PARTY<\/title>/i);
+  assert.match(html, /<h1>MEDIUM POST 01<\/h1>/);
+  assert.match(
+    html,
+    /href="https:\/\/medium\.com\/@30ozsteak\/medium-post-01">READ ON MEDIUM ↗<\/a>/,
+  );
+  assert.doesNotMatch(
+    html,
+    /<script>globalThis\.__mediumXssExecuted=1<\/script>/,
+  );
 });
 
 test("ships the custom MXP hero font", async () => {
@@ -217,5 +273,7 @@ test("renders every internal project page", async () => {
     assert.match(html, /THE MOVE/);
     assert.match(html, /OUTCOME/);
     assert.match(html, /NEXT/);
+    assert.match(html, /VIEW ON GITHUB ↗/);
+    assert.doesNotMatch(html, />SOURCE ↗<\/a>/);
   }
 });

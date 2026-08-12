@@ -30,6 +30,8 @@ export default async function WorkPage({ params }: WorkPageProps) {
 
   const index = projects.findIndex((item) => item.slug === project.slug);
   const nextProject = projects[(index + 1) % projects.length];
+  const distinctLaunch =
+    project.launch !== project.source ? project.launch : undefined;
 
   return (
     <>
@@ -92,10 +94,10 @@ export default async function WorkPage({ params }: WorkPageProps) {
             04 / LEAVE THIS PAGE
           </p>
           <div>
-            {project.launch ? (
-              <a href={project.launch}>LAUNCH ↗</a>
+            {distinctLaunch ? (
+              <a href={distinctLaunch}>LAUNCH PROJECT ↗</a>
             ) : null}
-            <a href={project.source}>SOURCE ↗</a>
+            <a href={project.source}>VIEW ON GITHUB ↗</a>
           </div>
         </section>
 

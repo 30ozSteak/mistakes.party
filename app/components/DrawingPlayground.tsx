@@ -41,6 +41,7 @@ import {
   isDrawingRoomId,
   parseDrawingServerMessageJson,
 } from "../lib/drawingRealtimeProtocol";
+import { DRAWING_REALTIME_URL } from "../lib/drawingRealtimeConfig";
 
 const STROKE_WIDTH = DRAWING_STROKE_WIDTH;
 const STROKE_OPACITY = DRAWING_STROKE_OPACITY;
@@ -52,8 +53,7 @@ const PARTY_SEND_INTERVAL_MS = 50;
 const PARTY_SESSION_KEY = "mistakes-party.drawing.party.v1";
 const PARTY_IDENTITY_KEY_PREFIX = "mistakes-party.drawing.participant.v2.";
 const LEGACY_PARTY_IDENTITY_KEY = "mistakes-party.drawing.participant.v1";
-const PARTY_REALTIME_URL =
-  process.env.NEXT_PUBLIC_DRAWING_REALTIME_URL?.trim() ?? "";
+const PARTY_REALTIME_URL = DRAWING_REALTIME_URL;
 
 const PARTY_ADJECTIVES = [
   "Acid",

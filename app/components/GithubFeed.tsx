@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   parseGithubRepoCache,
@@ -10,7 +11,11 @@ import {
 type FeedState = "loading" | "live" | "cached" | "fallback";
 
 const CACHE_KEY = "mistakes-party.github.v3";
-const INDEXED_REPOS = new Set(["lighthouse-checker", "itadw"]);
+const INDEXED_REPOS = new Set([
+  "lighthouse-checker",
+  "itadw",
+  "mistakes.party",
+]);
 
 function formatDate(value: string) {
   if (!value) return "PUBLIC";
@@ -103,10 +108,15 @@ export function GithubFeed() {
       ) : repos.length > 0 ? (
         <div className="index-list">
           {repos.map((repo) => (
-            <article className="index-row" key={repo.id}>
-              <a className="index-main" href={repo.html_url}>
+            <Link
+              aria-label={repo.name}
+              className="index-row"
+              href={`/code/${encodeURIComponent(repo.name)}`}
+              key={repo.id}
+            >
+              <div className="index-main">
                 <h4 className="index-title">{repo.name}</h4>
-              </a>
+              </div>
               <span className="index-meta">
                 <span>{repo.language || "CODE"}</span>
                 {repo.stargazers_count > 0 ? (
@@ -120,26 +130,17 @@ export function GithubFeed() {
                   <span>PUBLIC</span>
                 )}
               </span>
-              <span aria-hidden="true" className="index-action">
-                SOURCE ↗
-              </span>
-            </article>
+            </Link>
           ))}
         </div>
       ) : null}
 
-      <article className="index-row">
-        <a
-          className="index-main"
-          href="https://github.com/30ozSteak?tab=repositories"
-        >
+      <Link aria-label="ALL REPOS" className="index-row" href="/code">
+        <div className="index-main">
           <h4 className="index-title">ALL REPOS</h4>
-        </a>
+        </div>
         <span className="index-meta">GITHUB / SOURCE</span>
-        <span aria-hidden="true" className="index-action">
-          OPEN ↗
-        </span>
-      </article>
+      </Link>
     </div>
   );
 }

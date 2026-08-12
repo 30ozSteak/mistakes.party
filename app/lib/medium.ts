@@ -7,6 +7,8 @@ const MAX_POSTS = 50;
 const MAX_TITLE_LENGTH = 300;
 const MAX_URL_LENGTH = 2_048;
 const MAX_ID_LENGTH = 512;
+const MAX_SLUG_LENGTH = 200;
+const MEDIUM_POST_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export const MEDIUM_FEED_URL =
   process.env.MEDIUM_FEED_URL ?? DEFAULT_MEDIUM_FEED_URL;
@@ -17,6 +19,10 @@ export type MediumPost = {
   title: string;
   url: string;
   publishedAt: string;
+};
+
+export type MediumPostWithSlug = MediumPost & {
+  slug: string;
 };
 
 type UnknownRecord = Record<string, unknown>;
@@ -68,6 +74,59 @@ function normalizeMediumUrl(value: unknown): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Derive a route-safe, stable identifier from a previously validated Medium
+ * story URL. Medium story URLs expose their canonical identifier in the final
+ * pathname segment, so no untrusted title text needs to enter a local href.
+ */
+export function getMediumPostSlug(value: unknown): string | null {
+  const normalizedUrl = normalizeMediumUrl(value);
+  if (!normalizedUrl) return null;
+
+  try {
+    const url = new URL(normalizedUrl);
+    const segments = url.pathname.split("/").filter(Boolean);
+    const slug = segments.at(-1)?.toLowerCase() ?? "";
+
+    if (
+      !slug ||
+      slug.length > MAX_SLUG_LENGTH ||
+      !MEDIUM_POST_SLUG_PATTERN.test(slug)
+    ) {
+      return null;
+    }
+
+    return slug;
+  } catch {
+    return null;
+  }
+}
+
+export function isMediumPostSlug(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length <= MAX_SLUG_LENGTH &&
+    MEDIUM_POST_SLUG_PATTERN.test(value)
+  );
+}
+
+export function addMediumPostSlugs(
+  posts: readonly MediumPost[],
+): MediumPostWithSlug[] {
+  const seen = new Set<string>();
+  const result: MediumPostWithSlug[] = [];
+
+  for (const post of posts) {
+    const slug = getMediumPostSlug(post.url);
+    if (!slug || seen.has(slug)) continue;
+
+    seen.add(slug);
+    result.push({ ...post, slug });
+  }
+
+  return result;
 }
 
 function normalizeDate(...values: unknown[]): string | null {

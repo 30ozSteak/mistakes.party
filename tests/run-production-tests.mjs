@@ -141,6 +141,7 @@ try {
     [
       "--test",
       "tests/rendered-html.test.mjs",
+      "tests/drawing-realtime-config.test.mjs",
       "tests/medium-feed.test.mjs",
       "tests/github-feed.test.mjs",
     ],

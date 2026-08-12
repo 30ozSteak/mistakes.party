@@ -1,13 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { DRAWING_REALTIME_URL } from "./app/lib/drawingRealtimeConfig";
 
 const isDevelopment = process.env.NODE_ENV === "development";
 
 function drawingWebSocketOrigin(): string | null {
-  const configured = process.env.NEXT_PUBLIC_DRAWING_REALTIME_URL?.trim();
-  if (!configured) return null;
-
   try {
-    const url = new URL(configured);
+    const url = new URL(DRAWING_REALTIME_URL);
     if (url.protocol === "http:") url.protocol = "ws:";
     if (url.protocol === "https:") url.protocol = "wss:";
     if (url.protocol !== "ws:" && url.protocol !== "wss:") return null;

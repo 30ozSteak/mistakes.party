@@ -1,5 +1,11 @@
 import type { NextConfig } from "next";
 
+const drawingRealtimeUrl =
+  process.env.NEXT_PUBLIC_DRAWING_REALTIME_URL?.trim() ||
+  (process.env.NODE_ENV === "production"
+    ? "https://mistakes-party-drawing-realtime.mistakes.workers.dev"
+    : "");
+
 const securityHeaders = [
   {
     key: "X-Content-Type-Options",
@@ -25,6 +31,11 @@ const nextConfig: NextConfig = {
   // E2E can run alongside an existing developer server without sharing its
   // build lock or environment-specific client bundle.
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
+  // Freeze one public relay value into both the browser and proxy bundles so
+  // the CSP and WebSocket target cannot diverge at runtime.
+  env: {
+    NEXT_PUBLIC_DRAWING_REALTIME_URL: drawingRealtimeUrl,
+  },
   poweredByHeader: false,
   trailingSlash: true,
   async headers() {

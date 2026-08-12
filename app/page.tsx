@@ -13,35 +13,33 @@ export const revalidate = 900;
 
 function ProjectRow({ project }: { project: Project }) {
   return (
-    <article className="index-row">
-      <Link className="index-main" href={`/work/${project.slug}`}>
+    <Link
+      aria-label={project.title}
+      className="index-row"
+      href={`/work/${project.slug}`}
+    >
+      <div className="index-main">
         <h4 className="index-title">{project.title}</h4>
-      </Link>
+      </div>
       <span className="index-meta">
         {project.kind} · {project.year}
       </span>
-      <a
-        aria-label={`View source for ${project.title}`}
-        className="index-action"
-        href={project.source}
-      >
-        SOURCE ↗
-      </a>
-    </article>
+    </Link>
   );
 }
 
 function ArchiveRow({ link }: { link: ArchiveLink }) {
   return (
-    <article className="index-row">
-      <a className="index-main" href={link.href}>
+    <Link
+      aria-label={link.label}
+      className="index-row"
+      href={`/archive/${link.slug}`}
+    >
+      <div className="index-main">
         <h4 className="index-title">{link.label}</h4>
-      </a>
+      </div>
       <span className="index-meta">{link.meta}</span>
-      <span aria-hidden="true" className="index-action">
-        OPEN ↗
-      </span>
-    </article>
+    </Link>
   );
 }
 
@@ -58,7 +56,7 @@ function ArchiveCategory({ category }: { category: ArchiveLink["category"] }) {
       </h3>
       <div className="index-list">
         {links.map((link) => (
-          <ArchiveRow key={link.href} link={link} />
+          <ArchiveRow key={link.slug} link={link} />
         ))}
       </div>
     </section>
@@ -126,7 +124,7 @@ export default async function Home() {
                     <ProjectRow key={project.slug} project={project} />
                   ))}
                   {categoryLinks.map((link) => (
-                    <ArchiveRow key={link.href} link={link} />
+                    <ArchiveRow key={link.slug} link={link} />
                   ))}
                 </div>
               </section>
@@ -143,15 +141,16 @@ export default async function Home() {
             </h3>
             <MediumPostList headingLevel="h4" posts={mediumPosts} />
             <div className="index-list">
-              <article className="index-row">
-                <Link className="index-main" href="/blogs">
+              <Link
+                aria-label="ALL BLOGS"
+                className="index-row"
+                href="/blogs"
+              >
+                <div className="index-main">
                   <h4 className="index-title">ALL BLOGS</h4>
-                </Link>
+                </div>
                 <span className="index-meta">CURRENT MEDIUM FEED</span>
-                <span aria-hidden="true" className="index-action">
-                  VIEW →
-                </span>
-              </article>
+              </Link>
             </div>
           </section>
 
@@ -166,7 +165,7 @@ export default async function Home() {
             <GithubFeed />
             <div className="index-list">
               {publicCodeLinks.map((link) => (
-                <ArchiveRow key={link.href} link={link} />
+                <ArchiveRow key={link.slug} link={link} />
               ))}
             </div>
           </section>

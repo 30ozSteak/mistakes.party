@@ -1,5 +1,6 @@
+import Link from "next/link";
 import type { MediumPost } from "../lib/medium";
-import { MEDIUM_PROFILE_URL } from "../lib/medium";
+import { addMediumPostSlugs } from "../lib/medium";
 
 type MediumPostListProps = {
   headingLevel: "h2" | "h4";
@@ -22,38 +23,34 @@ export function MediumPostList({
   posts,
 }: MediumPostListProps) {
   const Heading = headingLevel;
+  const routedPosts = addMediumPostSlugs(posts);
 
-  if (posts.length === 0) {
+  if (routedPosts.length === 0) {
     return (
-      <div className="index-list">
-        <article className="index-row medium-post-row">
-          <a className="index-main" href={MEDIUM_PROFILE_URL}>
-            <Heading className="index-title">READ ON MEDIUM</Heading>
-          </a>
-          <span className="index-meta">MEDIUM / @30OZSTEAK</span>
-          <span aria-hidden="true" className="index-action">
-            OPEN ↗
-          </span>
-        </article>
-      </div>
+      <p className="medium-feed-empty mono-label" role="status">
+        RECENT POSTS ARE UNAVAILABLE.
+      </p>
     );
   }
 
   return (
     <div className="index-list">
-      {posts.map((post) => (
-        <article className="index-row medium-post-row" data-medium-post key={post.id}>
-          <a className="index-main" href={post.url}>
+      {routedPosts.map((post) => (
+        <Link
+          aria-label={post.title}
+          className="index-row medium-post-row"
+          data-medium-post
+          href={`/blogs/${post.slug}`}
+          key={post.id}
+        >
+          <div className="index-main">
             <Heading className="index-title">{post.title}</Heading>
-          </a>
+          </div>
           <span className="index-meta">
             MEDIUM ·{" "}
             <time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
           </span>
-          <span aria-hidden="true" className="index-action">
-            READ ↗
-          </span>
-        </article>
+        </Link>
       ))}
     </div>
   );
