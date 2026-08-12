@@ -33,6 +33,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <link
+          as="font"
+          crossOrigin="anonymous"
+          href="/fonts/kill-the-noise.otf"
+          rel="preload"
+          type="font/otf"
+        />
+      </head>
       <body>{children}</body>
     </html>
   );

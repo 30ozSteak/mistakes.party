@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { stat } from "node:fs/promises";
 import test from "node:test";
 
 const projectRoot = new URL("../", import.meta.url);
@@ -64,6 +65,14 @@ test("exports the portfolio index", async () => {
   assert.match(html, /MISTAKES\.PARTY IS A DENVER HOME/);
   assert.match(html, /SAY HELLO/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
+});
+
+test("ships the custom MXP hero font", async () => {
+  const details = await stat(
+    new URL("public/fonts/kill-the-noise.otf", projectRoot),
+  );
+  assert.ok(details.size > 0, "custom hero font is empty");
+  assert.ok(details.size < 100_000, "custom hero font is unexpectedly large");
 });
 
 test("exports every internal project page", async () => {

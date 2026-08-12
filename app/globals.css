@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: "Kill The Noise";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/kill-the-noise.otf") format("opentype");
+}
+
 :root {
   --paper: #f2f1e9;
   --ink: #090a08;
@@ -165,12 +173,12 @@ a {
 
 .hero h1 {
   margin: 0;
-  font-family: var(--display);
-  font-size: clamp(8rem, min(54vw, 72vh), 42rem);
-  font-stretch: ultra-condensed;
-  font-weight: 900;
-  letter-spacing: -0.085em;
-  line-height: 0.66;
+  font-family: "Kill The Noise", var(--display);
+  font-size: clamp(16rem, min(104vw, 126svh), 180rem);
+  font-weight: 400;
+  font-synthesis: none;
+  letter-spacing: -0.13em;
+  line-height: 0.58;
   text-transform: uppercase;
 }
 
@@ -178,7 +186,15 @@ a {
   display: inline-flex;
   isolation: isolate;
   white-space: nowrap;
-  transform: translateX(-0.03em);
+  transform: translateX(-0.08em) rotate(-1.5deg);
+}
+
+.mxp > span:nth-child(1) {
+  transform: translateY(0.015em) rotate(-1deg);
+}
+
+.mxp > span:nth-child(3) {
+  transform: translateY(0.01em) rotate(1.5deg);
 }
 
 .mxp-x {
@@ -189,18 +205,19 @@ a {
 .mxp-x::after {
   position: absolute;
   right: -0.035em;
-  bottom: 0.025em;
+  bottom: -0.025em;
   left: -0.025em;
   z-index: -1;
-  height: 0.13em;
+  height: clamp(0.85rem, 0.085em, 4rem);
   background: linear-gradient(
     90deg,
     transparent 0%,
-    var(--highlight) 5%,
-    var(--highlight) 93%,
+    var(--acid) 5%,
+    var(--acid) 93%,
     transparent 100%
   );
   content: "";
+  pointer-events: none;
   transform: rotate(-2deg) skewX(-8deg);
 }
 
@@ -716,7 +733,7 @@ a {
   }
 
   .hero h1 {
-    font-size: min(54vw, 52vh);
+    font-size: min(94vw, 76svh);
   }
 
   .hero-intro {
@@ -849,7 +866,7 @@ a {
   }
 
   .hero h1 {
-    font-size: min(48vw, 54vh);
+    font-size: min(90vw, 112svh);
   }
 
   .hero-intro {
@@ -887,7 +904,7 @@ a {
 
 @media (max-width: 600px) and (max-height: 600px) and (orientation: portrait) {
   .hero h1 {
-    font-size: min(52vw, 40vh);
+    font-size: min(94vw, 62svh);
   }
 
   .hero-intro {
