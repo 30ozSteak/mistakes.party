@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import test from "node:test";
 
 const projectRoot = new URL("../", import.meta.url);
@@ -78,6 +78,13 @@ test("ships the custom MXP hero font", async () => {
   );
   assert.ok(details.size > 0, "custom hero font is empty");
   assert.ok(details.size < 100_000, "custom hero font is unexpectedly large");
+
+  const styles = await readFile(
+    new URL("app/globals.css", projectRoot),
+    "utf8",
+  );
+  assert.match(styles, /\.mxp-x\s*\{[^}]*text-shadow:[^}]*var\(--acid\)/s);
+  assert.doesNotMatch(styles, /\.mxp-x::after/);
 });
 
 test("exports every internal project page", async () => {

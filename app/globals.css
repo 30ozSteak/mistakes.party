@@ -199,31 +199,19 @@ a {
 }
 
 .mxp > span:nth-child(3) {
+  margin-left: clamp(1rem, 0.16em, 8rem);
   transform: translateY(0.01em) rotate(1.5deg);
 }
 
 .mxp-x {
   position: relative;
-  z-index: 0;
-}
-
-.mxp-x::after {
-  position: absolute;
-  right: -0.035em;
-  bottom: -0.025em;
-  left: -0.025em;
-  z-index: -1;
-  height: clamp(0.85rem, 0.085em, 4rem);
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    var(--acid) 5%,
-    var(--acid) 93%,
-    transparent 100%
-  );
-  content: "";
-  pointer-events: none;
-  transform: rotate(-2deg) skewX(-8deg);
+  z-index: 1;
+  margin-left: 0.015em;
+  text-shadow:
+    clamp(0.35rem, 0.026em, 2rem)
+    clamp(0.4rem, 0.034em, 2.5rem) 0 var(--acid);
+  transform: translateY(-0.015em) rotate(-1deg) scale(1.08);
+  transform-origin: center;
 }
 
 .hero-intro {
@@ -1050,10 +1038,13 @@ a {
 
 @media (forced-colors: active) {
   .brand-mark,
-  .github-loading span:nth-child(2),
-  .mxp-x::after {
+  .github-loading span:nth-child(2) {
     forced-color-adjust: none;
     background: CanvasText;
     color: Canvas;
+  }
+
+  .mxp-x {
+    text-shadow: none;
   }
 }
