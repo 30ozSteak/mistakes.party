@@ -60,6 +60,7 @@ test("exports the portfolio index", async () => {
     /\bNICK\b|\bSTEAKS\b|\bWEIRD\b|WORK THAT LEFT A MARK|THE GITHUB WIRE|KEEP CLICKING|MAKE IT USEFUL\. MAKE IT LOUD/i,
   );
   assert.doesNotMatch(html, /class="section-heading|class="section-number/);
+  assert.doesNotMatch(html, /class="index-description"/);
   assert.match(html, />WEBSITES<\/h3>/);
   assert.match(html, />TOOLS<\/h3>/);
   assert.match(html, />EXPERIMENTS<\/h3>/);

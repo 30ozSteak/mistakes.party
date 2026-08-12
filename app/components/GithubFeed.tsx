@@ -67,7 +67,7 @@ export function GithubFeed() {
             typeof parsed.savedAt === "number" &&
             Date.now() - parsed.savedAt < CACHE_TTL
           ) {
-            setRepos(cachedRepos);
+            setRepos(cachedRepos.slice(0, 2));
             setFeedState("cached");
             return;
           }
@@ -135,7 +135,6 @@ export function GithubFeed() {
         <div className="github-loading" aria-hidden="true">
           <span />
           <span />
-          <span />
         </div>
       ) : repos.length > 0 ? (
         <div className="index-list">
@@ -143,10 +142,6 @@ export function GithubFeed() {
             <article className="index-row" key={repo.id}>
               <a className="index-main" href={repo.html_url}>
                 <h4 className="index-title">{repo.name}</h4>
-                <span className="index-description">
-                  {repo.description ||
-                    "Open source from the working archive—inspect the code, history, and current state."}
-                </span>
               </a>
               <span className="index-meta">
                 <span>{repo.language || "CODE"}</span>
@@ -175,10 +170,6 @@ export function GithubFeed() {
           href="https://github.com/30ozSteak?tab=repositories"
         >
           <h4 className="index-title">ALL REPOS</h4>
-          <span className="index-description">
-            The complete repository list, including recent work and older
-            mistakes left open for inspection.
-          </span>
         </a>
         <span className="index-meta">GITHUB / SOURCE</span>
         <span aria-hidden="true" className="index-action">

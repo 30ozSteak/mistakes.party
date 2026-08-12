@@ -12,12 +12,9 @@ function ProjectRow({ project }: { project: Project }) {
     <article className="index-row">
       <Link className="index-main" href={`/work/${project.slug}`}>
         <h4 className="index-title">{project.title}</h4>
-        <span className="index-description">{project.description}</span>
       </Link>
       <span className="index-meta">
-        {project.kind}
-        <br />
-        {project.year}
+        {project.kind} · {project.year}
       </span>
       <a
         aria-label={`View source for ${project.title}`}
@@ -35,7 +32,6 @@ function ArchiveRow({ link }: { link: ArchiveLink }) {
     <article className="index-row">
       <a className="index-main" href={link.href}>
         <h4 className="index-title">{link.label}</h4>
-        <span className="index-description">{link.description}</span>
       </a>
       <span className="index-meta">{link.meta}</span>
       <span aria-hidden="true" className="index-action">
