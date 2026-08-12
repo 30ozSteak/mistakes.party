@@ -85,6 +85,7 @@ test("ships the custom MXP hero font", async () => {
     "utf8",
   );
   assert.match(styles, /\.mxp-x\s*\{[^}]*text-shadow:[^}]*var\(--acid\)/s);
+  assert.match(styles, /\.mxp-x\s*\{[^}]*margin-left:\s*0\.2em/s);
   assert.doesNotMatch(styles, /\.mxp-x::after/);
 });
 

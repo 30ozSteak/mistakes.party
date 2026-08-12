@@ -206,7 +206,7 @@ a {
 .mxp-x {
   position: relative;
   z-index: 1;
-  margin-left: 0.015em;
+  margin-left: 0.2em;
   text-shadow:
     clamp(0.35rem, 0.026em, 2rem)
     clamp(0.4rem, 0.034em, 2.5rem) 0 var(--acid);
