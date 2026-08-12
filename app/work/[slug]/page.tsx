@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: WorkPageProps): Promise<Metad
   if (!project) return {};
 
   return {
-    title: `${project.title} — MISTAKES.PARTY`,
+    title: `${project.title} — STEAKS`,
     description: project.description,
   };
 }
@@ -107,7 +107,9 @@ export default async function WorkPage({ params }: WorkPageProps) {
       </main>
 
       <footer className="site-footer">
-        <span>MISTAKES.PARTY © 2026</span>
+        <span>
+          <mark className="steaks-mark">STEAKS</mark> © 2026
+        </span>
         <Link href="/">BACK TO THE INDEX ↑</Link>
       </footer>
     </>

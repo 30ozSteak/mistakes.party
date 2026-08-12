@@ -25,7 +25,8 @@ const fallbackRepos: GithubRepo[] = [
     id: 1,
     name: "lighthouse-checker",
     html_url: "https://github.com/30ozSteak/lighthouse-checker",
-    description: "A public web-performance utility.",
+    description:
+      "A focused web-performance utility that keeps audits quick and close to the source.",
     language: null,
     stargazers_count: 0,
     updated_at: "",
@@ -37,7 +38,8 @@ const fallbackRepos: GithubRepo[] = [
     id: 2,
     name: "ITADW",
     html_url: "https://github.com/30ozSteak/ITADW",
-    description: "An experiment from the public code archive.",
+    description:
+      "An early public-code experiment kept intact with the question, attempt, and rough edges visible.",
     language: null,
     stargazers_count: 0,
     updated_at: "",
@@ -118,7 +120,7 @@ export function GithubFeed() {
             (a, b) =>
               new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
           )
-          .slice(0, 6);
+          .slice(0, 4);
 
         if (publicRepos.length === 0) throw new Error("No public repositories");
 
@@ -148,25 +150,24 @@ export function GithubFeed() {
     };
   }, []);
 
-  const statusCopy = {
-    loading: "CONTACTING GITHUB…",
-    live: "LIVE DATA / GITHUB API",
-    cached: "RECENT DATA / LOCAL CACHE",
-    fallback: "GITHUB IS QUIET / SHOWING THE INDEX",
-  }[feedState];
+  const statusCopy =
+    feedState === "loading"
+      ? "Loading GitHub repositories."
+      : feedState === "fallback"
+        ? "Showing selected GitHub repositories."
+        : "GitHub repositories loaded.";
 
   return (
-    <div className="github-feed">
-      <p className="github-status" aria-live="polite">
-        <span className={`status-light status-light--${feedState}`} aria-hidden="true" />
+    <div className="github-feed" aria-busy={feedState === "loading"}>
+      <p className="sr-only" role="status" aria-live="polite">
         {statusCopy}
       </p>
 
       {feedState === "loading" ? (
         <div className="github-loading" aria-hidden="true">
-          <span>30OZSTEAK / REPOSITORIES</span>
-          <span>REQUESTING PUBLIC WORK</span>
-          <span>•••</span>
+          <span />
+          <span />
+          <span />
         </div>
       ) : (
         <ol className="github-list">
@@ -176,7 +177,10 @@ export function GithubFeed() {
                 <span className="row-index">{String(index + 1).padStart(2, "0")}</span>
                 <span className="github-copy">
                   <strong>{repo.name}</strong>
-                  <span>{repo.description || "PUBLIC REPOSITORY / NO DESCRIPTION"}</span>
+                  <span>
+                    {repo.description ||
+                      "Open source from the working archive—inspect the code, history, and current state."}
+                  </span>
                 </span>
                 <span className="github-meta">
                   <span>{repo.language || "CODE"}</span>
@@ -199,7 +203,7 @@ export function GithubFeed() {
       )}
 
       <a className="github-all" href="https://github.com/30ozSteak?tab=repositories">
-        VIEW THE WHOLE MESS ON GITHUB <span aria-hidden="true">↗</span>
+        ALL REPOS <span aria-hidden="true">↗</span>
       </a>
     </div>
   );

@@ -7,7 +7,7 @@ type SiteHeaderProps = {
 export function SiteHeader({ indexLink = false }: SiteHeaderProps) {
   return (
     <header className="site-header">
-      <Link className="brand" href="/" aria-label="Mistakes dot party, home">
+      <Link className="brand" href="/">
         <span className="brand-mark" aria-hidden="true" />
         MISTAKES.PARTY
       </Link>
