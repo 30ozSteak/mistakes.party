@@ -19,8 +19,23 @@ async function readRenderedPage(pathname) {
   return response.text();
 }
 
+function assertDrawingPlayground(html) {
+  assert.match(html, /data-testid="drawing-playground"/);
+  assert.match(html, /data-testid="drawing-canvas"/);
+  assert.match(html, /data-testid="drawing-toolbar"/);
+  assert.match(html, /data-testid="drawing-toggle"/);
+  assert.match(html, /aria-pressed="false"/);
+  assert.match(html, /aria-label="Highlighter color"/);
+  assert.match(html, /data-testid="drawing-color-acid"/);
+  assert.match(html, /data-testid="drawing-color-pink"/);
+  assert.match(html, /data-testid="drawing-color-cyan"/);
+  assert.match(html, /data-testid="drawing-color-orange"/);
+}
+
 test("renders the portfolio index", async () => {
   const html = await readRenderedPage("/");
+
+  assertDrawingPlayground(html);
 
   assert.match(html, /<title>MXP — Mistakes\.party<\/title>/i);
   assert.match(html, /og-mxp\.png/);
@@ -76,6 +91,8 @@ test("renders the portfolio index", async () => {
 test("renders the complete Medium feed on the blogs page", async () => {
   const html = await readRenderedPage("/blogs/");
 
+  assertDrawingPlayground(html);
+
   assert.match(html, /<title>Blogs — MISTAKES\.PARTY<\/title>/i);
   assert.equal((html.match(/<h1[ >]/g) || []).length, 1);
   assert.match(html, /<h1>BLOGS<\/h1>/);
@@ -112,6 +129,8 @@ test("renders every internal project page", async () => {
 
   for (const [slug, title] of pages) {
     const html = await readRenderedPage(`/work/${slug}/`);
+
+    assertDrawingPlayground(html);
 
     assert.match(html, new RegExp(title));
     assert.equal((html.match(/<h1[ >]/g) || []).length, 1);

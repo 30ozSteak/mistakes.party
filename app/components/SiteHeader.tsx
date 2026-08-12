@@ -49,7 +49,9 @@ export function SiteHeader({ currentPage, indexLink = false }: SiteHeaderProps) 
     const previousRootOverflow = document.documentElement.style.overflow;
     const firstLink = menuRef.current?.querySelector<HTMLAnchorElement>("a");
     const backgroundElements = [
-      ...document.querySelectorAll<HTMLElement>("main, footer, .skip-link"),
+      ...document.querySelectorAll<HTMLElement>(
+        "main, footer, .skip-link, .drawing-toolbar",
+      ),
     ];
     const previousInertStates = backgroundElements.map((element) =>
       element.hasAttribute("inert"),

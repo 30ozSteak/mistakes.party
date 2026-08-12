@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { DrawingPlayground } from "./components/DrawingPlayground";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -42,7 +43,10 @@ export default function RootLayout({
           type="font/otf"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <DrawingPlayground />
+        <div className="site-surface">{children}</div>
+      </body>
     </html>
   );
 }
