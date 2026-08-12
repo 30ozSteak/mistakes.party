@@ -2,6 +2,7 @@ export type Project = {
   slug: string;
   title: string;
   description: string;
+  category: "WEBSITES" | "TOOLS" | "EXPERIMENTS";
   year: string;
   kind: string;
   role: string;
@@ -19,7 +20,8 @@ export const projects: Project[] = [
     slug: "mistakes-party",
     title: "THIS INDEX",
     description:
-      "The site you are looking at: a loud, responsive index for work, code, experiments, and useful detours.",
+      "The site you are looking at: a loud, responsive home for work, code, experiments, and the occasional useful mistake.",
+    category: "WEBSITES",
     year: "2026",
     kind: "WEB / INDEX",
     role: "DESIGN + DEVELOPMENT",
@@ -38,6 +40,7 @@ export const projects: Project[] = [
     title: "LIGHTHOUSE CHECKER",
     description:
       "A small public tool for keeping web performance checks close at hand.",
+    category: "TOOLS",
     year: "PUBLIC",
     kind: "TOOL / CODE",
     role: "DEVELOPMENT",
@@ -56,7 +59,8 @@ export const projects: Project[] = [
     slug: "itadw",
     title: "ITADW",
     description:
-      "An early code experiment preserved in public instead of polished out of history.",
+      "An early code experiment preserved with its attempts and useful mistakes intact.",
+    category: "EXPERIMENTS",
     year: "PUBLIC",
     kind: "EXPERIMENT / CODE",
     role: "DEVELOPMENT",
@@ -76,62 +80,58 @@ export const projects: Project[] = [
 export const archiveLinks = [
   {
     label: "ALL PUBLIC CODE",
+    category: "PUBLIC CODE",
     meta: "GITHUB / SOURCE",
     description: "The complete public repository index, including active work and old experiments.",
     href: "https://github.com/30ozSteak",
   },
   {
     label: "GISTS + SCRAPS",
+    category: "PUBLIC CODE",
     meta: "NOTES / SNIPPETS",
     description: "Smaller ideas, utility fragments, tests, and code that never needed a full repository.",
     href: "https://gist.github.com/30ozSteak",
   },
   {
-    label: "LIGHTHOUSE CHECKER",
-    meta: "TOOL / PERFORMANCE",
-    description: "A focused utility for keeping web performance checks easy to reach.",
-    href: "https://github.com/30ozSteak/lighthouse-checker",
-  },
-  {
-    label: "ITADW",
-    meta: "EXPERIMENT / ARCHIVE",
-    description: "An early public-code experiment kept visible as part of the working history.",
-    href: "https://github.com/30ozSteak/ITADW",
-  },
-  {
     label: "EZRIG",
+    category: "EXPERIMENTS",
     meta: "FORK / RIGGING",
     description: "A rigging project fork kept in the public working set.",
     href: "https://github.com/30ozSteak/Ezrig",
   },
   {
     label: "APPLAUSE BUTTON",
+    category: "WEBSITES",
     meta: "FORK / WEB",
     description: "A small web-interaction fork saved for reference and reuse.",
     href: "https://github.com/30ozSteak/applause-button",
   },
   {
     label: "TELLER",
+    category: "TOOLS",
     meta: "FORK / TOOLING",
     description: "A tooling fork from the wider public code archive.",
     href: "https://github.com/30ozSteak/teller",
   },
   {
     label: "INTERVIEWS",
+    category: "PUBLIC CODE",
     meta: "FORK / REFERENCE",
     description: "A practical reference collection for interviews and preparation.",
     href: "https://github.com/30ozSteak/interviews",
   },
   {
     label: "DISPATCHES",
+    category: "ELSEWHERE",
     meta: "X / NOTES",
-    description: "Short updates, works in progress, links, and occasional internet noise.",
+    description: "Short updates, works in progress, links, and the occasional mistake.",
     href: "https://x.com/iaaafm",
   },
   {
     label: "START A CONVERSATION",
+    category: "ELSEWHERE",
     meta: "EMAIL / HELLO",
-    description: "For collaborations, useful problems, and the right weird thing.",
+    description: "For collaborations, useful problems, and mistakes worth making.",
     href: "mailto:hello@mistakes.party",
   },
 ] as const;

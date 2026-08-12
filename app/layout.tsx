@@ -3,21 +3,21 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://mistakes.party"),
-  title: "STEAKS — Web, apps, games + art",
+  title: "MXP — Mistakes.party",
   description:
-    "STEAKS makes XR/VR, websites, apps, video games, art, and useful mistakes.",
+    "Websites, apps, XR, games, art, and the occasional useful mistake.",
   openGraph: {
     type: "website",
-    title: "STEAKS",
-    description: "WEB · APPS · GAMES · ART",
-    images: [{ url: "/og.png", width: 1200, height: 630 }],
+    title: "MXP — Mistakes.party",
+    description: "WEB · APPS · XR · GAMES · ART · USEFUL MISTAKES",
+    images: [{ url: "/og-mxp.png", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "STEAKS",
-    description: "WEB · APPS · GAMES · ART",
+    title: "MXP — Mistakes.party",
+    description: "WEB · APPS · XR · GAMES · ART · USEFUL MISTAKES",
     creator: "@iaaafm",
-    images: ["/og.png"],
+    images: ["/og-mxp.png"],
   },
 };
 

@@ -17,8 +17,9 @@ type GithubRepo = {
 
 type FeedState = "loading" | "live" | "cached" | "fallback";
 
-const CACHE_KEY = "mistakes-party.github.v1";
+const CACHE_KEY = "mistakes-party.github.v2";
 const CACHE_TTL = 6 * 60 * 60 * 1000;
+const INDEXED_REPOS = new Set(["lighthouse-checker", "itadw"]);
 
 const fallbackRepos: GithubRepo[] = [
   {
@@ -116,6 +117,7 @@ export function GithubFeed() {
         const publicRepos = payload
           .filter(isRepo)
           .filter((repo) => !repo.fork && !repo.archived && !repo.disabled)
+          .filter((repo) => !INDEXED_REPOS.has(repo.name.toLowerCase()))
           .sort(
             (a, b) =>
               new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
@@ -170,41 +172,61 @@ export function GithubFeed() {
           <span />
         </div>
       ) : (
-        <ol className="github-list">
-          {repos.map((repo, index) => (
-            <li key={repo.id}>
-              <a className="github-row" href={repo.html_url}>
-                <span className="row-index">{String(index + 1).padStart(2, "0")}</span>
-                <span className="github-copy">
-                  <strong>{repo.name}</strong>
-                  <span>
-                    {repo.description ||
-                      "Open source from the working archive—inspect the code, history, and current state."}
-                  </span>
+        <div className="index-list">
+          {repos.map((repo) => (
+            <article className="index-row" key={repo.id}>
+              <a className="index-main" href={repo.html_url}>
+                <h4 className="index-title">{repo.name}</h4>
+                <span className="index-description">
+                  {repo.description ||
+                    "Open source from the working archive—inspect the code, history, and current state."}
                 </span>
-                <span className="github-meta">
-                  <span>{repo.language || "CODE"}</span>
-                  {repo.stargazers_count > 0 ? (
-                    <span>{repo.stargazers_count} ★</span>
-                  ) : null}
-                  {repo.updated_at ? (
-                    <time dateTime={repo.updated_at}>
-                      UPDATED {formatDate(repo.updated_at)}
-                    </time>
-                  ) : (
-                    <span>PUBLIC</span>
-                  )}
-                </span>
-                <span className="row-action">SOURCE ↗</span>
               </a>
-            </li>
+              <span className="index-meta">
+                <span>{repo.language || "CODE"}</span>
+                {repo.stargazers_count > 0 ? (
+                  <span>{repo.stargazers_count} ★</span>
+                ) : null}
+                {repo.updated_at ? (
+                  <time dateTime={repo.updated_at}>
+                    UPDATED {formatDate(repo.updated_at)}
+                  </time>
+                ) : (
+                  <span>PUBLIC</span>
+                )}
+              </span>
+              <a
+                aria-label={`View ${repo.name} on GitHub`}
+                className="index-action"
+                href={repo.html_url}
+              >
+                SOURCE ↗
+              </a>
+            </article>
           ))}
-        </ol>
+        </div>
       )}
 
-      <a className="github-all" href="https://github.com/30ozSteak?tab=repositories">
-        ALL REPOS <span aria-hidden="true">↗</span>
-      </a>
+      <article className="index-row">
+        <a
+          className="index-main"
+          href="https://github.com/30ozSteak?tab=repositories"
+        >
+          <h4 className="index-title">ALL REPOS</h4>
+          <span className="index-description">
+            The complete repository list, including recent work and older
+            mistakes left open for inspection.
+          </span>
+        </a>
+        <span className="index-meta">GITHUB / SOURCE</span>
+        <a
+          aria-label="Open all GitHub repositories"
+          className="index-action"
+          href="https://github.com/30ozSteak?tab=repositories"
+        >
+          OPEN ↗
+        </a>
+      </article>
     </div>
   );
 }

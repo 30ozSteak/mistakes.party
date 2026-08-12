@@ -1,7 +1,73 @@
 import Link from "next/link";
 import { GithubFeed } from "./components/GithubFeed";
 import { SiteHeader } from "./components/SiteHeader";
-import { archiveLinks, projects } from "./data";
+import { archiveLinks, type Project, projects } from "./data";
+
+type ArchiveLink = (typeof archiveLinks)[number];
+
+const primaryCategories = ["WEBSITES", "TOOLS", "EXPERIMENTS"] as const;
+
+function ProjectRow({ project }: { project: Project }) {
+  return (
+    <article className="index-row">
+      <Link className="index-main" href={`/work/${project.slug}`}>
+        <h4 className="index-title">{project.title}</h4>
+        <span className="index-description">{project.description}</span>
+      </Link>
+      <span className="index-meta">
+        {project.kind}
+        <br />
+        {project.year}
+      </span>
+      <a
+        aria-label={`View source for ${project.title}`}
+        className="index-action"
+        href={project.source}
+      >
+        SOURCE ↗
+      </a>
+    </article>
+  );
+}
+
+function ArchiveRow({ link }: { link: ArchiveLink }) {
+  return (
+    <article className="index-row">
+      <a className="index-main" href={link.href}>
+        <h4 className="index-title">{link.label}</h4>
+        <span className="index-description">{link.description}</span>
+      </a>
+      <span className="index-meta">{link.meta}</span>
+      <a
+        aria-label={`Open ${link.label}`}
+        className="index-action"
+        href={link.href}
+      >
+        OPEN ↗
+      </a>
+    </article>
+  );
+}
+
+function ArchiveCategory({ category }: { category: ArchiveLink["category"] }) {
+  const links = archiveLinks.filter((link) => link.category === category);
+
+  return (
+    <section className="index-category" aria-labelledby={`${category.toLowerCase().replace(" ", "-")}-label`}>
+      <h3
+        className="index-category-label"
+        id={`${category.toLowerCase().replace(" ", "-")}-label`}
+      >
+        {category}
+      </h3>
+      <div className="index-list">
+        {links.map((link) => (
+          <ArchiveRow key={link.href} link={link} />
+        ))}
+      </div>
+    </section>
+  );
+}
 
 export default function Home() {
   return (
@@ -14,117 +80,83 @@ export default function Home() {
       <main id="content">
         <section className="hero" aria-labelledby="hero-title">
           <div className="hero-lockup">
-            <h1 id="hero-title">
-              <span className="hero-line">
-                <span className="steaks-display">STEAKS</span>
+            <h1 id="hero-title" aria-label="MXP — Mistakes dot party">
+              <span className="mxp" aria-hidden="true">
+                <span>M</span>
+                <span className="mxp-x">X</span>
+                <span>P</span>
               </span>
-              <span className="hero-line">MAKES</span>
-              <span className="hero-line">WEIRD</span>
-              <span className="hero-line">THINGS.</span>
             </h1>
-            <p className="hero-intro">WEB / APPS / XR / GAMES / ART</p>
+            <p className="hero-intro">
+              WEB / APPS / XR / GAMES / ART + THE OCCASIONAL USEFUL MISTAKE.
+            </p>
           </div>
         </section>
 
         <div className="signal-stripes" aria-hidden="true" />
 
-        <section className="indexed-section" id="work" aria-labelledby="work-title">
-          <div className="section-heading">
-            <p className="section-number">01</p>
-            <div className="section-heading-copy">
-              <h2 id="work-title">WORK THAT LEFT A MARK.</h2>
-              <p className="section-intro">
-                PRODUCTS, EXPERIMENTS, AND PUBLIC TOOLS BUILT TO BE USED,
-                BROKEN, AND MADE BETTER.
-              </p>
-            </div>
-          </div>
+        <section className="work-index" id="work" aria-labelledby="work-index-title">
+          <h2 className="sr-only" id="work-index-title">
+            Work, code, and links
+          </h2>
 
-          <div className="project-list">
-            {projects.map((project, index) => (
-              <article className="project-row" key={project.slug}>
-                <span className="row-index">
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-                <Link className="project-main" href={`/work/${project.slug}`}>
-                  <h3 className="project-title">{project.title}</h3>
-                  <span className="project-description">{project.description}</span>
-                </Link>
-                <span className="project-meta">
-                  {project.kind}
-                  <br />
-                  {project.year}
-                </span>
-                <a
-                  aria-label={`View source for ${project.title}`}
-                  className="row-action"
-                  href={project.source}
+          {primaryCategories.map((category) => {
+            const categoryProjects = projects.filter(
+              (project) => project.category === category,
+            );
+            const categoryLinks = archiveLinks.filter(
+              (link) => link.category === category,
+            );
+
+            return (
+              <section
+                className="index-category"
+                aria-labelledby={`${category.toLowerCase()}-label`}
+                key={category}
+              >
+                <h3
+                  className="index-category-label"
+                  id={`${category.toLowerCase()}-label`}
                 >
-                  SOURCE ↗
-                </a>
-              </article>
-            ))}
-          </div>
+                  {category}
+                </h3>
+                <div className="index-list">
+                  {categoryProjects.map((project) => (
+                    <ProjectRow key={project.slug} project={project} />
+                  ))}
+                  {categoryLinks.map((link) => (
+                    <ArchiveRow key={link.href} link={link} />
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+
+          <section
+            className="index-category"
+            id="github"
+            aria-labelledby="recent-code-label"
+          >
+            <h3 className="index-category-label" id="recent-code-label">
+              RECENT CODE
+            </h3>
+            <GithubFeed />
+          </section>
+
+          <ArchiveCategory category="PUBLIC CODE" />
+          <ArchiveCategory category="ELSEWHERE" />
         </section>
 
-        <section className="indexed-section github-section" id="github" aria-labelledby="github-title">
-          <div className="section-heading">
-            <p className="section-number">02</p>
-            <div className="section-heading-copy">
-              <h2 id="github-title">THE GITHUB WIRE.</h2>
-              <p className="section-intro">
-                RECENT PUBLIC REPOSITORIES, PULLED STRAIGHT FROM GITHUB AND
-                LEFT OPEN FOR INSPECTION.
-              </p>
-            </div>
-          </div>
-          <GithubFeed />
-        </section>
-
-        <section className="indexed-section" aria-labelledby="links-title">
-          <div className="section-heading section-heading--compact">
-            <p className="section-number">03</p>
-            <div className="section-heading-copy">
-              <h2 id="links-title">KEEP CLICKING.</h2>
-              <p className="section-intro">
-                SOURCE CODE, SMALLER IDEAS, FORKS, NOTES, AND A FEW WAYS TO
-                FIND ME ELSEWHERE.
-              </p>
-            </div>
-          </div>
-
-          <ol className="archive-list">
-            {archiveLinks.map((link, index) => (
-              <li key={link.href}>
-                <a className="archive-row" href={link.href}>
-                  <span className="row-index">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <span className="archive-copy">
-                    <strong>{link.label}</strong>
-                    <span className="archive-meta">{link.meta}</span>
-                    <span className="archive-description">{link.description}</span>
-                  </span>
-                  <span className="archive-action">OPEN ↗</span>
-                </a>
-              </li>
-            ))}
-          </ol>
-        </section>
-
-        <section className="about" id="about" aria-labelledby="about-title">
+        <section className="about" id="about" aria-label="About Mistakes dot party">
           <div className="about-grid">
-            <h2 id="about-title">MAKE IT USEFUL. MAKE IT LOUD.</h2>
-            <div className="about-copy">
-              <p>
-                <mark className="steaks-mark">STEAKS</mark> IS A DENVER
-                DESIGNER + DEVELOPER MAKING WEB, APPS, XR, GAMES + ART.
-              </p>
-              <p className="about-note">
-                I LIKE SMALL TEAMS, SHARP INTERFACES, PUBLIC CODE, AND PROJECTS
-                WITH ENOUGH PERSONALITY TO LEAVE A MARK.
-              </p>
-            </div>
+            <p className="about-lede">
+              MISTAKES.PARTY IS A DENVER HOME FOR WEB, APPS, XR, GAMES, ART +
+              THE OCCASIONAL USEFUL MISTAKE.
+            </p>
+            <p className="about-note">
+              SMALL TEAMS, SHARP INTERFACES, PUBLIC CODE, AND ENOUGH ROOM TO GET
+              SOMETHING WRONG ON THE WAY TO GETTING IT RIGHT.
+            </p>
           </div>
           <a className="contact-blast" href="mailto:hello@mistakes.party">
             SAY HELLO <span aria-hidden="true">↗</span>
@@ -133,9 +165,7 @@ export default function Home() {
       </main>
 
       <footer className="site-footer">
-        <span>
-          <mark className="steaks-mark">STEAKS</mark> © 2026
-        </span>
+        <span>MISTAKES.PARTY © 2026</span>
         <span>
           <a href="https://github.com/30ozSteak">GITHUB ↗</a> /{" "}
           <a href="https://x.com/iaaafm">X ↗</a>

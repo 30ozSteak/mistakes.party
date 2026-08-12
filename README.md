@@ -1,7 +1,7 @@
-# STEAKS / MISTAKES.PARTY
+# MXP / MISTAKES.PARTY
 
 A loud, text-first portfolio for websites, apps, games, art, code, and useful
-mistakes by STEAKS.
+mistakes.
 
 ## Local development
 

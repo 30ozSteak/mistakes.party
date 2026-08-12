@@ -12,12 +12,12 @@ async function readExportedPage(pathname) {
 test("exports the portfolio index", async () => {
   const html = await readExportedPage("/");
 
-  assert.match(html, /<title>STEAKS — Web, apps, games \+ art<\/title>/i);
-  assert.match(html, /class="steaks-display">STEAKS<\/span>/);
-  assert.match(html, />MAKES<\/span>/);
-  assert.match(html, />WEIRD<\/span>/);
-  assert.match(html, /THINGS\./);
-  assert.match(html, /class="steaks-mark">STEAKS<\/mark>/);
+  assert.match(html, /<title>MXP — Mistakes\.party<\/title>/i);
+  assert.match(html, /og-mxp\.png/);
+  assert.match(html, /aria-label="MXP — Mistakes dot party"/);
+  assert.match(html, /class="mxp" aria-hidden="true"/);
+  assert.match(html, /class="mxp-x">X<\/span>/);
+  assert.match(html, /THE OCCASIONAL USEFUL MISTAKE/);
   assert.equal((html.match(/<h1[ >]/g) || []).length, 1);
   assert.match(html, /class="skip-link" href="#work">SKIP TO THE WORK/);
   assert.match(html, /href="#work">WORK<\/a>/);
@@ -29,18 +29,20 @@ test("exports the portfolio index", async () => {
   assert.match(html, /class="sr-only" role="status" aria-live="polite"/);
   assert.match(html, /class="github-feed" aria-busy="true"/);
   assert.doesNotMatch(html, /class="github-status"/);
-  assert.equal((html.match(/<h3 class="project-title">/g) || []).length, 3);
+  assert.equal((html.match(/href="\/work\//g) || []).length, 3);
   assert.equal((html.match(/aria-label="View source for /g) || []).length, 3);
-  assert.doesNotMatch(html, /DOT PARTY|\bNICK\b/i);
-  assert.doesNotMatch(
-    html,
-    /SCROLL \/ FOLLOW THE NUMBERS|AVAILABLE FOR THE RIGHT WEIRD THING|LIVE DATA \/ GITHUB API|PUBLIC CODE \/ PULLED LIVE|SELECTED \/ INTERNAL \+ EXTERNAL|LINKS \/ SOURCES \/ LOOSE ENDS|ABOUT THE PERSON|CURRENTLY INTERESTED/i,
-  );
-  assert.match(html, /WORK THAT LEFT A MARK/);
-  assert.match(html, /PRODUCTS, EXPERIMENTS, AND PUBLIC TOOLS/);
+  assert.doesNotMatch(html, /\bNICK\b/i);
+  assert.doesNotMatch(html, /class="section-heading|class="section-number/);
+  assert.match(html, />WEBSITES<\/h3>/);
+  assert.match(html, />TOOLS<\/h3>/);
+  assert.match(html, />EXPERIMENTS<\/h3>/);
+  assert.match(html, />RECENT CODE<\/h3>/);
+  assert.match(html, />PUBLIC CODE<\/h3>/);
+  assert.match(html, />ELSEWHERE<\/h3>/);
   assert.match(html, /GITHUB \/ SOURCE/);
   assert.match(html, /The complete public repository index/);
   assert.match(html, /Loading GitHub repositories/);
+  assert.match(html, /MISTAKES\.PARTY IS A DENVER HOME/);
   assert.match(html, /SAY HELLO/);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
@@ -57,7 +59,7 @@ test("exports every internal project page", async () => {
 
     assert.match(html, new RegExp(title));
     assert.equal((html.match(/<h1[ >]/g) || []).length, 1);
-    assert.match(html, /class="steaks-mark">STEAKS<\/mark>/);
+    assert.match(html, /MISTAKES\.PARTY © 2026/);
     assert.match(html, /CONTEXT/);
     assert.match(html, /THE MOVE/);
     assert.match(html, /OUTCOME/);

@@ -4,6 +4,7 @@
   --paper: #f2f1e9;
   --ink: #090a08;
   --acid: #dfff00;
+  --highlight: #ffd500;
   --muted: #51524d;
   --gutter: clamp(1.25rem, 4.5vw, 5rem);
   --rule: clamp(2px, 0.24vw, 4px);
@@ -148,85 +149,71 @@ a {
 }
 
 .hero {
-  display: flex;
+  display: grid;
   min-height: calc(100svh - 4.25rem);
-  align-items: center;
+  place-items: center;
+  overflow: hidden;
   padding: 1rem var(--gutter) 1.2rem;
 }
 
 .hero-lockup {
   width: 100%;
   min-width: 0;
-  padding: clamp(2rem, 4vh, 4rem) 0;
+  padding: clamp(2rem, 5vh, 5rem) 0;
+  text-align: center;
 }
 
 .hero h1 {
   margin: 0;
   font-family: var(--display);
-  font-size: clamp(5rem, min(15vw, 24vh), 18rem);
+  font-size: clamp(8rem, min(54vw, 72vh), 42rem);
   font-stretch: ultra-condensed;
   font-weight: 900;
-  letter-spacing: -0.045em;
-  line-height: 0.67;
+  letter-spacing: -0.085em;
+  line-height: 0.66;
   text-transform: uppercase;
 }
 
-.hero-line {
-  display: block;
-  width: 100%;
-  min-width: 0;
+.mxp {
+  display: inline-flex;
+  isolation: isolate;
   white-space: nowrap;
+  transform: translateX(-0.03em);
 }
 
-.hero-line:nth-child(even) {
-  text-align: right;
-}
-
-.steaks-display {
+.mxp-x {
   position: relative;
   z-index: 0;
-  display: inline-block;
-  width: max-content;
-  max-width: 100%;
-  white-space: nowrap;
 }
 
-.steaks-display::after {
+.mxp-x::after {
   position: absolute;
-  right: -2%;
-  bottom: -0.03em;
-  left: 2%;
+  right: -0.035em;
+  bottom: 0.025em;
+  left: -0.025em;
   z-index: -1;
-  height: 0.24em;
+  height: 0.13em;
   background: linear-gradient(
     90deg,
-    var(--acid) 0%,
-    var(--acid) 78%,
+    transparent 0%,
+    var(--highlight) 5%,
+    var(--highlight) 93%,
     transparent 100%
   );
   content: "";
-  transform: rotate(-1.2deg);
+  transform: rotate(-2deg) skewX(-8deg);
 }
 
 .hero-intro {
-  max-width: 100%;
-  margin: clamp(2rem, 4vw, 4rem) 0 0;
-  font-family: var(--display);
-  font-size: clamp(2.15rem, 4.5vw, 5rem);
+  max-width: 76rem;
+  margin: clamp(2.25rem, 5vw, 5rem) auto 0;
+  font-family: var(--mono);
+  font-size: clamp(0.72rem, 1.15vw, 1.05rem);
   font-weight: 900;
-  letter-spacing: -0.025em;
-  line-height: 0.84;
-  text-align: right;
+  letter-spacing: 0.075em;
+  line-height: 1.45;
+  text-align: center;
   text-transform: uppercase;
-}
-
-.steaks-mark {
-  -webkit-box-decoration-break: clone;
-  box-decoration-break: clone;
-  padding: 0 0.14em;
-  background: var(--acid);
-  color: var(--ink);
-  font: inherit;
 }
 
 .signal-stripes {
@@ -240,56 +227,40 @@ a {
   );
 }
 
-.indexed-section {
-  padding: clamp(6rem, 12vw, 12rem) var(--gutter);
+.work-index {
+  padding: clamp(3rem, 6vw, 6rem) var(--gutter) clamp(5rem, 10vw, 10rem);
   scroll-margin-top: 4.5rem;
 }
 
-.section-heading {
-  display: grid;
-  grid-template-columns: minmax(4.5rem, 1fr) minmax(0, 11fr);
-  gap: clamp(1rem, 2vw, 2rem);
-  align-items: start;
-  margin-bottom: clamp(4rem, 9vw, 9rem);
+.index-category {
+  scroll-margin-top: 4.5rem;
 }
 
-.section-heading-copy {
-  min-width: 0;
-}
-
-.section-intro {
-  max-width: 44rem;
-  margin: clamp(2rem, 4vw, 4rem) 0 0;
-  font-size: clamp(1.05rem, 1.7vw, 1.65rem);
-  letter-spacing: -0.02em;
-  line-height: 1.3;
-}
-
-.section-number {
+.index-category-label {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
   margin: 0;
-  font-family: var(--display);
-  font-size: clamp(3.5rem, 8vw, 8rem);
-  line-height: 0.75;
-}
-
-.section-heading h2,
-.about h2 {
-  max-width: 12ch;
-  margin: 0;
-  font-family: var(--display);
-  font-size: clamp(3.2rem, 9.5vw, 10rem);
-  font-stretch: condensed;
+  padding: clamp(1rem, 1.8vw, 1.65rem) 0 0.8rem;
+  border-top: var(--rule) solid var(--ink);
+  font-family: var(--mono);
+  font-size: clamp(0.68rem, 0.85vw, 0.84rem);
   font-weight: 900;
-  letter-spacing: -0.045em;
-  line-height: 0.78;
+  letter-spacing: 0.065em;
+  line-height: 1.25;
   text-transform: uppercase;
 }
 
-.project-row {
+.index-category-label::before {
+  color: var(--muted);
+  content: "//";
+}
+
+.index-row {
   display: grid;
   min-width: 0;
-  min-height: clamp(11rem, 18vw, 18rem);
-  grid-template-columns: minmax(2.5rem, 0.55fr) minmax(0, 7fr) minmax(8rem, 1.6fr) auto;
+  min-height: clamp(9.5rem, 15vw, 15rem);
+  grid-template-columns: minmax(0, 7fr) minmax(8rem, 1.7fr) auto;
   gap: clamp(1rem, 2.5vw, 3rem);
   align-items: start;
   padding: clamp(2.25rem, 4.5vw, 4.75rem) 0;
@@ -297,26 +268,20 @@ a {
   transition: background-color 140ms linear;
 }
 
-.project-row > * {
+.index-row > * {
   min-width: 0;
 }
 
-.row-index {
-  font-family: var(--mono);
-  font-size: clamp(0.72rem, 0.9vw, 0.9rem);
-  font-weight: 900;
-}
-
-.project-main {
+.index-main {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
 }
 
-.project-title {
+.index-title {
   margin: 0;
   font-family: var(--display);
-  font-size: clamp(2.6rem, 6.5vw, 7.4rem);
+  font-size: clamp(2.6rem, 5.8vw, 6.6rem);
   font-stretch: condensed;
   font-weight: 900;
   letter-spacing: -0.035em;
@@ -326,71 +291,68 @@ a {
   transition: transform 140ms linear;
 }
 
-.project-description {
-  max-width: 46rem;
-  margin-top: clamp(1.25rem, 2.5vw, 2.5rem);
+.index-description {
+  max-width: 48rem;
+  margin-top: clamp(1rem, 2vw, 2rem);
   color: var(--muted);
-  font-size: clamp(1rem, 1.4vw, 1.35rem);
-  line-height: 1.35;
+  font-size: clamp(0.95rem, 1.3vw, 1.25rem);
+  line-height: 1.4;
 }
 
-.project-meta,
-.row-action {
+.index-meta,
+.index-action {
   display: flex;
   align-items: flex-start;
   font-family: var(--mono);
-  font-size: clamp(0.7rem, 0.85vw, 0.84rem);
+  font-size: clamp(0.68rem, 0.84vw, 0.82rem);
   font-weight: 900;
-  line-height: 1.35;
+  line-height: 1.4;
   text-transform: uppercase;
 }
 
-.row-action {
+.index-meta {
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.index-action {
   min-height: 2.75rem;
   justify-content: flex-end;
+  white-space: nowrap;
   transition:
     transform 140ms linear,
     background-color 140ms linear;
 }
 
-.project-row:has(a:hover),
-.project-row:has(a:focus-visible) {
+.index-row:has(a:hover),
+.index-row:has(a:focus-visible) {
   background: var(--acid);
 }
 
-.project-main:hover .project-title,
-.project-main:focus-visible .project-title {
+.index-main:hover .index-title,
+.index-main:focus-visible .index-title {
   transform: translateX(0.45rem);
 }
 
-.row-action:hover,
-.row-action:focus-visible {
+.index-action:hover,
+.index-action:focus-visible {
   background: var(--ink);
   color: var(--acid);
 }
 
-.row-action:active,
-.project-main:active {
+.index-action:active,
+.index-main:active {
   transform: translateY(2px);
-}
-
-.github-section {
-  padding-right: var(--gutter);
-  padding-left: var(--gutter);
-}
-
-.github-section .section-heading {
-  padding-right: 0;
-  padding-left: 0;
 }
 
 .github-loading {
   display: flex;
-  min-height: clamp(6rem, 12vw, 11rem);
+  min-height: clamp(7rem, 12vw, 11rem);
   flex-direction: column;
   justify-content: center;
   gap: clamp(0.5rem, 1vw, 0.9rem);
   padding: clamp(2rem, 4vw, 4rem) 0;
+  border-top: 2px solid var(--ink);
 }
 
 .github-loading span {
@@ -403,173 +365,11 @@ a {
 .github-loading span:nth-child(2) {
   width: 72%;
   align-self: flex-end;
-  background: var(--acid);
-}
-
-.github-list,
-.archive-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.github-row {
-  display: grid;
-  min-width: 0;
-  min-height: clamp(10rem, 16vw, 16rem);
-  grid-template-columns: minmax(2.5rem, 0.55fr) minmax(0, 7fr) minmax(9rem, 1.8fr) auto;
-  gap: clamp(1rem, 2.5vw, 3rem);
-  align-items: start;
-  padding: clamp(2.25rem, 4.5vw, 4.75rem) 0;
-  border-top: 2px solid var(--ink);
-  transition: background-color 140ms linear;
-}
-
-.github-row > * {
-  min-width: 0;
-}
-
-.github-copy {
-  display: flex;
-  flex-direction: column;
-  gap: clamp(1rem, 2vw, 1.75rem);
-}
-
-.github-copy strong {
-  font-family: var(--display);
-  font-size: clamp(1.7rem, 3.2vw, 3.6rem);
-  letter-spacing: -0.025em;
-  line-height: 0.9;
-  overflow-wrap: anywhere;
-  text-transform: uppercase;
-  transition: transform 140ms linear;
-}
-
-.github-copy > span {
-  max-width: 42rem;
-  color: var(--muted);
-  font-size: clamp(0.95rem, 1.2vw, 1.2rem);
-  line-height: 1.35;
-}
-
-.github-meta {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-  gap: 0.3rem;
-  font-family: var(--mono);
-  font-size: clamp(0.68rem, 0.8vw, 0.8rem);
-}
-
-.github-row:hover,
-.github-row:focus-visible {
-  background: var(--acid);
-}
-
-.github-row:hover .github-copy strong,
-.github-row:focus-visible .github-copy strong {
-  transform: translateX(0.45rem);
-}
-
-.github-all {
-  display: flex;
-  min-height: clamp(10rem, 16vw, 16rem);
-  align-items: center;
-  justify-content: space-between;
-  margin-top: clamp(2rem, 4vw, 4rem);
-  padding: clamp(2rem, 4vw, 4rem);
-  background: var(--ink);
-  color: var(--paper);
-  font-family: var(--display);
-  font-size: clamp(2.2rem, 5vw, 5.7rem);
-  letter-spacing: -0.025em;
-  line-height: 0.85;
-  text-transform: uppercase;
-  transition:
-    background-color 140ms linear,
-    color 140ms linear;
-}
-
-.github-all:hover,
-.github-all:focus-visible {
-  background: var(--acid);
-  color: var(--ink);
-}
-
-.section-heading--compact {
-  margin-bottom: clamp(4rem, 8vw, 8rem);
-}
-
-.archive-row {
-  display: grid;
-  min-width: 0;
-  min-height: clamp(9rem, 15vw, 15rem);
-  grid-template-columns: minmax(2.5rem, 0.55fr) minmax(0, 8fr) auto;
-  gap: clamp(1rem, 2.5vw, 3rem);
-  align-items: start;
-  padding: clamp(2.5rem, 5vw, 5.5rem) 0;
-  border-top: 2px solid var(--ink);
-  transition: background-color 140ms linear;
-}
-
-.archive-row > * {
-  min-width: 0;
-}
-
-.archive-copy {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-.archive-copy strong {
-  font-family: var(--display);
-  font-size: clamp(2.75rem, 5.5vw, 6.25rem);
-  letter-spacing: -0.02em;
-  line-height: 0.82;
-  overflow-wrap: anywhere;
-  text-transform: uppercase;
-  transition: transform 140ms linear;
-}
-
-.archive-meta {
-  margin-top: clamp(1.25rem, 2.25vw, 2rem);
-  font-family: var(--mono);
-  font-size: clamp(0.68rem, 0.85vw, 0.85rem);
-  font-weight: 900;
-  letter-spacing: 0.045em;
-  line-height: 1.3;
-  text-transform: uppercase;
-}
-
-.archive-description {
-  max-width: 48rem;
-  margin-top: 0.75rem;
-  color: var(--muted);
-  font-size: clamp(0.95rem, 1.25vw, 1.2rem);
-  line-height: 1.4;
-}
-
-.archive-action {
-  font-family: var(--mono);
-  font-size: clamp(0.7rem, 0.85vw, 0.84rem);
-  font-weight: 900;
-  white-space: nowrap;
-}
-
-.archive-row:hover,
-.archive-row:focus-visible {
-  background: var(--acid);
-}
-
-.archive-row:hover .archive-copy strong,
-.archive-row:focus-visible .archive-copy strong {
-  transform: translateX(0.45rem);
+  background: var(--highlight);
 }
 
 .about {
-  padding: clamp(6rem, 12vw, 12rem) var(--gutter) 0;
+  padding: 0 var(--gutter);
   scroll-margin-top: 4.5rem;
 }
 
@@ -578,23 +378,23 @@ a {
   grid-template-columns: minmax(0, 7fr) minmax(17rem, 5fr);
   gap: clamp(2rem, 6vw, 7rem);
   align-items: end;
-  padding: clamp(3rem, 7vw, 7rem) 0;
+  padding: clamp(5rem, 10vw, 10rem) 0;
+  border-top: var(--rule) solid var(--ink);
 }
 
-.about-grid h2 {
+.about-lede {
   margin: 0;
-}
-
-.about-copy p:first-child {
-  margin: 0;
-  font-size: clamp(1.25rem, 2.2vw, 2.5rem);
-  letter-spacing: -0.025em;
-  line-height: 1;
+  font-family: var(--display);
+  font-size: clamp(3.25rem, 7.5vw, 8rem);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 0.82;
+  text-transform: uppercase;
 }
 
 .about-note {
   max-width: 38rem;
-  margin: clamp(2rem, 4vw, 4rem) 0 0;
+  margin: 0;
   color: var(--muted);
   font-size: clamp(1rem, 1.45vw, 1.4rem);
   letter-spacing: -0.015em;
@@ -813,59 +613,22 @@ a {
 }
 
 @media (max-width: 900px) {
-  .project-row {
-    grid-template-columns: 3.5rem minmax(0, 1fr) auto;
+  .index-row {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
-  .project-main {
-    grid-column: 2 / 4;
-    grid-row: 1 / 2;
+  .index-main {
+    grid-column: 1 / -1;
   }
 
-  .project-row > .row-index {
+  .index-meta {
     grid-column: 1;
-    grid-row: 1;
+    grid-row: 2;
   }
 
-  .project-meta {
+  .index-action {
     grid-column: 2;
     grid-row: 2;
-  }
-
-  .project-row > .row-action {
-    grid-column: 3;
-    grid-row: 2;
-  }
-
-  .github-row {
-    grid-template-columns: 3.5rem minmax(0, 1fr) auto;
-  }
-
-  .github-copy {
-    grid-column: 2 / 4;
-  }
-
-  .github-meta {
-    grid-column: 2;
-    grid-row: 2;
-  }
-
-  .github-row > .row-action {
-    grid-column: 3;
-    grid-row: 2;
-  }
-
-  .archive-row {
-    grid-template-columns: 3.5rem minmax(0, 1fr) auto;
-  }
-
-  .archive-copy {
-    grid-column: 2;
-  }
-
-  .archive-action {
-    grid-column: 3;
-    grid-row: 1;
   }
 
   .about-grid {
@@ -897,12 +660,6 @@ a {
   }
 }
 
-@media (max-width: 900px) and (orientation: portrait) {
-  .hero h1 {
-    font-size: clamp(7rem, 20vw, 11rem);
-  }
-}
-
 @media (max-width: 700px) {
   .site-header {
     position: relative;
@@ -931,7 +688,8 @@ a {
     min-height: calc(100svh - 8.25rem);
   }
 
-  .indexed-section,
+  .work-index,
+  .index-category,
   .about {
     scroll-margin-top: 0;
   }
@@ -958,87 +716,47 @@ a {
   }
 
   .hero h1 {
-    font-size: min(20vw, 6.25rem);
+    font-size: min(54vw, 52vh);
   }
 
   .hero-intro {
     max-width: 100%;
     margin-top: 1.75rem;
-    font-size: clamp(1.35rem, 7vw, 2rem);
-    text-align: left;
+    font-size: clamp(0.65rem, 2.8vw, 0.82rem);
+    text-align: center;
   }
 
   .signal-stripes {
     height: 1.5rem;
   }
 
-  .indexed-section {
-    padding-top: clamp(5rem, 16vw, 7rem);
-    padding-bottom: clamp(5rem, 16vw, 7rem);
+  .work-index {
+    padding-top: 2.5rem;
+    padding-bottom: clamp(4rem, 14vw, 6rem);
   }
 
-  .section-heading {
-    grid-template-columns: 3.25rem minmax(0, 1fr);
-    margin-bottom: 3.5rem;
-  }
-
-  .section-number {
-    font-size: 2.8rem;
-  }
-
-  .section-intro {
-    margin-top: 1.75rem;
-    font-size: 1rem;
-  }
-
-  .section-heading h2,
-  .about h2 {
-    font-size: clamp(3rem, 16vw, 5.5rem);
-  }
-
-  .project-row,
-  .github-row {
+  .index-row {
     min-height: 0;
-    grid-template-columns: 2.4rem minmax(0, 1fr) auto;
-    gap: 1.25rem 1rem;
+    gap: 1.5rem 1rem;
     padding: 2.75rem 0;
   }
 
-  .project-title {
+  .index-title {
     font-size: clamp(2.35rem, 13vw, 4.1rem);
   }
 
-  .project-description {
+  .index-description {
     display: block;
     margin-top: 1.25rem;
     font-size: 0.95rem;
   }
 
-  .project-main {
+  .index-main {
     min-height: 0;
   }
 
-  .github-copy > span {
-    display: block;
-    font-size: 0.95rem;
-  }
-
-  .archive-row {
-    min-height: 0;
-    grid-template-columns: 2.4rem minmax(0, 1fr);
-    gap: 1.5rem 1rem;
-    padding: 3.25rem 0;
-  }
-
-  .archive-action {
-    grid-column: 2;
-    grid-row: 2;
-    justify-self: start;
-  }
-
-  .project-meta,
-  .row-action,
-  .github-meta {
+  .index-meta,
+  .index-action {
     font-size: 0.62rem;
   }
 
@@ -1046,16 +764,12 @@ a {
     min-height: 6rem;
   }
 
-  .github-all {
-    font-size: clamp(2rem, 11vw, 3.5rem);
+  .about-grid {
+    padding: clamp(4rem, 14vw, 6rem) 0;
   }
 
-  .about-copy p:first-child {
-    font-size: 1.35rem;
-  }
-
-  .about {
-    padding-top: clamp(5rem, 16vw, 7rem);
+  .about-lede {
+    font-size: clamp(3rem, 15vw, 5.5rem);
   }
 
   .contact-blast {
@@ -1135,12 +849,12 @@ a {
   }
 
   .hero h1 {
-    font-size: min(11vw, 18vh);
+    font-size: min(48vw, 54vh);
   }
 
   .hero-intro {
-    margin-top: 1.25rem;
-    font-size: clamp(1.35rem, 5vw, 2.35rem);
+    margin-top: 0.9rem;
+    font-size: clamp(0.6rem, 1.5vw, 0.75rem);
   }
 }
 
@@ -1151,17 +865,16 @@ a {
     letter-spacing: 0;
   }
 
-  .archive-row {
-    grid-template-columns: 2.1rem minmax(0, 1fr);
+  .index-row {
     gap: 1.25rem 0.75rem;
     padding: 2.75rem 0;
   }
 
-  .archive-copy strong {
+  .index-title {
     font-size: 2.35rem;
   }
 
-  .archive-action {
+  .index-action {
     font-size: 0.6rem;
   }
 
@@ -1174,7 +887,7 @@ a {
 
 @media (max-width: 600px) and (max-height: 600px) and (orientation: portrait) {
   .hero h1 {
-    font-size: min(20vw, 12vh);
+    font-size: min(52vw, 40vh);
   }
 
   .hero-intro {
@@ -1198,7 +911,7 @@ a {
 @media (forced-colors: active) {
   .brand-mark,
   .github-loading span:nth-child(2),
-  .steaks-mark {
+  .mxp-x::after {
     forced-color-adjust: none;
     background: CanvasText;
     color: Canvas;
