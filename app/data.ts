@@ -79,13 +79,6 @@ export const projects: Project[] = [
 
 export const archiveLinks = [
   {
-    label: "ALL PUBLIC CODE",
-    category: "PUBLIC CODE",
-    meta: "GITHUB / SOURCE",
-    description: "The complete public repository index, including active work and old experiments.",
-    href: "https://github.com/30ozSteak",
-  },
-  {
     label: "GISTS + SCRAPS",
     category: "PUBLIC CODE",
     meta: "NOTES / SNIPPETS",

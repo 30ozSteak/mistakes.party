@@ -17,38 +17,9 @@ type GithubRepo = {
 
 type FeedState = "loading" | "live" | "cached" | "fallback";
 
-const CACHE_KEY = "mistakes-party.github.v2";
+const CACHE_KEY = "mistakes-party.github.v3";
 const CACHE_TTL = 6 * 60 * 60 * 1000;
 const INDEXED_REPOS = new Set(["lighthouse-checker", "itadw"]);
-
-const fallbackRepos: GithubRepo[] = [
-  {
-    id: 1,
-    name: "lighthouse-checker",
-    html_url: "https://github.com/30ozSteak/lighthouse-checker",
-    description:
-      "A focused web-performance utility that keeps audits quick and close to the source.",
-    language: null,
-    stargazers_count: 0,
-    updated_at: "",
-    fork: false,
-    archived: false,
-    disabled: false,
-  },
-  {
-    id: 2,
-    name: "ITADW",
-    html_url: "https://github.com/30ozSteak/ITADW",
-    description:
-      "An early public-code experiment kept intact with the question, attempt, and rough edges visible.",
-    language: null,
-    stargazers_count: 0,
-    updated_at: "",
-    fork: false,
-    archived: false,
-    disabled: false,
-  },
-];
 
 function isRepo(value: unknown): value is GithubRepo {
   if (!value || typeof value !== "object") return false;
@@ -122,7 +93,7 @@ export function GithubFeed() {
             (a, b) =>
               new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
           )
-          .slice(0, 4);
+          .slice(0, 2);
 
         if (publicRepos.length === 0) throw new Error("No public repositories");
 
@@ -133,13 +104,8 @@ export function GithubFeed() {
           JSON.stringify({ savedAt: Date.now(), repos: publicRepos }),
         );
       } catch {
-        if (!controller.signal.aborted) {
-          setRepos(fallbackRepos);
-          setFeedState("fallback");
-        } else {
-          setRepos(fallbackRepos);
-          setFeedState("fallback");
-        }
+        setRepos([]);
+        setFeedState("fallback");
       } finally {
         window.clearTimeout(timeout);
       }
@@ -156,7 +122,7 @@ export function GithubFeed() {
     feedState === "loading"
       ? "Loading GitHub repositories."
       : feedState === "fallback"
-        ? "Showing selected GitHub repositories."
+        ? "Recent GitHub repositories are unavailable."
         : "GitHub repositories loaded.";
 
   return (
@@ -171,7 +137,7 @@ export function GithubFeed() {
           <span />
           <span />
         </div>
-      ) : (
+      ) : repos.length > 0 ? (
         <div className="index-list">
           {repos.map((repo) => (
             <article className="index-row" key={repo.id}>
@@ -205,7 +171,7 @@ export function GithubFeed() {
             </article>
           ))}
         </div>
-      )}
+      ) : null}
 
       <article className="index-row">
         <a

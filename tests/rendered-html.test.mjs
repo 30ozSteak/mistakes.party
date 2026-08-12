@@ -31,16 +31,17 @@ test("exports the portfolio index", async () => {
   assert.doesNotMatch(html, /class="github-status"/);
   assert.equal((html.match(/href="\/work\//g) || []).length, 3);
   assert.equal((html.match(/aria-label="View source for /g) || []).length, 3);
-  assert.doesNotMatch(html, /\bNICK\b/i);
+  assert.doesNotMatch(
+    html,
+    /\bNICK\b|\bSTEAKS\b|MAKES WEIRD THINGS|RIGHT WEIRD THING|WORK THAT LEFT A MARK|THE GITHUB WIRE|KEEP CLICKING|MAKE IT USEFUL\. MAKE IT LOUD/i,
+  );
   assert.doesNotMatch(html, /class="section-heading|class="section-number/);
   assert.match(html, />WEBSITES<\/h3>/);
   assert.match(html, />TOOLS<\/h3>/);
   assert.match(html, />EXPERIMENTS<\/h3>/);
-  assert.match(html, />RECENT CODE<\/h3>/);
   assert.match(html, />PUBLIC CODE<\/h3>/);
   assert.match(html, />ELSEWHERE<\/h3>/);
   assert.match(html, /GITHUB \/ SOURCE/);
-  assert.match(html, /The complete public repository index/);
   assert.match(html, /Loading GitHub repositories/);
   assert.match(html, /MISTAKES\.PARTY IS A DENVER HOME/);
   assert.match(html, /SAY HELLO/);

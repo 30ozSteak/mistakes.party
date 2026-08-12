@@ -70,6 +70,10 @@ function ArchiveCategory({ category }: { category: ArchiveLink["category"] }) {
 }
 
 export default function Home() {
+  const publicCodeLinks = archiveLinks.filter(
+    (link) => link.category === "PUBLIC CODE",
+  );
+
   return (
     <>
       <a className="skip-link" href="#work">
@@ -135,15 +139,19 @@ export default function Home() {
           <section
             className="index-category"
             id="github"
-            aria-labelledby="recent-code-label"
+            aria-labelledby="public-code-label"
           >
-            <h3 className="index-category-label" id="recent-code-label">
-              RECENT CODE
+            <h3 className="index-category-label" id="public-code-label">
+              PUBLIC CODE
             </h3>
             <GithubFeed />
+            <div className="index-list">
+              {publicCodeLinks.map((link) => (
+                <ArchiveRow key={link.href} link={link} />
+              ))}
+            </div>
           </section>
 
-          <ArchiveCategory category="PUBLIC CODE" />
           <ArchiveCategory category="ELSEWHERE" />
         </section>
 
