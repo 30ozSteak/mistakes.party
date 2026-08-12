@@ -1,6 +1,9 @@
 import { XMLParser } from "fast-xml-parser";
 
-export const MEDIUM_FEED_URL = "https://medium.com/feed/@30ozsteak";
+const DEFAULT_MEDIUM_FEED_URL = "https://medium.com/feed/@30ozsteak";
+
+export const MEDIUM_FEED_URL =
+  process.env.MEDIUM_FEED_URL ?? DEFAULT_MEDIUM_FEED_URL;
 export const MEDIUM_PROFILE_URL = "https://medium.com/@30ozsteak";
 
 export type MediumPost = {
@@ -101,9 +104,11 @@ export function parseMediumFeed(xml: string): MediumPost[] {
   );
 }
 
-export async function getMediumPosts(): Promise<MediumPost[]> {
+export async function getMediumPosts(
+  feedUrl = MEDIUM_FEED_URL,
+): Promise<MediumPost[]> {
   try {
-    const response = await fetch(MEDIUM_FEED_URL, {
+    const response = await fetch(feedUrl, {
       headers: {
         Accept: "application/rss+xml, application/xml;q=0.9, text/xml;q=0.8",
       },
