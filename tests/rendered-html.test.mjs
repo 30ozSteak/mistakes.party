@@ -1,12 +1,30 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const projectRoot = new URL("../", import.meta.url);
 
 async function readExportedPage(pathname) {
-  const relativePath = pathname === "/" ? "out/index.html" : `out${pathname}index.html`;
-  return readFile(new URL(relativePath, projectRoot), "utf8");
+  const workerUrl = new URL("dist/server/index.js", projectRoot);
+  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}-${pathname}`);
+  const { default: worker } = await import(workerUrl.href);
+  const response = await worker.fetch(
+    new Request(`http://localhost${pathname}`, {
+      headers: { accept: "text/html" },
+    }),
+    {
+      ASSETS: {
+        fetch: async () => new Response("Not found", { status: 404 }),
+      },
+    },
+    {
+      waitUntil() {},
+      passThroughOnException() {},
+    },
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
+  return response.text();
 }
 
 test("exports the portfolio index", async () => {
@@ -33,7 +51,7 @@ test("exports the portfolio index", async () => {
   assert.equal((html.match(/aria-label="View source for /g) || []).length, 3);
   assert.doesNotMatch(
     html,
-    /\bNICK\b|\bSTEAKS\b|MAKES WEIRD THINGS|RIGHT WEIRD THING|WORK THAT LEFT A MARK|THE GITHUB WIRE|KEEP CLICKING|MAKE IT USEFUL\. MAKE IT LOUD/i,
+    /\bNICK\b|\bSTEAKS\b|\bWEIRD\b|WORK THAT LEFT A MARK|THE GITHUB WIRE|KEEP CLICKING|MAKE IT USEFUL\. MAKE IT LOUD/i,
   );
   assert.doesNotMatch(html, /class="section-heading|class="section-number/);
   assert.match(html, />WEBSITES<\/h3>/);

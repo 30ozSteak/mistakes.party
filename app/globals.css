@@ -347,7 +347,7 @@ a {
 
 .github-loading {
   display: flex;
-  min-height: clamp(7rem, 12vw, 11rem);
+  min-height: clamp(19rem, 30vw, 30rem);
   flex-direction: column;
   justify-content: center;
   gap: clamp(0.5rem, 1vw, 0.9rem);

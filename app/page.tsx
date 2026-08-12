@@ -38,13 +38,9 @@ function ArchiveRow({ link }: { link: ArchiveLink }) {
         <span className="index-description">{link.description}</span>
       </a>
       <span className="index-meta">{link.meta}</span>
-      <a
-        aria-label={`Open ${link.label}`}
-        className="index-action"
-        href={link.href}
-      >
+      <span aria-hidden="true" className="index-action">
         OPEN ↗
-      </a>
+      </span>
     </article>
   );
 }

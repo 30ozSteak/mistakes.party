@@ -161,13 +161,9 @@ export function GithubFeed() {
                   <span>PUBLIC</span>
                 )}
               </span>
-              <a
-                aria-label={`View ${repo.name} on GitHub`}
-                className="index-action"
-                href={repo.html_url}
-              >
+              <span aria-hidden="true" className="index-action">
                 SOURCE ↗
-              </a>
+              </span>
             </article>
           ))}
         </div>
@@ -185,13 +181,9 @@ export function GithubFeed() {
           </span>
         </a>
         <span className="index-meta">GITHUB / SOURCE</span>
-        <a
-          aria-label="Open all GitHub repositories"
-          className="index-action"
-          href="https://github.com/30ozSteak?tab=repositories"
-        >
+        <span aria-hidden="true" className="index-action">
           OPEN ↗
-        </a>
+        </span>
       </article>
     </div>
   );

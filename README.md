@@ -19,13 +19,10 @@ npm test
 npm run lint
 ```
 
-The project uses the standard Next.js toolchain and exports a self-contained
-static site to `out/`. There is no application server, database, authentication
-service, or platform-specific runtime to operate.
-
-Publish the contents of `out/` with any static host. The canonical production
-address is configured as `https://mistakes.party`, including its social-card
-metadata.
+The project uses Next.js with vinext and produces a Cloudflare
+Worker-compatible build in `dist/`. There is no database or authentication
+service to operate. The canonical production address is configured as
+`https://mistakes.party`, including its social-card metadata.
 
 The portfolio fetches public repositories directly from GitHub in the browser
 and falls back to a bundled project list when the API is unavailable.
