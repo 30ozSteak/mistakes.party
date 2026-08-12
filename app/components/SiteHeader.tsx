@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 type SiteHeaderProps = {
+  currentPage?: "blogs";
   indexLink?: boolean;
 };
 
@@ -13,14 +14,21 @@ type NavigationLink = {
   next?: boolean;
 };
 
-export function SiteHeader({ indexLink = false }: SiteHeaderProps) {
+export function SiteHeader({ currentPage, indexLink = false }: SiteHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const desktopLinks: NavigationLink[] = indexLink
-    ? [{ href: "/", label: "← INDEX", next: true }]
+    ? [
+        { href: "/", label: "← INDEX", next: true },
+        { href: "/#work", label: "WORK", next: true },
+        { href: "/blogs", label: "BLOGS", next: true },
+        { href: "/#github", label: "GITHUB", next: true },
+        { href: "/#about", label: "ABOUT", next: true },
+      ]
     : [
         { href: "#work", label: "WORK" },
+        { href: "/blogs", label: "BLOGS", next: true },
         { href: "#github", label: "GITHUB" },
         { href: "#about", label: "ABOUT" },
       ];
@@ -28,6 +36,7 @@ export function SiteHeader({ indexLink = false }: SiteHeaderProps) {
     ? [
         { href: "/", label: "← INDEX", next: true },
         { href: "/#work", label: "WORK", next: true },
+        { href: "/blogs", label: "BLOGS", next: true },
         { href: "/#github", label: "GITHUB", next: true },
         { href: "/#about", label: "ABOUT", next: true },
       ]
@@ -127,7 +136,15 @@ export function SiteHeader({ indexLink = false }: SiteHeaderProps) {
       <nav className="site-nav" aria-label="Primary navigation">
         {desktopLinks.map((link) =>
           link.next ? (
-            <Link href={link.href} key={link.href}>
+            <Link
+              aria-current={
+                currentPage === "blogs" && link.href === "/blogs"
+                  ? "page"
+                  : undefined
+              }
+              href={link.href}
+              key={link.href}
+            >
               {link.label}
             </Link>
           ) : (
@@ -167,7 +184,16 @@ export function SiteHeader({ indexLink = false }: SiteHeaderProps) {
       >
         {mobileLinks.map((link) =>
           link.next ? (
-            <Link href={link.href} key={link.href} onClick={closeMenuForLink}>
+            <Link
+              aria-current={
+                currentPage === "blogs" && link.href === "/blogs"
+                  ? "page"
+                  : undefined
+              }
+              href={link.href}
+              key={link.href}
+              onClick={closeMenuForLink}
+            >
               {link.label}
             </Link>
           ) : (

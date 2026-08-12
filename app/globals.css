@@ -146,6 +146,10 @@ a {
   color: var(--acid);
 }
 
+.site-nav a[aria-current="page"] {
+  background: var(--acid);
+}
+
 .mobile-menu-toggle,
 .mobile-nav {
   display: none;
@@ -354,6 +358,41 @@ a {
 
 .github-loading span:nth-child(2) {
   width: 52%;
+}
+
+.medium-post-row .index-meta {
+  white-space: nowrap;
+}
+
+.blogs-page {
+  min-height: calc(100svh - 10rem);
+}
+
+.blogs-hero {
+  display: grid;
+  padding: clamp(3rem, 6vw, 6rem) var(--gutter) clamp(1.25rem, 2.5vw, 2.5rem);
+}
+
+.blogs-hero h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(4.25rem, 10vw, 11rem);
+  font-weight: 900;
+  letter-spacing: -0.055em;
+  line-height: 0.7;
+  text-transform: uppercase;
+}
+
+.blogs-source {
+  width: fit-content;
+  margin-top: clamp(1.5rem, 3vw, 3rem);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.25em;
+}
+
+.blogs-index {
+  padding: 0 var(--gutter) clamp(5rem, 10vw, 10rem);
 }
 
 .about {
@@ -818,6 +857,10 @@ a {
     color: var(--acid);
   }
 
+  .mobile-nav a[aria-current="page"] {
+    box-shadow: inset 0.16em 0 0 var(--acid);
+  }
+
   .hero {
     min-height: calc(100svh - var(--mobile-header));
   }
@@ -885,6 +928,19 @@ a {
 
   .github-loading {
     padding: 0.65rem 0 1rem;
+  }
+
+  .blogs-hero {
+    padding-top: 2.5rem;
+    padding-bottom: 1.25rem;
+  }
+
+  .blogs-hero h1 {
+    font-size: clamp(4.5rem, 24vw, 8rem);
+  }
+
+  .blogs-index {
+    padding-bottom: clamp(4rem, 14vw, 6rem);
   }
 
   .about-grid {

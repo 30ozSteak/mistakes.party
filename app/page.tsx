@@ -1,11 +1,15 @@
 import Link from "next/link";
 import { GithubFeed } from "./components/GithubFeed";
+import { MediumPostList } from "./components/MediumPostList";
 import { SiteHeader } from "./components/SiteHeader";
 import { archiveLinks, type Project, projects } from "./data";
+import { getMediumPosts } from "./lib/medium";
 
 type ArchiveLink = (typeof archiveLinks)[number];
 
 const primaryCategories = ["WEBSITES", "TOOLS", "EXPERIMENTS"] as const;
+
+export const revalidate = 900;
 
 function ProjectRow({ project }: { project: Project }) {
   return (
@@ -61,10 +65,11 @@ function ArchiveCategory({ category }: { category: ArchiveLink["category"] }) {
   );
 }
 
-export default function Home() {
+export default async function Home() {
   const publicCodeLinks = archiveLinks.filter(
     (link) => link.category === "PUBLIC CODE",
   );
+  const mediumPosts = (await getMediumPosts()).slice(0, 5);
 
   return (
     <>
@@ -127,6 +132,28 @@ export default function Home() {
               </section>
             );
           })}
+
+          <section
+            className="index-category"
+            id="blogs"
+            aria-labelledby="blogs-label"
+          >
+            <h3 className="index-category-label" id="blogs-label">
+              BLOGS
+            </h3>
+            <MediumPostList headingLevel="h4" posts={mediumPosts} />
+            <div className="index-list">
+              <article className="index-row">
+                <Link className="index-main" href="/blogs">
+                  <h4 className="index-title">ALL BLOGS</h4>
+                </Link>
+                <span className="index-meta">CURRENT MEDIUM FEED</span>
+                <span aria-hidden="true" className="index-action">
+                  VIEW →
+                </span>
+              </article>
+            </div>
+          </section>
 
           <section
             className="index-category"
