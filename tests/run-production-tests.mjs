@@ -5,6 +5,11 @@ import { fileURLToPath } from "node:url";
 import { setTimeout as delay } from "node:timers/promises";
 import { mediumFeedFixture } from "./medium-feed-fixture.mjs";
 
+const hostileMediumFeedFixture = mediumFeedFixture.replace(
+  "MEDIUM POST 03",
+  "</script><script>globalThis.__mediumXssExecuted=1</script>",
+);
+
 const projectRoot = fileURLToPath(new URL("../", import.meta.url));
 const nextCli = fileURLToPath(
   new URL("../node_modules/next/dist/bin/next", import.meta.url),
@@ -97,7 +102,7 @@ async function stopProcess(child) {
 const feedServer = createServer((request, response) => {
   if (request.url === "/feed") {
     response.writeHead(200, { "content-type": "application/rss+xml" });
-    response.end(mediumFeedFixture);
+    response.end(hostileMediumFeedFixture);
     return;
   }
 
@@ -114,6 +119,7 @@ try {
   const appUrl = `http://127.0.0.1:${appPort}`;
   const testEnvironment = {
     ...process.env,
+    MEDIUM_FEED_ALLOW_LOCALHOST: "1",
     MEDIUM_FEED_URL: feedUrl,
   };
 
@@ -132,7 +138,12 @@ try {
   await waitForServer(appUrl, nextProcess);
   await run(
     process.execPath,
-    ["--test", "tests/rendered-html.test.mjs", "tests/medium-feed.test.mjs"],
+    [
+      "--test",
+      "tests/rendered-html.test.mjs",
+      "tests/medium-feed.test.mjs",
+      "tests/github-feed.test.mjs",
+    ],
     {
       ...testEnvironment,
       TEST_BASE_URL: appUrl,
@@ -140,5 +151,5 @@ try {
   );
 } finally {
   await stopProcess(nextProcess);
-  await close(feedServer);
+  if (feedServer.listening) await close(feedServer);
 }

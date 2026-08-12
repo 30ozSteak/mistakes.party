@@ -1,0 +1,41 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "mistakes-party-drawing-realtime",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-12",
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "DRAWING_ROOMS",
+        "class_name": "DrawingRoom"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["DrawingRoom"]
+    }
+  ],
+  "vars": {
+    "ALLOWED_ORIGINS": "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3100,http://127.0.0.1:3100",
+    "ROOM_TTL_SECONDS": "1800"
+  },
+  "env": {
+    "production": {
+      "name": "mistakes-party-drawing-realtime",
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "DRAWING_ROOMS",
+            "class_name": "DrawingRoom"
+          }
+        ]
+      },
+      "vars": {
+        "ALLOWED_ORIGINS": "https://www.mistakes.party",
+        "ROOM_TTL_SECONDS": "1800"
+      }
+    }
+  }
+}

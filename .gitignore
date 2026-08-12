@@ -14,9 +14,13 @@
 /coverage
 /playwright-report/
 /test-results/
+/worker/.wrangler/
+/.wrangler/
+/private/tmp/
 
 # next.js
 /.next/
+/.next-playwright/
 
 # misc
 .DS_Store

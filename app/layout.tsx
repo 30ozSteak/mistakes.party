@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { connection } from "next/server";
 import { DrawingPlayground } from "./components/DrawingPlayground";
 import "./globals.css";
 
@@ -27,11 +28,15 @@ export const viewport: Viewport = {
   colorScheme: "light",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // A fresh CSP nonce must be generated and applied for every HTML response.
+  // Data fetches may still use their own Next.js revalidation caches.
+  await connection();
+
   return (
     <html lang="en">
       <head>

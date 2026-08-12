@@ -1,36 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-type GithubRepo = {
-  id: number;
-  name: string;
-  html_url: string;
-  description: string | null;
-  language: string | null;
-  stargazers_count: number;
-  updated_at: string;
-  fork: boolean;
-  archived: boolean;
-  disabled: boolean;
-};
+import {
+  parseGithubRepoCache,
+  parseGithubRepos,
+  type GithubRepo,
+} from "../lib/github";
 
 type FeedState = "loading" | "live" | "cached" | "fallback";
 
 const CACHE_KEY = "mistakes-party.github.v3";
-const CACHE_TTL = 6 * 60 * 60 * 1000;
 const INDEXED_REPOS = new Set(["lighthouse-checker", "itadw"]);
-
-function isRepo(value: unknown): value is GithubRepo {
-  if (!value || typeof value !== "object") return false;
-  const repo = value as Partial<GithubRepo>;
-  return (
-    typeof repo.id === "number" &&
-    typeof repo.name === "string" &&
-    typeof repo.html_url === "string" &&
-    typeof repo.updated_at === "string"
-  );
-}
 
 function formatDate(value: string) {
   if (!value) return "PUBLIC";
@@ -53,24 +33,11 @@ export function GithubFeed() {
     async function loadRepos() {
       try {
         const cached = window.localStorage.getItem(CACHE_KEY);
-        if (cached) {
-          const parsed = JSON.parse(cached) as {
-            savedAt?: number;
-            repos?: unknown[];
-          };
-          const cachedRepos = Array.isArray(parsed.repos)
-            ? parsed.repos.filter(isRepo)
-            : [];
-
-          if (
-            cachedRepos.length > 0 &&
-            typeof parsed.savedAt === "number" &&
-            Date.now() - parsed.savedAt < CACHE_TTL
-          ) {
-            setRepos(cachedRepos.slice(0, 2));
-            setFeedState("cached");
-            return;
-          }
+        const cachedRepos = parseGithubRepoCache(cached);
+        if (cachedRepos) {
+          setRepos(cachedRepos);
+          setFeedState("cached");
+          return;
         }
 
         const response = await fetch(
@@ -83,10 +50,7 @@ export function GithubFeed() {
 
         if (!response.ok) throw new Error(`GitHub returned ${response.status}`);
         const payload: unknown = await response.json();
-        if (!Array.isArray(payload)) throw new Error("Unexpected GitHub response");
-
-        const publicRepos = payload
-          .filter(isRepo)
+        const publicRepos = parseGithubRepos(payload)
           .filter((repo) => !repo.fork && !repo.archived && !repo.disabled)
           .filter((repo) => !INDEXED_REPOS.has(repo.name.toLowerCase()))
           .sort(

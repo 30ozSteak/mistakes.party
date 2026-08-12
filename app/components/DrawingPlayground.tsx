@@ -6,6 +6,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -23,13 +24,80 @@ import {
   type StrokeRecord,
   writePreferences,
 } from "./drawingStorage";
+import {
+  createDrawingRoomId,
+  type DrawingClientMessage,
+  type DrawingParticipant,
+  DRAWING_ROOM_MAX_POINTS_PER_MESSAGE,
+  type DrawingServerMessage,
+  type DrawingSharedStroke,
+  DRAWING_STROKE_OPACITY,
+  DRAWING_STROKE_WIDTH,
+  drawingRoomWebSocketProtocols,
+  drawingRoomWebSocketUrl,
+  isDrawingParticipantId,
+  isDrawingParticipantName,
+  isDrawingParticipantToken,
+  isDrawingRoomId,
+  parseDrawingServerMessageJson,
+} from "../lib/drawingRealtimeProtocol";
 
-const STROKE_WIDTH = 32;
-const STROKE_OPACITY = 0.45;
+const STROKE_WIDTH = DRAWING_STROKE_WIDTH;
+const STROKE_OPACITY = DRAWING_STROKE_OPACITY;
 const SAMPLE_DISTANCE = 3;
 const IDLE_BREAK_MS = 150;
 const CHECKPOINT_INTERVAL_MS = 1_000;
 const CLEAR_CONFIRMATION_MS = 5_000;
+const PARTY_SEND_INTERVAL_MS = 50;
+const PARTY_SESSION_KEY = "mistakes-party.drawing.party.v1";
+const PARTY_IDENTITY_KEY_PREFIX = "mistakes-party.drawing.participant.v2.";
+const LEGACY_PARTY_IDENTITY_KEY = "mistakes-party.drawing.participant.v1";
+const PARTY_REALTIME_URL =
+  process.env.NEXT_PUBLIC_DRAWING_REALTIME_URL?.trim() ?? "";
+
+const PARTY_ADJECTIVES = [
+  "Acid",
+  "Electric",
+  "Hot",
+  "Wonky",
+  "Neon",
+  "Lucky",
+] as const;
+const PARTY_CREATURES = [
+  "Moth",
+  "Pigeon",
+  "Possum",
+  "Snail",
+  "Goblin",
+  "Raccoon",
+] as const;
+
+type PartyConnectionState =
+  | "solo"
+  | "connecting"
+  | "syncing"
+  | "clearing"
+  | "live"
+  | "reconnecting"
+  | "full"
+  | "unavailable"
+  | "offline";
+
+type PartyIdentity = {
+  id: string;
+  name: string;
+  token: string;
+};
+
+type RemoteCursor = {
+  authorId: string;
+  authorName: string;
+  route: string;
+  x: number;
+  y: number;
+  color: HighlighterColor;
+  visible: boolean;
+};
 
 type Point = {
   x: number;
@@ -50,6 +118,131 @@ function createStrokeId(): string {
   }
 
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+function partyIdentityStorageKey(roomId: string): string {
+  return `${PARTY_IDENTITY_KEY_PREFIX}${roomId}`;
+}
+
+function discardLegacyPartyIdentity() {
+  try {
+    window.localStorage.removeItem(LEGACY_PARTY_IDENTITY_KEY);
+  } catch {
+    // Legacy storage may be unavailable; it is never read or reused.
+  }
+}
+
+function readPartyIdentity(roomId: string): PartyIdentity | null {
+  try {
+    const parsed = JSON.parse(
+      window.sessionStorage.getItem(partyIdentityStorageKey(roomId)) ?? "null",
+    ) as unknown;
+    if (
+      typeof parsed === "object" &&
+      parsed !== null &&
+      "id" in parsed &&
+      "name" in parsed &&
+      "token" in parsed &&
+      isDrawingParticipantId(parsed.id) &&
+      isDrawingParticipantName(parsed.name) &&
+      isDrawingParticipantToken(parsed.token)
+    ) {
+      return { id: parsed.id, name: parsed.name, token: parsed.token };
+    }
+  } catch {
+    // A malformed identity is replaced without affecting private drawings.
+  }
+
+  return null;
+}
+
+function createPartyIdentity(roomId: string): PartyIdentity {
+  const id = createDrawingRoomId();
+  const token = createDrawingRoomId();
+  const name = `${
+    PARTY_ADJECTIVES[Math.floor(Math.random() * PARTY_ADJECTIVES.length)]
+  } ${PARTY_CREATURES[Math.floor(Math.random() * PARTY_CREATURES.length)]}`;
+  const identity = { id, name, token };
+  storePartyIdentity(roomId, identity);
+  return identity;
+}
+
+function storePartyIdentity(roomId: string, identity: PartyIdentity) {
+  try {
+    window.sessionStorage.setItem(
+      partyIdentityStorageKey(roomId),
+      JSON.stringify(identity),
+    );
+  } catch {
+    // The in-memory identity still keeps the current party usable.
+  }
+}
+
+function readOrCreatePartyIdentity(roomId: string): PartyIdentity {
+  return readPartyIdentity(roomId) ?? createPartyIdentity(roomId);
+}
+
+function partyStatusLabel(state: PartyConnectionState): string {
+  switch (state) {
+    case "connecting":
+      return "CONNECTING";
+    case "live":
+      return "LIVE";
+    case "syncing":
+      return "SYNCING PAGE";
+    case "clearing":
+      return "CLEARING MARKS";
+    case "reconnecting":
+      return "RECONNECTING";
+    case "full":
+      return "PARTY FULL";
+    case "unavailable":
+      return "PARTY UNAVAILABLE";
+    case "offline":
+      return "PARTY OFFLINE";
+    default:
+      return "SOLO";
+  }
+}
+
+function parsePartyHash(): string | null {
+  const match = window.location.hash.match(/^#party=([^&]+)$/);
+  if (!match) return null;
+
+  try {
+    const roomId = decodeURIComponent(match[1]);
+    return isDrawingRoomId(roomId) ? roomId : null;
+  } catch {
+    return null;
+  }
+}
+
+function readSessionParty(): string | null {
+  try {
+    const roomId = window.sessionStorage.getItem(PARTY_SESSION_KEY);
+    return isDrawingRoomId(roomId) ? roomId : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSessionParty(roomId: string | null) {
+  try {
+    if (roomId) {
+      window.sessionStorage.setItem(PARTY_SESSION_KEY, roomId);
+    } else {
+      window.sessionStorage.removeItem(PARTY_SESSION_KEY);
+    }
+  } catch {
+    // Party membership still works until this document is closed.
+  }
+}
+
+function inviteUrl(roomId: string): string {
+  const url = new URL(window.location.href);
+  url.searchParams.delete("party");
+  url.hash = `party=${encodeURIComponent(roomId)}`;
+  return url.toString();
 }
 
 function drawStroke(context: CanvasRenderingContext2D, stroke: StrokeRecord) {
@@ -99,17 +292,48 @@ export function DrawingPlayground() {
   const [clearConfirming, setClearConfirming] = useState(false);
   const [notSaving, setNotSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
+  const [partyRoomId, setPartyRoomId] = useState<string | null>(null);
+  const [partyState, setPartyState] =
+    useState<PartyConnectionState>("solo");
+  const [partyParticipants, setPartyParticipants] = useState<
+    DrawingParticipant[]
+  >([]);
+  const [partyIdentity, setPartyIdentity] = useState<PartyIdentity | null>(null);
+  const [partyShareUrl, setPartyShareUrl] = useState("");
+  const [partyError, setPartyError] = useState("");
+  const [remoteCursors, setRemoteCursors] = useState<RemoteCursor[]>([]);
 
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const markerRef = useRef<HTMLSpanElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const shareLinkRef = useRef<HTMLInputElement>(null);
   const enabledRef = useRef(false);
   const colorRef = useRef<HighlighterColor>(DEFAULT_COLOR);
   const routeRef = useRef(route);
   const currentStrokesRef = useRef<StrokeRecord[]>([]);
   const memoryStrokesRef = useRef(new Map<string, StrokeRecord[]>());
+  const partyRoomIdRef = useRef<string | null>(null);
+  const partyStateRef = useRef<PartyConnectionState>("solo");
+  const partyIdentityRef = useRef<PartyIdentity | null>(null);
+  const partySocketRef = useRef<WebSocket | null>(null);
+  const partyReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const partyReconnectAttemptsRef = useRef(0);
+  const partyStrokesRef = useRef<DrawingSharedStroke[]>([]);
+  const partyMemoryStrokesRef = useRef(
+    new Map<string, DrawingSharedStroke[]>(),
+  );
+  const partyFatalRef = useRef(false);
+  const partyRouteReadyRef = useRef(false);
+  const partyClearPendingRouteRef = useRef<string | null>(null);
+  const partySentPointIndexRef = useRef(0);
+  const partyAppendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const partyCursorVisibleRef = useRef(false);
+  const lastPartyCursorSentRef = useRef(0);
   const activeStrokeRef = useRef<StrokeRecord | null>(null);
+  const activeStrokePartyRef = useRef(false);
   const activePointerIdRef = useRef<number | null>(null);
   const activeRawPointRef = useRef<Point | null>(null);
   const lastCheckpointRef = useRef(0);
@@ -157,7 +381,11 @@ export function DrawingPlayground() {
       bottom: window.scrollY + viewportHeight,
     };
 
-    for (const stroke of currentStrokesRef.current) {
+    const visibleStrokes = partyRoomIdRef.current
+      ? partyStrokesRef.current
+      : currentStrokesRef.current;
+
+    for (const stroke of visibleStrokes) {
       const padding = stroke.width / 2;
       if (
         stroke.bounds.maxX + padding < viewport.left ||
@@ -186,6 +414,66 @@ export function DrawingPlayground() {
       setNotSaving(true);
     }
   }, []);
+
+  const updatePartyState = useCallback((nextState: PartyConnectionState) => {
+    partyStateRef.current = nextState;
+    if (mountedRef.current) setPartyState(nextState);
+  }, []);
+
+  const sendPartyMessage = useCallback(
+    (message: DrawingClientMessage): boolean => {
+      const socket = partySocketRef.current;
+      if (!socket || socket.readyState !== WebSocket.OPEN) return false;
+
+      try {
+        socket.send(JSON.stringify(message));
+        return true;
+      } catch {
+        updatePartyState("reconnecting");
+        return false;
+      }
+    },
+    [updatePartyState],
+  );
+
+  const flushPartyAppend = useCallback(
+    (stroke: StrokeRecord | null = activeStrokeRef.current) => {
+      if (partyAppendTimerRef.current !== null) {
+        clearTimeout(partyAppendTimerRef.current);
+        partyAppendTimerRef.current = null;
+      }
+      if (!stroke || !activeStrokePartyRef.current) return;
+
+      const maximumCoordinates = DRAWING_ROOM_MAX_POINTS_PER_MESSAGE * 2;
+      while (partySentPointIndexRef.current < stroke.points.length) {
+        const startIndex = partySentPointIndexRef.current;
+        const points = stroke.points.slice(
+          startIndex,
+          startIndex + maximumCoordinates,
+        );
+        if (points.length < 2) return;
+
+        const sent = sendPartyMessage({
+          type: "stroke:append",
+          route: stroke.route,
+          strokeId: stroke.id,
+          points,
+          bounds: { ...stroke.bounds },
+        });
+        if (!sent) return;
+        partySentPointIndexRef.current = startIndex + points.length;
+      }
+    },
+    [sendPartyMessage],
+  );
+
+  const queuePartyAppend = useCallback(() => {
+    if (partyAppendTimerRef.current !== null) return;
+    partyAppendTimerRef.current = setTimeout(() => {
+      partyAppendTimerRef.current = null;
+      flushPartyAppend();
+    }, PARTY_SEND_INTERVAL_MS);
+  }, [flushPartyAppend]);
 
   const enqueueStrokeSave = useCallback(
     (stroke: StrokeRecord) => {
@@ -220,7 +508,18 @@ export function DrawingPlayground() {
     if (markerRef.current) {
       markerRef.current.dataset.visible = "false";
     }
-  }, []);
+    if (partyCursorVisibleRef.current) {
+      partyCursorVisibleRef.current = false;
+      sendPartyMessage({
+        type: "cursor:move",
+        route: routeRef.current,
+        x: 0,
+        y: 0,
+        color: colorRef.current,
+        visible: false,
+      });
+    }
+  }, [sendPartyMessage]);
 
   const finishActiveStroke = useCallback(() => {
     if (idleTimerRef.current !== null) {
@@ -242,15 +541,26 @@ export function DrawingPlayground() {
         stroke.bounds.maxY = Math.max(stroke.bounds.maxY, rawPoint.y);
       }
 
-      enqueueStrokeSave(stroke);
+      if (activeStrokePartyRef.current) {
+        flushPartyAppend(stroke);
+        sendPartyMessage({
+          type: "stroke:end",
+          route: stroke.route,
+          strokeId: stroke.id,
+        });
+      } else {
+        enqueueStrokeSave(stroke);
+      }
       scheduleRedraw();
     }
 
     activeStrokeRef.current = null;
     activePointerIdRef.current = null;
     activeRawPointRef.current = null;
+    activeStrokePartyRef.current = false;
+    partySentPointIndexRef.current = 0;
     lastCheckpointRef.current = 0;
-  }, [enqueueStrokeSave, scheduleRedraw]);
+  }, [enqueueStrokeSave, flushPartyAppend, scheduleRedraw, sendPartyMessage]);
 
   const resetIdleTimer = useCallback(() => {
     if (idleTimerRef.current !== null) {
@@ -261,6 +571,16 @@ export function DrawingPlayground() {
 
   const addDocumentPoint = useCallback(
     (point: Point, pointerId: number) => {
+      const drawingInParty = partyRoomIdRef.current !== null;
+      if (
+        drawingInParty &&
+        (partyStateRef.current !== "live" ||
+          !partyRouteReadyRef.current ||
+          partyClearPendingRouteRef.current !== null)
+      ) {
+        return;
+      }
+
       let stroke = activeStrokeRef.current;
 
       if (!stroke) {
@@ -282,9 +602,36 @@ export function DrawingPlayground() {
           },
         };
         activeStrokeRef.current = stroke;
+        activeStrokePartyRef.current = drawingInParty;
         activePointerIdRef.current = pointerId;
-        currentStrokesRef.current.push(stroke);
-        memoryStrokesRef.current.set(routeRef.current, currentStrokesRef.current);
+
+        if (drawingInParty) {
+          const identity = partyIdentityRef.current;
+          if (!identity) {
+            activeStrokeRef.current = null;
+            activeStrokePartyRef.current = false;
+            return;
+          }
+
+          const sharedStroke: DrawingSharedStroke = {
+            ...stroke,
+            authorId: identity.id,
+            authorName: identity.name,
+          };
+          partyStrokesRef.current.push(sharedStroke);
+          partyMemoryStrokesRef.current.set(
+            routeRef.current,
+            partyStrokesRef.current,
+          );
+          partySentPointIndexRef.current = stroke.points.length;
+          sendPartyMessage({ type: "stroke:start", stroke });
+        } else {
+          currentStrokesRef.current.push(stroke);
+          memoryStrokesRef.current.set(
+            routeRef.current,
+            currentStrokesRef.current,
+          );
+        }
         lastCheckpointRef.current = now;
       } else {
         const lastX = stroke.points[stroke.points.length - 2];
@@ -313,14 +660,16 @@ export function DrawingPlayground() {
       activeRawPointRef.current = point;
 
       const now = Date.now();
-      if (now - lastCheckpointRef.current >= CHECKPOINT_INTERVAL_MS) {
+      if (activeStrokePartyRef.current) {
+        queuePartyAppend();
+      } else if (now - lastCheckpointRef.current >= CHECKPOINT_INTERVAL_MS) {
         lastCheckpointRef.current = now;
         enqueueStrokeSave(stroke);
       }
 
       scheduleRedraw();
     },
-    [enqueueStrokeSave, scheduleRedraw],
+    [enqueueStrokeSave, queuePartyAppend, scheduleRedraw, sendPartyMessage],
   );
 
   const commitPreferences = useCallback(
@@ -352,6 +701,7 @@ export function DrawingPlayground() {
   useEffect(() => {
     mountedRef.current = true;
     const preferences = readPreferences();
+    discardLegacyPartyIdentity();
     enabledRef.current = preferences.enabled;
     colorRef.current = preferences.color;
     // Browser preferences can only be restored after the server-rendered shell
@@ -364,10 +714,351 @@ export function DrawingPlayground() {
       setNotSaving(true);
     }
 
+    const invitedRoom = parsePartyHash();
+    const rememberedRoom = readSessionParty();
+    const initialRoom = invitedRoom ?? rememberedRoom;
+    if (initialRoom) {
+      const identity = readOrCreatePartyIdentity(initialRoom);
+      partyRoomIdRef.current = initialRoom;
+      partyIdentityRef.current = identity;
+      partyRouteReadyRef.current = false;
+      partyClearPendingRouteRef.current = null;
+      setPartyRoomId(initialRoom);
+      setPartyIdentity(identity);
+      writeSessionParty(initialRoom);
+      setPartyShareUrl(inviteUrl(initialRoom));
+      updatePartyState(PARTY_REALTIME_URL ? "connecting" : "unavailable");
+    }
+
+    if (invitedRoom) {
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.hash = "";
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${cleanUrl.pathname}${cleanUrl.search}`,
+      );
+    }
+
     return () => {
       mountedRef.current = false;
     };
-  }, []);
+  }, [updatePartyState]);
+
+  useLayoutEffect(() => {
+    if (routeRef.current === route || !partyRoomIdRef.current) return;
+    // Block pointer input before the browser can dispatch events against the
+    // newly rendered route. Its cached canvas is only a preview until the room
+    // actor supplies the authoritative snapshot for this pathname.
+    partyRouteReadyRef.current = false;
+    if (
+      partyStateRef.current === "live" ||
+      partyStateRef.current === "clearing" ||
+      partyStateRef.current === "syncing"
+    ) {
+      updatePartyState("syncing");
+    }
+  }, [route, updatePartyState]);
+
+  useEffect(() => {
+    if (!partyRoomId || !partyIdentity) return;
+    const activeRoomId = partyRoomId;
+    const activeIdentity = partyIdentity;
+    if (!PARTY_REALTIME_URL) {
+      return;
+    }
+
+    let disposed = false;
+
+    function installSnapshot(
+      snapshotRoute: string,
+      strokes: DrawingSharedStroke[],
+    ) {
+      const snapshot = strokes.map((stroke) => ({
+        ...stroke,
+        points: [...stroke.points],
+        bounds: { ...stroke.bounds },
+      }));
+      partyMemoryStrokesRef.current.set(snapshotRoute, snapshot);
+      if (routeRef.current === snapshotRoute) {
+        partyStrokesRef.current = snapshot;
+        scheduleRedraw();
+      }
+    }
+
+    function handleServerMessage(message: DrawingServerMessage) {
+      if (
+        disposed ||
+        partyFatalRef.current ||
+        partyRoomIdRef.current !== activeRoomId
+      ) {
+        return;
+      }
+
+      switch (message.type) {
+        case "welcome":
+          partyReconnectAttemptsRef.current = 0;
+          // A welcome is an authoritative reconnect snapshot. It resolves a
+          // clear whose acknowledgement may have been lost with the old socket.
+          partyClearPendingRouteRef.current = null;
+          setPartyParticipants(message.participants);
+          setPartyError("");
+          installSnapshot(message.route, message.strokes);
+          // Navigation can finish while the WebSocket handshake is still in
+          // flight. Reassert the live pathname before any subsequent stroke
+          // messages so the server and canvas cannot remain on different pages.
+          if (message.route !== routeRef.current) {
+            partyRouteReadyRef.current = false;
+            updatePartyState("syncing");
+            sendPartyMessage({ type: "route:set", route: routeRef.current });
+          } else {
+            partyRouteReadyRef.current = true;
+            updatePartyState("live");
+          }
+          break;
+        case "presence":
+          setPartyParticipants(message.participants);
+          setRemoteCursors((cursors) => {
+            const participantIds = new Set(
+              message.participants.map((participant) => participant.id),
+            );
+            return cursors.filter((cursor) => participantIds.has(cursor.authorId));
+          });
+          break;
+        case "route:snapshot":
+          installSnapshot(message.route, message.strokes);
+          if (message.route === routeRef.current) {
+            partyRouteReadyRef.current = true;
+            updatePartyState(
+              partyClearPendingRouteRef.current === null ? "live" : "clearing",
+            );
+            setStatusMessage(
+              partyClearPendingRouteRef.current === null
+                ? "Shared drawing synced for this page."
+                : "Shared drawing synced. Waiting for clear confirmation.",
+            );
+          }
+          break;
+        case "stroke:start": {
+          const routeStrokes =
+            partyMemoryStrokesRef.current.get(message.stroke.route) ?? [];
+          const existingIndex = routeStrokes.findIndex(
+            (stroke) =>
+              stroke.id === message.stroke.id &&
+              stroke.authorId === message.stroke.authorId,
+          );
+          if (existingIndex < 0) {
+            routeStrokes.push({
+              ...message.stroke,
+              points: [...message.stroke.points],
+              bounds: { ...message.stroke.bounds },
+            });
+          }
+          partyMemoryStrokesRef.current.set(message.stroke.route, routeStrokes);
+          if (routeRef.current === message.stroke.route) {
+            partyStrokesRef.current = routeStrokes;
+            scheduleRedraw();
+          }
+          break;
+        }
+        case "stroke:append": {
+          const routeStrokes =
+            partyMemoryStrokesRef.current.get(message.route) ?? [];
+          const stroke = routeStrokes.find(
+            (candidate) =>
+              candidate.id === message.strokeId &&
+              candidate.authorId === message.authorId,
+          );
+          if (stroke) {
+            stroke.points.push(...message.points);
+            stroke.bounds = { ...message.bounds };
+            if (routeRef.current === message.route) scheduleRedraw();
+          }
+          break;
+        }
+        case "strokes:cleared": {
+          const routeStrokes = (
+            partyMemoryStrokesRef.current.get(message.route) ?? []
+          ).filter((stroke) => stroke.authorId !== message.authorId);
+          partyMemoryStrokesRef.current.set(message.route, routeStrokes);
+          if (routeRef.current === message.route) {
+            partyStrokesRef.current = routeStrokes;
+            scheduleRedraw();
+          }
+          if (
+            message.authorId === activeIdentity.id &&
+            partyClearPendingRouteRef.current === message.route
+          ) {
+            partyClearPendingRouteRef.current = null;
+            updatePartyState(
+              partyRouteReadyRef.current ? "live" : "syncing",
+            );
+            setStatusMessage("Your shared marks were cleared from this page.");
+          }
+          break;
+        }
+        case "room:reset":
+          partyMemoryStrokesRef.current.clear();
+          partyStrokesRef.current = [];
+          scheduleRedraw();
+          break;
+        case "cursor:move":
+          if (message.authorId === partyIdentityRef.current?.id) break;
+          setRemoteCursors((cursors) => {
+            const remaining = cursors.filter(
+              (cursor) => cursor.authorId !== message.authorId,
+            );
+            return message.visible
+              ? [...remaining, { ...message }]
+              : remaining;
+          });
+          break;
+        case "error":
+          setPartyError(message.message);
+          if (message.fatal) {
+            partyFatalRef.current = true;
+            partyRouteReadyRef.current = false;
+            partyClearPendingRouteRef.current = null;
+            updatePartyState(message.code === "ROOM_FULL" ? "full" : "offline");
+          }
+          break;
+        case "stroke:end":
+        case "pong":
+          break;
+      }
+    }
+
+    function connect() {
+      if (disposed || partyFatalRef.current) return;
+      const existingSocket = partySocketRef.current;
+      if (
+        existingSocket?.readyState === WebSocket.OPEN ||
+        existingSocket?.readyState === WebSocket.CONNECTING
+      ) {
+        return;
+      }
+      if (!navigator.onLine) {
+        partyRouteReadyRef.current = false;
+        updatePartyState("offline");
+        return;
+      }
+
+      partyRouteReadyRef.current = false;
+      updatePartyState(
+        partyReconnectAttemptsRef.current > 0 ? "reconnecting" : "connecting",
+      );
+
+      let socket: WebSocket;
+      try {
+        socket = new WebSocket(
+          drawingRoomWebSocketUrl(
+            PARTY_REALTIME_URL,
+            activeRoomId,
+            activeIdentity.id,
+            activeIdentity.name,
+            routeRef.current,
+          ),
+          drawingRoomWebSocketProtocols(activeIdentity.token),
+        );
+      } catch {
+        updatePartyState("unavailable");
+        setPartyError("The realtime drawing address is invalid.");
+        return;
+      }
+
+      partySocketRef.current = socket;
+      socket.addEventListener("message", (event) => {
+        if (disposed || partySocketRef.current !== socket) return;
+        if (typeof event.data !== "string") return;
+        const message = parseDrawingServerMessageJson(event.data);
+        if (message) handleServerMessage(message);
+      });
+      socket.addEventListener("error", () => {
+        if (
+          !disposed &&
+          partySocketRef.current === socket &&
+          !partyFatalRef.current
+        ) {
+          setPartyError("Connection interrupted.");
+        }
+      });
+      socket.addEventListener("close", () => {
+        if (
+          disposed ||
+          partyFatalRef.current ||
+          partySocketRef.current !== socket
+        ) {
+          return;
+        }
+
+        partySocketRef.current = null;
+        partyRouteReadyRef.current = false;
+        setRemoteCursors([]);
+        partyReconnectAttemptsRef.current += 1;
+        updatePartyState(
+          partyReconnectAttemptsRef.current > 4 ? "offline" : "reconnecting",
+        );
+        const delay = Math.min(
+          8_000,
+          500 * 2 ** (partyReconnectAttemptsRef.current - 1),
+        );
+        partyReconnectTimerRef.current = setTimeout(connect, delay);
+      });
+    }
+
+    partyFatalRef.current = false;
+    partyReconnectAttemptsRef.current = 0;
+    connect();
+
+    function handleOnline() {
+      if (
+        disposed ||
+        partyFatalRef.current ||
+        partyRoomIdRef.current !== activeRoomId
+      ) {
+        return;
+      }
+      if (partyReconnectTimerRef.current !== null) {
+        clearTimeout(partyReconnectTimerRef.current);
+        partyReconnectTimerRef.current = null;
+      }
+      connect();
+    }
+
+    function handleOffline() {
+      if (
+        disposed ||
+        partyFatalRef.current ||
+        partyRoomIdRef.current !== activeRoomId
+      ) {
+        return;
+      }
+      partyRouteReadyRef.current = false;
+      updatePartyState("offline");
+    }
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      disposed = true;
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+      if (partyReconnectTimerRef.current !== null) {
+        clearTimeout(partyReconnectTimerRef.current);
+        partyReconnectTimerRef.current = null;
+      }
+      const socket = partySocketRef.current;
+      partySocketRef.current = null;
+      socket?.close(1000, "Leaving party");
+    };
+  }, [
+    partyIdentity,
+    partyRoomId,
+    scheduleRedraw,
+    sendPartyMessage,
+    updatePartyState,
+  ]);
 
   useEffect(() => {
     const loadGeneration = loadGenerationRef.current + 1;
@@ -376,11 +1067,21 @@ export function DrawingPlayground() {
     if (routeRef.current !== route) {
       cancelClearConfirmation();
       finishActiveStroke();
+      hideMarker();
       routeRef.current = route;
     }
 
     const cachedStrokes = memoryStrokesRef.current.get(route);
     currentStrokesRef.current = cachedStrokes ?? [];
+
+    if (partyRoomIdRef.current) {
+      partyStrokesRef.current = partyMemoryStrokesRef.current.get(route) ?? [];
+      sendPartyMessage({ type: "route:set", route });
+      setPartyShareUrl(inviteUrl(partyRoomIdRef.current));
+      setRemoteCursors((cursors) =>
+        cursors.filter((cursor) => cursor.route === route && cursor.visible),
+      );
+    }
     scheduleRedraw();
 
     if (cachedStrokes || !storageAvailableRef.current) return;
@@ -412,9 +1113,11 @@ export function DrawingPlayground() {
   }, [
     cancelClearConfirmation,
     finishActiveStroke,
+    hideMarker,
     markStorageUnavailable,
     route,
     scheduleRedraw,
+    sendPartyMessage,
   ]);
 
   useEffect(() => {
@@ -431,6 +1134,10 @@ export function DrawingPlayground() {
 
       if (
         !enabledRef.current ||
+        (partyRoomIdRef.current !== null &&
+          (partyStateRef.current !== "live" ||
+            !partyRouteReadyRef.current ||
+            partyClearPendingRouteRef.current !== null)) ||
         isOverControls ||
         mobileNavigationOpenRef.current
       ) {
@@ -473,6 +1180,24 @@ export function DrawingPlayground() {
         marker.style.transform = `translate3d(${event.clientX - STROKE_WIDTH / 2}px, ${event.clientY - STROKE_WIDTH / 2}px, 0)`;
         marker.dataset.visible = "true";
       }
+
+      const now = performance.now();
+      if (
+        partyRoomIdRef.current &&
+        partyStateRef.current === "live" &&
+        now - lastPartyCursorSentRef.current >= PARTY_SEND_INTERVAL_MS
+      ) {
+        lastPartyCursorSentRef.current = now;
+        partyCursorVisibleRef.current = true;
+        sendPartyMessage({
+          type: "cursor:move",
+          route: routeRef.current,
+          x: event.clientX + window.scrollX,
+          y: event.clientY + window.scrollY,
+          color: colorRef.current,
+          visible: true,
+        });
+      }
     }
 
     function handlePointerCancel(event: PointerEvent) {
@@ -501,6 +1226,9 @@ export function DrawingPlayground() {
 
     function handleViewportChange() {
       scheduleRedraw();
+      if (partyRoomIdRef.current) {
+        setRemoteCursors((cursors) => [...cursors]);
+      }
     }
 
     window.addEventListener("pointermove", handlePointerMove, {
@@ -531,6 +1259,7 @@ export function DrawingPlayground() {
     hideMarker,
     resetIdleTimer,
     scheduleRedraw,
+    sendPartyMessage,
   ]);
 
   useEffect(() => {
@@ -566,6 +1295,7 @@ export function DrawingPlayground() {
     return () => {
       if (frameRef.current !== null) {
         window.cancelAnimationFrame(frameRef.current);
+        frameRef.current = null;
       }
       if (idleTimerRef.current !== null) {
         clearTimeout(idleTimerRef.current);
@@ -647,15 +1377,120 @@ export function DrawingPlayground() {
     setStatusMessage("Drawing cleared. Drawing mode off.");
   }
 
+  function handleStartParty() {
+    cancelClearConfirmation();
+    if (!PARTY_REALTIME_URL) {
+      updatePartyState("unavailable");
+      setPartyError("Realtime drawing has not been configured for this site.");
+      setStatusMessage("Party drawing is unavailable.");
+      return;
+    }
+
+    finishActiveStroke();
+    const roomId = createDrawingRoomId();
+    const identity = readOrCreatePartyIdentity(roomId);
+    partyRoomIdRef.current = roomId;
+    partyIdentityRef.current = identity;
+    partyRouteReadyRef.current = false;
+    partyClearPendingRouteRef.current = null;
+    partyStrokesRef.current = [];
+    partyMemoryStrokesRef.current.clear();
+    setPartyRoomId(roomId);
+    setPartyIdentity(identity);
+    setPartyParticipants([]);
+    setPartyError("");
+    setPartyShareUrl(inviteUrl(roomId));
+    writeSessionParty(roomId);
+    updatePartyState("connecting");
+    scheduleRedraw();
+    setStatusMessage("Party created. Connecting now.");
+  }
+
+  async function handleCopyInvite() {
+    if (!partyRoomIdRef.current) return;
+    const url = inviteUrl(partyRoomIdRef.current);
+    setPartyShareUrl(url);
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setStatusMessage("Invite link copied.");
+    } catch {
+      shareLinkRef.current?.focus();
+      shareLinkRef.current?.select();
+      setStatusMessage("Invite link selected. Copy it to share this party.");
+    }
+  }
+
+  function handleClearMine() {
+    if (partyStateRef.current !== "live") return;
+    if (!clearConfirming) {
+      setClearConfirming(true);
+      setStatusMessage(
+        "Press Clear My Marks again within five seconds to erase your shared marks on this page.",
+      );
+      clearTimerRef.current = setTimeout(() => {
+        clearTimerRef.current = null;
+        setClearConfirming(false);
+        setStatusMessage("Clear confirmation expired.");
+      }, CLEAR_CONFIRMATION_MS);
+      return;
+    }
+
+    cancelClearConfirmation();
+    finishActiveStroke();
+    if (sendPartyMessage({ type: "clear:mine", route: routeRef.current })) {
+      partyClearPendingRouteRef.current = routeRef.current;
+      updatePartyState("clearing");
+      hideMarker();
+      setStatusMessage(
+        "Clearing your shared marks. Drawing will resume after the party confirms it.",
+      );
+    } else {
+      setStatusMessage("Could not clear marks while the party is offline.");
+    }
+  }
+
+  function handleLeaveParty() {
+    cancelClearConfirmation();
+    finishActiveStroke();
+    hideMarker();
+    partyFatalRef.current = true;
+    partyRouteReadyRef.current = false;
+    partyClearPendingRouteRef.current = null;
+    if (partyReconnectTimerRef.current !== null) {
+      clearTimeout(partyReconnectTimerRef.current);
+      partyReconnectTimerRef.current = null;
+    }
+    const partySocket = partySocketRef.current;
+    partySocketRef.current = null;
+    partySocket?.close(1000, "Leaving party");
+    partyRoomIdRef.current = null;
+    partyIdentityRef.current = null;
+    setPartyRoomId(null);
+    setPartyIdentity(null);
+    setPartyParticipants([]);
+    setPartyError("");
+    setPartyShareUrl("");
+    setRemoteCursors([]);
+    writeSessionParty(null);
+    updatePartyState("solo");
+    scheduleRedraw();
+    setStatusMessage("You left the drawing party.");
+  }
+
   const rootStyle = {
     "--drawing-color": color,
   } as CSSProperties;
+  const partyToolsVisible =
+    enabled || partyRoomId !== null;
 
   return (
     <div
       className="drawing-playground"
       data-enabled={enabled}
       data-hydrated={hydrated}
+      data-party-id={partyRoomId ?? undefined}
+      data-party-state={partyState}
       data-saving={notSaving ? "memory-only" : "persistent"}
       data-testid="drawing-playground"
       ref={rootRef}
@@ -676,6 +1511,25 @@ export function DrawingPlayground() {
         ref={markerRef}
       />
 
+      {remoteCursors
+        .filter((cursor) => cursor.visible && cursor.route === route)
+        .map((cursor) => (
+          <span
+            aria-hidden="true"
+            className="drawing-remote-cursor"
+            data-testid="party-remote-cursor"
+            key={cursor.authorId}
+            style={
+              {
+                "--remote-cursor-color": cursor.color,
+                transform: `translate3d(${cursor.x - window.scrollX - STROKE_WIDTH / 2}px, ${cursor.y - window.scrollY - STROKE_WIDTH / 2}px, 0)`,
+              } as CSSProperties
+            }
+          >
+            <span>{cursor.authorName}</span>
+          </span>
+        ))}
+
       <div
         className="drawing-toolbar"
         data-drawing-control
@@ -688,9 +1542,9 @@ export function DrawingPlayground() {
       >
         <div
           className="drawing-tool-stack"
-          data-visible={enabled}
+          data-visible={partyToolsVisible}
           id="drawing-tools"
-          inert={!enabled ? true : undefined}
+          inert={!partyToolsVisible ? true : undefined}
         >
           <div
             aria-label="Highlighter color"
@@ -719,20 +1573,120 @@ export function DrawingPlayground() {
             ))}
           </div>
 
-          <button
-            aria-label={
-              clearConfirming
-                ? "Confirm clear drawing for this page"
-                : "Clear drawing for this page"
-            }
-            className="drawing-clear"
-            data-confirming={clearConfirming || undefined}
-            data-testid="drawing-clear"
-            onClick={handleClear}
-            type="button"
-          >
-            {clearConfirming ? "SURE?" : "CLEAR"}
-          </button>
+          {partyRoomId === null ? (
+            <>
+              <button
+                aria-label={
+                  clearConfirming
+                    ? "Confirm clear drawing for this page"
+                    : "Clear drawing for this page"
+                }
+                className="drawing-clear"
+                data-confirming={clearConfirming || undefined}
+                data-testid="drawing-clear"
+                onClick={handleClear}
+                type="button"
+              >
+                {clearConfirming ? "SURE?" : "CLEAR"}
+              </button>
+
+              <button
+                className="drawing-party-start"
+                data-testid="party-start"
+                onClick={handleStartParty}
+                type="button"
+              >
+                START PARTY
+              </button>
+
+              {partyState === "unavailable" ? (
+                <div className="drawing-party-panel" data-testid="party-panel">
+                  <strong data-testid="party-live-status">
+                    {partyStatusLabel(partyState)}
+                  </strong>
+                  <p data-testid="party-error" role="alert">
+                    {partyError ||
+                      "Realtime drawing has not been configured for this site."}
+                  </p>
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <section
+              aria-label="Drawing party"
+              className="drawing-party-panel"
+              data-testid="party-panel"
+            >
+              <div
+                aria-atomic="true"
+                aria-live="polite"
+                className="drawing-party-heading"
+                role="status"
+              >
+                <strong data-testid="party-live-status">
+                  {partyStatusLabel(partyState)}
+                </strong>
+                <span data-testid="party-count">
+                  {partyParticipants.length}/4
+                </span>
+              </div>
+
+              {partyIdentity ? (
+                <p className="drawing-party-identity">YOU: {partyIdentity.name}</p>
+              ) : null}
+
+              <label className="drawing-party-invite-label">
+                INVITE LINK
+                <input
+                  className="drawing-party-share-link"
+                  data-testid="party-share-link"
+                  onFocus={(event) => event.currentTarget.select()}
+                  readOnly
+                  ref={shareLinkRef}
+                  type="text"
+                  value={partyShareUrl}
+                />
+              </label>
+
+              <button
+                className="drawing-party-button"
+                data-testid="party-copy-link"
+                onClick={() => void handleCopyInvite()}
+                type="button"
+              >
+                COPY INVITE
+              </button>
+              <button
+                aria-label={
+                  clearConfirming
+                    ? "Confirm clear your shared marks for this page"
+                    : "Clear your shared marks for this page"
+                }
+                className="drawing-party-button"
+                data-confirming={clearConfirming || undefined}
+                data-testid="party-clear-mine"
+                disabled={partyState !== "live"}
+                onClick={handleClearMine}
+                type="button"
+              >
+                {clearConfirming ? "SURE?" : "CLEAR MY MARKS"}
+              </button>
+              <button
+                className="drawing-party-button drawing-party-leave"
+                data-testid="party-leave"
+                onClick={handleLeaveParty}
+                type="button"
+              >
+                LEAVE PARTY
+              </button>
+
+              {partyError ? (
+                <p data-testid="party-error" role="alert">
+                  {partyError}
+                </p>
+              ) : null}
+            </section>
+          )}
         </div>
 
         <span
@@ -753,7 +1707,7 @@ export function DrawingPlayground() {
 
         <button
           aria-controls="drawing-tools"
-          aria-expanded={enabled}
+          aria-expanded={partyToolsVisible}
           aria-label={enabled ? "Turn drawing mode off" : "Turn drawing mode on"}
           aria-pressed={enabled}
           className="drawing-toggle"

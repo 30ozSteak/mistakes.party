@@ -1,7 +1,12 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const port = 3000;
+// Dedicated defaults keep managed E2E services from reusing a developer's
+// already-running `next dev` or Wrangler process with different environment.
+const port = Number(process.env.PLAYWRIGHT_PORT ?? 3100);
+const realtimePort = Number(process.env.PLAYWRIGHT_REALTIME_PORT ?? 8788);
 const managedBaseURL = `http://localhost:${port}`;
+const managedRealtimeURL = `http://127.0.0.1:${realtimePort}`;
+const managedOrigin = `http://localhost:${port}`;
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? managedBaseURL;
 
 export default defineConfig({
@@ -27,13 +32,24 @@ export default defineConfig({
   ],
   webServer: process.env.PLAYWRIGHT_BASE_URL
     ? undefined
-    : {
-        command: `npm run dev -- --hostname 127.0.0.1 --port ${port}`,
-        env: {
-          MEDIUM_FEED_URL: "http://127.0.0.1:9/playwright-offline-feed",
+    : [
+        {
+          command: `npm run dev:realtime -- --port ${realtimePort} --var ALLOWED_ORIGINS:${managedOrigin}`,
+          url: `${managedRealtimeURL}/health`,
+          reuseExistingServer: !process.env.CI,
+          timeout: 120_000,
         },
-        url: managedBaseURL,
-        reuseExistingServer: !process.env.CI,
-        timeout: 120_000,
-      },
+        {
+          command: `npm run dev -- --hostname 127.0.0.1 --port ${port}`,
+          env: {
+            MEDIUM_FEED_URL: "http://127.0.0.1:9/playwright-offline-feed",
+            MEDIUM_FEED_ALLOW_LOCALHOST: "1",
+            NEXT_DIST_DIR: ".next-playwright",
+            NEXT_PUBLIC_DRAWING_REALTIME_URL: managedRealtimeURL,
+          },
+          url: managedBaseURL,
+          reuseExistingServer: !process.env.CI,
+          timeout: 120_000,
+        },
+      ],
 });
