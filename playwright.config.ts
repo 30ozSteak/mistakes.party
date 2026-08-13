@@ -47,6 +47,9 @@ export default defineConfig({
             MEDIUM_FEED_ALLOW_LOCALHOST: "1",
             NEXT_DIST_DIR: ".next-playwright",
             NEXT_PUBLIC_DRAWING_REALTIME_URL: managedRealtimeURL,
+            PATREON_ACCESS_PASSWORD: "playwright-member-password",
+            PATREON_SESSION_SECRET:
+              "playwright-session-secret-at-least-32-characters",
           },
           url: managedBaseURL,
           reuseExistingServer: !process.env.CI,

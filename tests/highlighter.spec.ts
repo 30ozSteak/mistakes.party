@@ -446,3 +446,97 @@ test("redraws retained artwork after scrolling and resizing", async ({ page }) =
   expect(afterResize.centerX).not.toBeNull();
   expect(afterResize.centerY).not.toBeNull();
 });
+
+test("connects an active stroke across scrolling", async ({ page }) => {
+  await openHome(page);
+  await toggle(page).click();
+
+  await page.mouse.move(280, 440);
+  await page.mouse.move(480, 440, { steps: 16 });
+  await page.evaluate(() => window.scrollTo(0, 240));
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(100);
+
+  // Wait beyond the normal idle break so the scroll-connected stroke persists.
+  await page.waitForTimeout(220);
+  await page.mouse.move(560, 440, { steps: 8 });
+  await page.waitForTimeout(220);
+
+  let connectedPoints: number[] | null = null;
+  await expect
+    .poll(async () => {
+      const strokes = await routeStrokes(page, "/");
+      const connected = strokes.find(({ points }) => {
+        if (!Array.isArray(points)) return false;
+        const verticalCoordinates = (points as number[]).filter(
+          (_, index) => index % 2 === 1,
+        );
+        return (
+          verticalCoordinates.length > 1 &&
+          Math.max(...verticalCoordinates) - Math.min(...verticalCoordinates) >
+            200
+        );
+      });
+      connectedPoints = Array.isArray(connected?.points)
+        ? (connected.points as number[])
+        : null;
+      return connectedPoints !== null;
+    })
+    .toBe(true);
+
+  expect(connectedPoints).not.toBeNull();
+  const points = connectedPoints ?? [];
+
+  let largestGap = 0;
+  for (let index = 2; index < points.length; index += 2) {
+    largestGap = Math.max(
+      largestGap,
+      Math.hypot(
+        points[index] - points[index - 2],
+        points[index + 1] - points[index - 1],
+      ),
+    );
+  }
+  expect(largestGap).toBeLessThanOrEqual(3.1);
+
+  const connectionX = points[points.length - 2];
+  const connectionY = points[points.length - 1];
+  await expect
+    .poll(async () => {
+      const strokes = await routeStrokes(page, "/");
+      return strokes.some(({ points: candidate }) => {
+        if (!Array.isArray(candidate) || candidate.length < 4) return false;
+        const candidatePoints = candidate as number[];
+        const startsAtConnection =
+          Math.hypot(
+            candidatePoints[0] - connectionX,
+            candidatePoints[1] - connectionY,
+          ) < 0.5;
+        const reachesResumedPoint =
+          Math.max(
+            ...candidatePoints.filter((_, index) => index % 2 === 0),
+          ) >
+          connectionX + 50;
+        return startsAtConnection && reachesResumedPoint;
+      });
+    })
+    .toBe(true);
+});
+
+test("does not resume drawing when scrolling after an ordinary idle break", async ({
+  page,
+}) => {
+  await openHome(page);
+  await toggle(page).click();
+  await drawLine(page, { x: 280, y: 440 }, { x: 480, y: 440 });
+
+  await expect
+    .poll(async () => (await routeStrokes(page, "/")).length)
+    .toBeGreaterThan(0);
+  const beforeScroll = await routeStrokes(page, "/");
+
+  await page.evaluate(() => window.scrollTo(0, 240));
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(100);
+  await page.waitForTimeout(220);
+
+  expect(await routeStrokes(page, "/")).toEqual(beforeScroll);
+});

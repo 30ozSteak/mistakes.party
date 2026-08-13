@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 type SiteHeaderProps = {
-  currentPage?: "blogs";
+  currentPage?: "blogs" | "patreon";
   indexLink?: boolean;
 };
 
@@ -24,12 +24,14 @@ export function SiteHeader({ currentPage, indexLink = false }: SiteHeaderProps) 
         { href: "/#work", label: "WORK", next: true },
         { href: "/blogs", label: "BLOGS", next: true },
         { href: "/#github", label: "GITHUB", next: true },
+        { href: "/patreon/room", label: "MEMBERS", next: true },
         { href: "/#about", label: "ABOUT", next: true },
       ]
     : [
         { href: "#work", label: "WORK" },
         { href: "/blogs", label: "BLOGS", next: true },
         { href: "#github", label: "GITHUB" },
+        { href: "/patreon/room", label: "MEMBERS", next: true },
         { href: "#about", label: "ABOUT" },
       ];
   const mobileLinks: NavigationLink[] = indexLink
@@ -38,6 +40,7 @@ export function SiteHeader({ currentPage, indexLink = false }: SiteHeaderProps) 
         { href: "/#work", label: "WORK", next: true },
         { href: "/blogs", label: "BLOGS", next: true },
         { href: "/#github", label: "GITHUB", next: true },
+        { href: "/patreon/room", label: "MEMBERS", next: true },
         { href: "/#about", label: "ABOUT", next: true },
       ]
     : desktopLinks;
@@ -144,7 +147,9 @@ export function SiteHeader({ currentPage, indexLink = false }: SiteHeaderProps) 
           link.next ? (
             <Link
               aria-current={
-                currentPage === "blogs" && link.href === "/blogs"
+                (currentPage === "blogs" && link.href === "/blogs") ||
+                (currentPage === "patreon" &&
+                  link.href === "/patreon/room")
                   ? "page"
                   : undefined
               }
@@ -192,7 +197,9 @@ export function SiteHeader({ currentPage, indexLink = false }: SiteHeaderProps) 
           link.next ? (
             <Link
               aria-current={
-                currentPage === "blogs" && link.href === "/blogs"
+                (currentPage === "blogs" && link.href === "/blogs") ||
+                (currentPage === "patreon" &&
+                  link.href === "/patreon/room")
                   ? "page"
                   : undefined
               }

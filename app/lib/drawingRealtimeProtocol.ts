@@ -214,7 +214,10 @@ export function isPublicDrawingRoute(value: unknown): value is string {
     /^\/(?:[A-Za-z0-9._~!$&'()*+,;=:@%-]+\/)*[A-Za-z0-9._~!$&'()*+,;=:@%-]*$/.test(
       value,
     ) &&
-    !value.includes("..")
+    !value.includes("..") &&
+    // Anonymous public drawing lobbies must never overlap member-only pages.
+    value !== "/patreon" &&
+    !value.startsWith("/patreon/")
   );
 }
 

@@ -91,6 +91,7 @@ body {
 }
 
 .drawing-tool-stack {
+  position: relative;
   display: flex;
   max-height: calc(100dvh - 7.5rem);
   flex-direction: column;
@@ -138,6 +139,7 @@ body {
 .drawing-clear,
 .drawing-toggle,
 .drawing-menu-toggle,
+.drawing-menu-close,
 .drawing-scope-button {
   appearance: none;
   border: 0;
@@ -165,6 +167,26 @@ body {
   letter-spacing: -0.12em;
 }
 
+.drawing-menu-close {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  display: grid;
+  inline-size: 2.75rem;
+  min-inline-size: 2.75rem;
+  block-size: 2.75rem;
+  min-block-size: 2.75rem;
+  place-items: center;
+  padding: 0;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  font-size: 1.5rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.drawing-menu-close:hover,
+.drawing-menu-close:focus-visible,
 .drawing-menu-toggle:hover,
 .drawing-menu-toggle:focus-visible {
   background: var(--acid);
@@ -840,12 +862,13 @@ a {
   scroll-margin-top: 4.5rem;
 }
 
-.index-category + .index-category {
-  margin-top: clamp(1.25rem, 2.5vw, 2.75rem);
-}
-
 .index-category-label {
   color: var(--muted);
+}
+
+.index-category-label,
+.index-row {
+  padding: clamp(0.5rem, 1.2vw, 1.1rem) 0;
 }
 
 .index-row {
@@ -854,7 +877,6 @@ a {
   grid-template-columns: minmax(0, 1fr) minmax(7rem, auto);
   gap: clamp(0.75rem, 2vw, 2.5rem);
   align-items: center;
-  padding: clamp(0.5rem, 1.2vw, 1.1rem) 0;
   color: inherit;
   cursor: pointer;
   text-decoration: none;
@@ -874,13 +896,14 @@ a {
 .index-title {
   margin: 0;
   font-family: var(--display);
-  font-size: clamp(3.4rem, 7.4vw, 8.5rem);
+  font-size: clamp(3.7rem, 8vw, 9.25rem);
   font-stretch: condensed;
   font-weight: 900;
-  letter-spacing: -0.035em;
+  letter-spacing: -0.03em;
   line-height: 0.85;
   overflow-wrap: anywhere;
   text-transform: uppercase;
+  -webkit-text-stroke: 0.01em currentColor;
 }
 
 .index-title {
@@ -888,6 +911,7 @@ a {
   isolation: isolate;
   width: fit-content;
   max-width: 100%;
+  line-height: 0.92;
   transition: transform 140ms linear;
 }
 
@@ -1108,6 +1132,214 @@ a {
   text-underline-offset: 0.2em;
 }
 
+/* Patreon door and member room */
+.patreon-page,
+.patreon-room-page {
+  min-height: calc(100svh - 10.25rem);
+}
+
+.patreon-page {
+  padding: 0 var(--gutter) clamp(4rem, 8vw, 8rem);
+}
+
+.patreon-status {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: var(--rule) solid var(--ink);
+}
+
+.patreon-door-grid {
+  display: grid;
+  min-height: min(46rem, calc(100svh - 10rem));
+  grid-template-columns: minmax(0, 3fr) minmax(20rem, 2fr);
+  gap: clamp(3rem, 8vw, 10rem);
+  align-items: center;
+  padding: clamp(3rem, 7vw, 8rem) 0;
+}
+
+.patreon-door-copy h1,
+.patreon-room-hero h1 {
+  margin: clamp(2.5rem, 6vw, 6rem) 0 0;
+  font-family: var(--display);
+  font-size: clamp(5.5rem, 15vw, 16rem);
+  font-weight: 900;
+  letter-spacing: -0.055em;
+  line-height: 0.7;
+  overflow-wrap: anywhere;
+  text-transform: uppercase;
+}
+
+.patreon-door-copy > p:last-child,
+.patreon-room-hero > p:last-child {
+  max-width: 43rem;
+  margin: clamp(2rem, 4vw, 4rem) 0 0;
+  font-size: clamp(1.15rem, 2vw, 2.1rem);
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+}
+
+.patreon-door-panel {
+  padding-top: clamp(1.5rem, 3vw, 3rem);
+  border-top: var(--rule) solid var(--ink);
+}
+
+.patreon-unlock-form {
+  display: grid;
+  gap: 1rem;
+  margin-top: clamp(2.5rem, 5vw, 5rem);
+}
+
+.patreon-password-hint {
+  margin: -0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.patreon-unlock-form input[type="password"] {
+  width: 100%;
+  min-height: 4.5rem;
+  padding: 0.9rem 1rem;
+  border: var(--rule) solid var(--ink);
+  border-radius: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 900 1.25rem/1 var(--mono);
+}
+
+.patreon-unlock-form button,
+.patreon-enter-link,
+.patreon-room-actions > a,
+.patreon-room-actions button {
+  display: flex;
+  min-height: 4.5rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  border: var(--rule) solid var(--ink);
+  border-radius: 0;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--mono);
+  font-size: clamp(0.75rem, 1vw, 0.95rem);
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.patreon-unlock-form button {
+  width: 100%;
+  cursor: pointer;
+}
+
+.patreon-unlock-form button:hover,
+.patreon-unlock-form button:focus-visible,
+.patreon-enter-link:hover,
+.patreon-enter-link:focus-visible,
+.patreon-room-actions > a:hover,
+.patreon-room-actions > a:focus-visible,
+.patreon-room-actions button:hover,
+.patreon-room-actions button:focus-visible {
+  background: var(--acid);
+  color: var(--ink);
+}
+
+.patreon-unlock-form button:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
+.patreon-form-error {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  background: var(--acid);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.patreon-join {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  margin-top: 1.5rem;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.patreon-join a {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.2em;
+}
+
+.patreon-enter-link {
+  margin-top: clamp(2.5rem, 5vw, 5rem);
+}
+
+.patreon-room-hero {
+  min-height: min(48rem, calc(100svh - 4.25rem));
+  padding: 0 var(--gutter) clamp(4rem, 8vw, 8rem);
+}
+
+.patreon-room-hero .patreon-status {
+  padding-top: 1rem;
+}
+
+.patreon-room-hero h1 {
+  max-width: 8ch;
+}
+
+.patreon-room-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(2rem, 5vw, 6rem);
+  padding: clamp(5rem, 10vw, 10rem) var(--gutter);
+  background: var(--acid);
+}
+
+.patreon-room-grid article {
+  padding-top: 1.5rem;
+  border-top: var(--rule) solid var(--ink);
+}
+
+.patreon-room-grid h2 {
+  margin: clamp(3rem, 7vw, 7rem) 0 1.25rem;
+  font-family: var(--display);
+  font-size: clamp(3rem, 6vw, 7rem);
+  letter-spacing: -0.035em;
+  line-height: 0.8;
+  text-transform: uppercase;
+}
+
+.patreon-room-grid article > p:last-child {
+  max-width: 40rem;
+  margin: 0;
+  font-size: clamp(1rem, 1.4vw, 1.35rem);
+  line-height: 1.4;
+}
+
+.patreon-room-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  padding: clamp(4rem, 8vw, 8rem) var(--gutter);
+}
+
+.patreon-room-actions form,
+.patreon-room-actions button {
+  width: 100%;
+  height: 100%;
+}
+
+.patreon-room-actions button {
+  cursor: pointer;
+}
+
 /* Internal project pages */
 .work-hero {
   min-height: min(78svh, 56rem);
@@ -1286,8 +1518,9 @@ a {
 }
 
 @media (max-width: 900px) {
-  .index-category + .index-category {
-    margin-top: 1rem;
+  .patreon-door-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4rem;
   }
 
   .index-row {
@@ -1548,14 +1781,14 @@ a {
     padding-bottom: clamp(4rem, 14vw, 6rem);
   }
 
-  .index-category + .index-category {
-    margin-top: 0.75rem;
+  .index-category-label,
+  .index-row {
+    padding: 0.65rem 0 1rem;
   }
 
   .index-row {
     min-height: 0;
     gap: 0.35rem 0.75rem;
-    padding: 0.65rem 0 1rem;
   }
 
   .index-main {
@@ -1609,6 +1842,42 @@ a {
     gap: 0.75rem 1.5rem;
     padding-top: 2rem;
     padding-bottom: 2rem;
+  }
+
+  .patreon-page {
+    padding-bottom: 4rem;
+  }
+
+  .patreon-status {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .patreon-door-grid {
+    min-height: 0;
+    gap: 3rem;
+    padding: 3rem 0;
+  }
+
+  .patreon-door-copy h1,
+  .patreon-room-hero h1 {
+    margin-top: 3rem;
+    font-size: clamp(4.75rem, 24vw, 8rem);
+  }
+
+  .patreon-room-hero {
+    min-height: auto;
+    padding-bottom: 4rem;
+  }
+
+  .patreon-room-grid,
+  .patreon-room-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .patreon-room-grid {
+    padding-top: 4rem;
+    padding-bottom: 4rem;
   }
 
   .work-hero {
@@ -1734,11 +2003,17 @@ a {
   .drawing-tool-stack,
   .drawing-toggle,
   .drawing-menu-toggle,
+  .drawing-menu-close,
   .drawing-scope-button,
   .drawing-clear,
   .drawing-party-start,
   .drawing-party-button,
-  .drawing-party-share-link {
+  .drawing-party-share-link,
+  .patreon-unlock-form input,
+  .patreon-unlock-form button,
+  .patreon-enter-link,
+  .patreon-room-actions > a,
+  .patreon-room-actions button {
     border-color: ButtonText;
   }
 

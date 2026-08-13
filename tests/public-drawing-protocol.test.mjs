@@ -96,6 +96,8 @@ test("accepts only canonical bounded public pathnames", () => {
     "/blogs#feed",
     "/blogs//post",
     "/../private",
+    "/patreon",
+    "/patreon/room",
     `/${"a".repeat(256)}`,
   ]) {
     assert.equal(isPublicDrawingRoute(route), false, route);

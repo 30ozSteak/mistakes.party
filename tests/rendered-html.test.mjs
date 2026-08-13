@@ -22,6 +22,13 @@ async function readRenderedPage(pathname) {
   };
 }
 
+async function readRedirect(pathname) {
+  return fetch(new URL(pathname, testBaseUrl), {
+    headers: { accept: "text/html" },
+    redirect: "manual",
+  });
+}
+
 function assertSecurityHeaders(headers, html) {
   const policy = headers.get("content-security-policy") ?? "";
   const nonce = policy.match(/'nonce-([a-f0-9]{32})'/)?.[1];
@@ -70,15 +77,26 @@ function assertSecurityHeaders(headers, html) {
   return nonce;
 }
 
-function assertDrawingPlayground(html) {
+function assertDrawingPlayground(html, { publicDrawing = true } = {}) {
   assert.match(html, /data-testid="drawing-playground"/);
   assert.match(html, /data-testid="drawing-canvas"/);
   assert.match(html, /data-testid="drawing-toolbar"/);
   assert.match(html, /data-testid="drawing-toggle"/);
-  assert.match(html, /data-testid="drawing-session-count"/);
+  if (publicDrawing) {
+    assert.match(html, /data-testid="drawing-session-count"/);
+  } else {
+    assert.doesNotMatch(html, /data-testid="drawing-session-count"/);
+  }
   assert.match(html, /data-testid="drawing-menu-toggle"/);
   assert.match(html, /data-testid="drawing-companion-menu"/);
-  assert.match(html, /data-testid="drawing-scope-public"/);
+  assert.match(html, /data-testid="drawing-menu-close"/);
+  assert.match(html, /aria-label="Close drawing options"/);
+  if (publicDrawing) {
+    assert.match(html, /data-testid="drawing-scope-public"/);
+  } else {
+    assert.doesNotMatch(html, /data-testid="drawing-scope-public"/);
+    assert.match(html, /data-public-available="false"/);
+  }
   assert.match(html, /data-testid="drawing-scope-solo"/);
   assert.match(html, /aria-pressed="false"/);
   assert.match(html, /aria-label="Highlighter color"/);
@@ -115,6 +133,7 @@ test("renders the portfolio index", async () => {
   assert.match(html, /href="\/blogs\/">BLOGS<\/a>/);
   assert.match(html, /href="#github">GITHUB<\/a>/);
   assert.match(html, /href="#about">ABOUT<\/a>/);
+  assert.match(html, /href="\/patreon\/room\/">MEMBERS<\/a>/);
   assert.match(html, /aria-label="Open primary navigation"/);
   assert.match(html, /aria-controls="mobile-navigation"/);
   assert.match(html, /aria-expanded="false"/);
@@ -138,7 +157,7 @@ test("renders the portfolio index", async () => {
   );
   assert.doesNotMatch(
     html,
-    /\bNICK\b|\bSTEAKS\b|\bWEIRD\b|WORK THAT LEFT A MARK|THE GITHUB WIRE|KEEP CLICKING|MAKE IT USEFUL\. MAKE IT LOUD/i,
+    /\bNICK\b|\bWEIRD\b|WORK THAT LEFT A MARK|THE GITHUB WIRE|KEEP CLICKING|MAKE IT USEFUL\. MAKE IT LOUD/i,
   );
   assert.doesNotMatch(html, /class="section-heading|class="section-number/);
   assert.doesNotMatch(html, /class="index-description"/);
@@ -169,7 +188,44 @@ test("renders the portfolio index", async () => {
   assert.doesNotMatch(html, />\s*(?:SOURCE|OPEN|READ)\s*(?:↗|→)?\s*</i);
   assert.match(html, /MISTAKES\.PARTY IS A DENVER HOME/);
   assert.match(html, /SAY HELLO/);
+  assert.match(
+    html,
+    /href="https:\/\/patreon\.com\/steaks">PATREON ↗<\/a>/,
+  );
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
+});
+
+test("renders the Patreon door without leaking member-room content", async () => {
+  const { headers, html } = await readRenderedPage("/patreon/");
+
+  assertDrawingPlayground(html, { publicDrawing: false });
+  assertSecurityHeaders(headers, html);
+  assert.match(html, /<title>Patreon Access — MISTAKES\.PARTY<\/title>/i);
+  assert.match(html, /name="robots" content="noindex, nofollow"/i);
+  assert.match(html, /<h1>THE DOOR<\/h1>/);
+  assert.match(html, /type="password"/);
+  assert.match(html, /name="password"/);
+  assert.match(html, /ENTER THE ROOM/);
+  assert.match(
+    html,
+    /href="https:\/\/patreon\.com\/steaks">JOIN ON PATREON ↗<\/a>/,
+  );
+  assert.doesNotMatch(
+    html,
+    /production-test-member-password|production-test-session-secret/,
+  );
+  assert.doesNotMatch(
+    html,
+    /PRIVATE SIGNAL 01|THE DOOR WORKS|PATRON-ONLY EXPERIMENTS/,
+  );
+
+  const protectedResponse = await readRedirect("/patreon/room/");
+  assert.ok(
+    [303, 307, 308].includes(protectedResponse.status),
+    `protected page redirects, received ${protectedResponse.status}`,
+  );
+  const location = protectedResponse.headers.get("location") ?? "";
+  assert.match(location, /\/patreon\/?\?returnTo=%2Fpatreon%2Froom$/);
 });
 
 test("renders the complete Medium feed on the blogs page", async () => {
@@ -275,6 +331,7 @@ test("renders every internal project page", async () => {
     assert.match(html, /href="\/blogs\/">BLOGS<\/a>/);
     assert.match(html, /href="\/#github">GITHUB<\/a>/);
     assert.match(html, /href="\/#about">ABOUT<\/a>/);
+    assert.match(html, /href="\/patreon\/room\/">MEMBERS<\/a>/);
     assert.match(html, /CONTEXT/);
     assert.match(html, /THE MOVE/);
     assert.match(html, /OUTCOME/);

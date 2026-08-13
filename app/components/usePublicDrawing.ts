@@ -654,6 +654,13 @@ export function usePublicDrawing({
       return;
     }
 
+    if (modeRef.current === "off" && !publicDisabledRef.current) {
+      modeRef.current = "presence";
+      setMode("presence");
+      updateState("ambient");
+      setError("");
+    }
+
     let disposed = false;
     let socket: WebSocket | null = null;
     let heartbeatTimer: ReturnType<typeof setInterval> | null = null;

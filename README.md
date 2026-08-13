@@ -12,6 +12,45 @@ npm install
 npm run dev
 ```
 
+### Patreon member access
+
+The member door at `/patreon/` protects `/patreon/room/` with a signed,
+30-day browser grant. Configure both values locally and in Vercel:
+
+```text
+PATREON_ACCESS_PASSWORD=the-password-shared-with-patrons
+PATREON_SESSION_SECRET=a-separate-random-secret-at-least-32-characters-long
+```
+
+Generate the session secret with `openssl rand -base64 32`. Keep both values
+server-only—do not prefix them with `NEXT_PUBLIC_` or add them to
+`next.config.ts`. Use a strong Patreon password of at least 12 characters.
+Rotating either value revokes existing member grants.
+
+Before launch, add a per-IP Vercel Firewall rate limit for the Server Action
+`app/patreon/actions.ts#unlockPatreonAccess` (for example, eight attempts per
+minute). Vercel documents Server Action targeting in its
+[Firewall guide](https://vercel.com/changelog/manage-next-js-server-actions-in-the-vercel-firewall).
+The application rejects short credentials, but a durable edge limit is still
+needed to prevent distributed online guessing.
+
+Use the server-derived flag or wrapper for individual features:
+
+```tsx
+import { PatreonOnly } from "@/app/components/PatreonOnly";
+import { hasPatreonAccess } from "@/app/lib/patreonAccess";
+
+const isPatreon = await hasPatreonAccess();
+
+return <PatreonOnly fallback={null}>Member content</PatreonOnly>;
+```
+
+For a whole page, call `await requirePatreonAccess("/your-route")` in that
+page before reading protected data. Server Actions and Route Handlers must
+still call `hasPatreonAccess()` themselves; hiding a control is not an
+authorization boundary. Anonymous public drawing is disabled throughout the
+`/patreon/*` subtree so member pages do not share a public annotation lobby.
+
 The production drawing relay is the default. It provides anonymous, route-local
 presence and ephemeral public drawing pods in addition to private invite rooms.
 To run the realtime service locally instead, start both processes with a

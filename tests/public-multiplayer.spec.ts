@@ -23,6 +23,7 @@ const canvas = (page: Page) => page.getByTestId("drawing-canvas");
 const toggle = (page: Page) => page.getByTestId("drawing-toggle");
 const sessionCount = (page: Page) => page.getByTestId("drawing-session-count");
 const menuToggle = (page: Page) => page.getByTestId("drawing-menu-toggle");
+const menuClose = (page: Page) => page.getByTestId("drawing-menu-close");
 
 const FIRST_REGION: Region = { x: 120, y: 185, width: 340, height: 105 };
 const SECOND_REGION: Region = { x: 120, y: 335, width: 340, height: 105 };
@@ -108,6 +109,19 @@ async function openMenu(page: Page) {
   await expect(menuToggle(page)).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByTestId("drawing-companion-menu")).toBeVisible();
 }
+
+test("closes drawing options from the in-panel close button", async ({
+  page,
+}, testInfo) => {
+  await openPublic(page, isolatedRoute(testInfo));
+  await openMenu(page);
+
+  await menuClose(page).click();
+
+  await expect(menuToggle(page)).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByTestId("drawing-companion-menu")).toBeHidden();
+  await expect(menuToggle(page)).toBeFocused();
+});
 
 async function joinAsDrawer(page: Page, withKeyboard = false) {
   if (withKeyboard) await page.keyboard.press("p");
@@ -494,6 +508,7 @@ test("keeps controls usable at 320px and visible in forced colors", async ({
 
     for (const control of [
       menuToggle(page),
+      menuClose(page),
       page.getByTestId("drawing-color-acid"),
       page.getByTestId("drawing-scope-public"),
       page.getByTestId("drawing-scope-solo"),

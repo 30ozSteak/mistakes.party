@@ -225,6 +225,7 @@ export default async function Home() {
       <footer className="site-footer" data-drawing-anchor="site-footer">
         <span>MISTAKES.PARTY © 2026</span>
         <span>
+          <a href="https://patreon.com/steaks">PATREON ↗</a> /{" "}
           <a href="https://github.com/30ozSteak">GITHUB ↗</a> /{" "}
           <a href="https://x.com/iaaafm">X ↗</a>
         </span>

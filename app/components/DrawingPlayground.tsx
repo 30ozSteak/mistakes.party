@@ -45,6 +45,7 @@ import {
   isDrawingParticipantName,
   isDrawingParticipantToken,
   isDrawingRoomId,
+  isPublicDrawingRoute,
   parseDrawingServerMessageJson,
 } from "../lib/drawingRealtimeProtocol";
 import { DRAWING_REALTIME_URL } from "../lib/drawingRealtimeConfig";
@@ -64,6 +65,7 @@ import {
 const STROKE_WIDTH = DRAWING_STROKE_WIDTH;
 const STROKE_OPACITY = DRAWING_STROKE_OPACITY;
 const SAMPLE_DISTANCE = 3;
+const PUBLIC_SCROLL_SAMPLE_DISTANCE = STROKE_WIDTH / 2;
 const IDLE_BREAK_MS = 150;
 const CHECKPOINT_INTERVAL_MS = 1_000;
 const CLEAR_CONFIRMATION_MS = 5_000;
@@ -121,6 +123,12 @@ type RemoteCursor = {
 type Point = {
   x: number;
   y: number;
+};
+
+type ViewportPointer = Point & {
+  documentX: number;
+  documentY: number;
+  pointerId: number;
 };
 
 function copyStroke(stroke: StrokeRecord): StrokeRecord {
@@ -321,6 +329,7 @@ function drawStroke(context: CanvasRenderingContext2D, stroke: StrokeRecord) {
 export function DrawingPlayground() {
   const pathname = usePathname();
   const route = normalizeRoute(pathname ?? "/");
+  const publicRouteAvailable = isPublicDrawingRoute(route);
   const [enabled, setEnabled] = useState(false);
   const [color, setColor] = useState<HighlighterColor>(DEFAULT_COLOR);
   const [hydrated, setHydrated] = useState(false);
@@ -345,6 +354,7 @@ export function DrawingPlayground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const markerRef = useRef<HTMLSpanElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const menuToggleRef = useRef<HTMLButtonElement>(null);
   const shareLinkRef = useRef<HTMLInputElement>(null);
   const enabledRef = useRef(false);
   const colorRef = useRef<HighlighterColor>(DEFAULT_COLOR);
@@ -374,6 +384,8 @@ export function DrawingPlayground() {
   const activeStrokePartyRef = useRef(false);
   const activePointerIdRef = useRef<number | null>(null);
   const activeRawPointRef = useRef<Point | null>(null);
+  const activeViewportPointerRef = useRef<ViewportPointer | null>(null);
+  const scrollConnectionPendingRef = useRef(false);
   const lastCheckpointRef = useRef(0);
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -391,6 +403,7 @@ export function DrawingPlayground() {
   const initialPrivateInviteRef = useRef<boolean | undefined>(undefined);
   const privateAdmittedRef = useRef(false);
   const publicControllerRef = useRef<PublicDrawingController | null>(null);
+  const routeSuppressedPublicRef = useRef(false);
 
   const paintCanvas = useCallback(() => {
     frameRef.current = null;
@@ -519,7 +532,7 @@ export function DrawingPlayground() {
 
   const publicDrawing = usePublicDrawing({
     route,
-    realtimeUrl: PARTY_REALTIME_URL,
+    realtimeUrl: publicRouteAvailable ? PARTY_REALTIME_URL : "",
     color,
     width: STROKE_WIDTH,
     opacity: STROKE_OPACITY,
@@ -576,8 +589,40 @@ export function DrawingPlayground() {
   }, [publicDrawing.state]);
 
   useEffect(() => {
+    if (!hydrated) return;
+
+    if (!publicRouteAvailable) {
+      if (scopeRef.current !== "public") return;
+
+      routeSuppressedPublicRef.current = true;
+      scopeRef.current = "solo";
+      enabledRef.current = soloEnabledRef.current;
+      // Patreon routes must not join the anonymous public lobby. This is a
+      // route-local override: the user's persisted Public preference remains
+      // intact and is restored after navigating away.
+      setScope("solo");
+      setEnabled(soloEnabledRef.current);
+      setMenuOpen(false);
+      scheduleRedraw();
+      return;
+    }
+
+    if (routeSuppressedPublicRef.current) {
+      if (scopeRef.current === "private") return;
+
+      routeSuppressedPublicRef.current = false;
+      if (scopeRef.current !== "solo") return;
+
+      scopeRef.current = "public";
+      previousScopeRef.current = "public";
+      enabledRef.current = false;
+      setScope("public");
+      setEnabled(false);
+      scheduleRedraw();
+      return;
+    }
+
     if (
-      !hydrated ||
       !PARTY_REALTIME_URL ||
       publicDrawing.mode !== "off" ||
       scopeRef.current !== "public"
@@ -595,7 +640,13 @@ export function DrawingPlayground() {
     setEnabled(soloEnabledRef.current);
     setMenuOpen(false);
     scheduleRedraw();
-  }, [hydrated, publicDrawing.mode, scheduleRedraw]);
+  }, [
+    hydrated,
+    publicDrawing.mode,
+    publicRouteAvailable,
+    scheduleRedraw,
+    scope,
+  ]);
 
   const markStorageUnavailable = useCallback(() => {
     storageAvailableRef.current = false;
@@ -721,7 +772,7 @@ export function DrawingPlayground() {
     }
   }, [sendPartyMessage]);
 
-  const finishActiveStroke = useCallback(() => {
+  const finishActiveStroke = useCallback((preserveScrollConnection = false) => {
     if (idleTimerRef.current !== null) {
       clearTimeout(idleTimerRef.current);
       idleTimerRef.current = null;
@@ -761,6 +812,10 @@ export function DrawingPlayground() {
     activeStrokeRef.current = null;
     activePointerIdRef.current = null;
     activeRawPointRef.current = null;
+    if (!preserveScrollConnection) {
+      activeViewportPointerRef.current = null;
+      scrollConnectionPendingRef.current = false;
+    }
     activeStrokePartyRef.current = false;
     partySentPointIndexRef.current = 0;
     lastCheckpointRef.current = 0;
@@ -770,7 +825,10 @@ export function DrawingPlayground() {
     if (idleTimerRef.current !== null) {
       clearTimeout(idleTimerRef.current);
     }
-    idleTimerRef.current = setTimeout(finishActiveStroke, IDLE_BREAK_MS);
+    idleTimerRef.current = setTimeout(
+      () => finishActiveStroke(scrollConnectionPendingRef.current),
+      IDLE_BREAK_MS,
+    );
   }, [finishActiveStroke]);
 
   const addDocumentPoint = useCallback(
@@ -1378,6 +1436,7 @@ export function DrawingPlayground() {
   useEffect(() => {
     function handlePointerMove(event: PointerEvent) {
       if (event.pointerType === "touch") {
+        finishActiveStroke();
         hideMarker();
         return;
       }
@@ -1418,6 +1477,8 @@ export function DrawingPlayground() {
         isOverControls ||
         mobileNavigationOpenRef.current
       ) {
+        activeViewportPointerRef.current = null;
+        scrollConnectionPendingRef.current = false;
         hideMarker();
         if (isOverControls || mobileNavigationOpenRef.current) {
           finishActiveStroke();
@@ -1440,6 +1501,18 @@ export function DrawingPlayground() {
       const pointerEvents =
         coalescedEvents.length > 0 ? coalescedEvents : [event];
 
+      const priorPointer = activeViewportPointerRef.current;
+      if (
+        scrollConnectionPendingRef.current &&
+        idleTimerRef.current === null &&
+        priorPointer
+      ) {
+        addDocumentPoint(
+          { x: priorPointer.documentX, y: priorPointer.documentY },
+          event.pointerId,
+        );
+      }
+
       for (const pointerEvent of pointerEvents) {
         addDocumentPoint(
           {
@@ -1449,6 +1522,15 @@ export function DrawingPlayground() {
           event.pointerId,
         );
       }
+
+      activeViewportPointerRef.current = {
+        x: event.clientX,
+        y: event.clientY,
+        documentX: event.clientX + window.scrollX,
+        documentY: event.clientY + window.scrollY,
+        pointerId: event.pointerId,
+      };
+      scrollConnectionPendingRef.current = false;
 
       resetIdleTimer();
 
@@ -1515,6 +1597,67 @@ export function DrawingPlayground() {
       publicControllerRef.current?.releaseForBackground();
     }
 
+    function handleScroll() {
+      const pointer = activeViewportPointerRef.current;
+      if (pointer) {
+        // A stationary pointer still moves across document coordinates while
+        // the viewport scrolls. Recording that point keeps the line continuous
+        // and lets the normal idle boundary persist it after scrolling stops.
+        const nextPoint = {
+          x: pointer.x + window.scrollX,
+          y: pointer.y + window.scrollY,
+        };
+
+        if (idleTimerRef.current === null) {
+          addDocumentPoint(
+            { x: pointer.documentX, y: pointer.documentY },
+            pointer.pointerId,
+          );
+        }
+
+        if (scopeRef.current === "public") {
+          // Public marks are anchored to page regions. Sampling the scroll path
+          // here keeps adjacent anchored strokes touching when the stationary
+          // pointer crosses from one region into another.
+          const deltaX = nextPoint.x - pointer.documentX;
+          const deltaY = nextPoint.y - pointer.documentY;
+          const distance = Math.hypot(deltaX, deltaY);
+          const sampleCount = Math.floor(
+            distance / PUBLIC_SCROLL_SAMPLE_DISTANCE,
+          );
+
+          if (sampleCount > 0) {
+            const unitX = deltaX / distance;
+            const unitY = deltaY / distance;
+            for (let index = 1; index <= sampleCount; index += 1) {
+              addDocumentPoint(
+                {
+                  x:
+                    pointer.documentX +
+                    unitX * PUBLIC_SCROLL_SAMPLE_DISTANCE * index,
+                  y:
+                    pointer.documentY +
+                    unitY * PUBLIC_SCROLL_SAMPLE_DISTANCE * index,
+                },
+                pointer.pointerId,
+              );
+            }
+            pointer.documentX +=
+              unitX * PUBLIC_SCROLL_SAMPLE_DISTANCE * sampleCount;
+            pointer.documentY +=
+              unitY * PUBLIC_SCROLL_SAMPLE_DISTANCE * sampleCount;
+          }
+        } else {
+          addDocumentPoint(nextPoint, pointer.pointerId);
+          pointer.documentX = nextPoint.x;
+          pointer.documentY = nextPoint.y;
+        }
+        scrollConnectionPendingRef.current = true;
+        resetIdleTimer();
+      }
+      handleViewportChange();
+    }
+
     function handleViewportChange() {
       scheduleRedraw();
       if (scopeRef.current === "private") {
@@ -1528,7 +1671,7 @@ export function DrawingPlayground() {
     window.addEventListener("pointercancel", handlePointerCancel, true);
     window.addEventListener("pointerout", handleWindowExit, true);
     window.addEventListener("pagehide", handlePageHide);
-    window.addEventListener("scroll", handleViewportChange, { passive: true });
+    window.addEventListener("scroll", handleScroll, { passive: true });
     window.addEventListener("resize", handleViewportChange, { passive: true });
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
@@ -1537,7 +1680,7 @@ export function DrawingPlayground() {
       window.removeEventListener("pointercancel", handlePointerCancel, true);
       window.removeEventListener("pointerout", handleWindowExit, true);
       window.removeEventListener("pagehide", handlePageHide);
-      window.removeEventListener("scroll", handleViewportChange);
+      window.removeEventListener("scroll", handleScroll);
       window.removeEventListener("resize", handleViewportChange);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       finishActiveStroke();
@@ -2010,7 +2153,8 @@ export function DrawingPlayground() {
   } as CSSProperties;
   const toolsVisible = menuOpen;
   const publicFeatureAvailable =
-    publicDrawing.mode !== "off" || PARTY_REALTIME_URL.length === 0;
+    publicRouteAvailable &&
+    (publicDrawing.mode !== "off" || PARTY_REALTIME_URL.length === 0);
   const shownSessionCount = Math.min(99, publicDrawing.sessionCount);
   const publicStatusLabel =
     publicDrawing.state === "drawing"
@@ -2153,6 +2297,21 @@ export function DrawingPlayground() {
           aria-label="Drawing options"
           role="group"
         >
+          <button
+            aria-label="Close drawing options"
+            className="drawing-menu-close"
+            data-testid="drawing-menu-close"
+            onClick={() => {
+              finishActiveStroke();
+              hideMarker();
+              setMenuOpen(false);
+              menuToggleRef.current?.focus();
+            }}
+            type="button"
+          >
+            <span aria-hidden="true">×</span>
+          </button>
+
           <div
             aria-label="Highlighter color"
             className="drawing-colors"
@@ -2478,6 +2637,7 @@ export function DrawingPlayground() {
               hideMarker();
               setMenuOpen((open) => !open);
             }}
+            ref={menuToggleRef}
             title="Drawing options"
             type="button"
           >

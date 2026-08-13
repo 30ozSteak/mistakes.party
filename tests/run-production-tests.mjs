@@ -121,6 +121,9 @@ try {
     ...process.env,
     MEDIUM_FEED_ALLOW_LOCALHOST: "1",
     MEDIUM_FEED_URL: feedUrl,
+    PATREON_ACCESS_PASSWORD: "production-test-member-password",
+    PATREON_SESSION_SECRET:
+      "production-test-session-secret-at-least-32-characters",
   };
 
   await run("npm", ["run", "build"], testEnvironment);
