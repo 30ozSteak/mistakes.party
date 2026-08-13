@@ -21,29 +21,17 @@ export function SiteHeader({ currentPage, indexLink = false }: SiteHeaderProps) 
   const desktopLinks: NavigationLink[] = indexLink
     ? [
         { href: "/", label: "← INDEX", next: true },
-        { href: "/#work", label: "WORK", next: true },
         { href: "/blogs", label: "BLOGS", next: true },
-        { href: "/#github", label: "GITHUB", next: true },
         { href: "/patreon/room", label: "MEMBERS", next: true },
-        { href: "/#about", label: "ABOUT", next: true },
+        { href: "https://github.com/30ozSteak", label: "GITHUB ↗" },
       ]
     : [
-        { href: "#work", label: "WORK" },
-        { href: "/blogs", label: "BLOGS", next: true },
-        { href: "#github", label: "GITHUB" },
-        { href: "/patreon/room", label: "MEMBERS", next: true },
-        { href: "#about", label: "ABOUT" },
-      ];
-  const mobileLinks: NavigationLink[] = indexLink
-    ? [
         { href: "/", label: "← INDEX", next: true },
-        { href: "/#work", label: "WORK", next: true },
         { href: "/blogs", label: "BLOGS", next: true },
-        { href: "/#github", label: "GITHUB", next: true },
         { href: "/patreon/room", label: "MEMBERS", next: true },
-        { href: "/#about", label: "ABOUT", next: true },
-      ]
-    : desktopLinks;
+        { href: "https://github.com/30ozSteak", label: "GITHUB ↗" },
+      ];
+  const mobileLinks: NavigationLink[] = desktopLinks;
 
   useEffect(() => {
     if (!menuOpen) return;

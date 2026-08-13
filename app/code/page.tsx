@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export default function CodePage() {
   return (
     <SourceDetail
-      backHref="/#github"
+      backHref="/"
       description="Public repositories, experiments, utilities, and useful mistakes—kept open for inspection, reuse, and the next attempt."
       drawingAnchorId="code:index"
       facts={[

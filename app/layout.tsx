@@ -8,19 +8,26 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://mistakes.party"),
   title: "MXP — Mistakes.party",
   description:
-    "Websites, apps, XR, games, art, and the occasional useful mistake.",
+    "Mistakes.party on GitHub, Medium, Patreon, and itch.io.",
   openGraph: {
     type: "website",
     title: "MXP — Mistakes.party",
-    description: "WEB · APPS · XR · GAMES · ART · USEFUL MISTAKES",
-    images: [{ url: "/og-mxp.png", width: 1200, height: 630 }],
+    description: "GitHub · Medium · Patreon · itch.io",
+    images: [
+      {
+        url: "/og.png",
+        width: 1200,
+        height: 630,
+        alt: "Mistakes.party link portal",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "MXP — Mistakes.party",
-    description: "WEB · APPS · XR · GAMES · ART · USEFUL MISTAKES",
+    description: "GitHub · Medium · Patreon · itch.io",
     creator: "@iaaafm",
-    images: ["/og-mxp.png"],
+    images: ["/og.png"],
   },
 };
 

@@ -1,65 +1,76 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
-async function waitForApp(page: Page, pathname = "/") {
-  await page.goto(pathname);
+const destinations = [
+  ["GITHUB", "https://github.com/30ozSteak"],
+  ["MEDIUM", "https://medium.com/@30ozsteak"],
+  ["PATREON", "https://patreon.com/steaks"],
+  ["ITCH.IO", "https://steaks.itch.io"],
+] as const;
+
+async function waitForHome(page: Page) {
+  await page.goto("/");
   await expect(page.getByTestId("drawing-playground")).toHaveAttribute(
     "data-hydrated",
     "true",
   );
 }
 
-test("whole index rows navigate internally from their titles and metadata", async ({
-  page,
-}) => {
-  await waitForApp(page);
-
-  const projectRow = page.getByRole("link", {
-    name: "LIGHTHOUSE CHECKER",
-    exact: true,
+async function sweepScale(link: Locator) {
+  return link.evaluate((element) => {
+    const transform = getComputedStyle(element, "::before").transform;
+    if (transform === "none") return 1;
+    return new DOMMatrixReadOnly(transform).a;
   });
-  await expect(projectRow).toHaveAttribute(
-    "href",
-    /\/work\/lighthouse-checker\/?$/,
-  );
-  await expect(projectRow.getByText("TOOL / CODE · PUBLIC")).toBeVisible();
-  await projectRow.getByText("TOOL / CODE · PUBLIC").click();
-  await expect(page).toHaveURL(/\/work\/lighthouse-checker\/?$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "LIGHTHOUSE CHECKER",
-  );
+}
 
-  await waitForApp(page);
-  const archiveRow = page.getByRole("link", {
-    name: "APPLAUSE BUTTON",
-    exact: true,
-  });
-  await archiveRow.focus();
-  await expect(archiveRow).toBeFocused();
-  await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/\/archive\/applause-button\/?$/);
+test("the homepage is a direct four-link portal", async ({ page }) => {
+  await waitForHome(page);
+
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "APPLAUSE BUTTON",
+    "MISTAKES.PARTY",
   );
-  await expect(
-    page.getByRole("link", { name: "VIEW ON GITHUB", exact: false }),
-  ).toHaveAttribute(
-    "href",
-    "https://github.com/30ozSteak/applause-button",
-  );
+  await expect(page.getByRole("navigation", { name: "Elsewhere" })).toBeVisible();
+  await expect(page.locator(".portal-link")).toHaveCount(4);
+
+  for (const [name, href] of destinations) {
+    await expect(page.getByRole("link", { name, exact: true })).toHaveAttribute(
+      "href",
+      href,
+    );
+  }
+
+  await expect(page.getByRole("button", { name: "Open primary navigation" })).toHaveCount(0);
+  await expect(page.getByText("FOUR BAD DOORS")).toHaveCount(0);
+  await expect(page.getByText("PICK ONE")).toHaveCount(0);
 });
 
-test("the code landing page promotes the complete GitHub archive", async ({
+test("the portal stays usable at 320px and reveals neon only on interaction", async ({
   page,
 }) => {
-  await waitForApp(page);
+  await page.setViewportSize({ width: 320, height: 640 });
+  await waitForHome(page);
 
-  await page.getByRole("link", { name: "ALL REPOS", exact: true }).click();
-  await expect(page).toHaveURL(/\/code\/?$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("ALL REPOS");
-  await expect(
-    page.getByRole("link", { name: "BROWSE GITHUB", exact: false }),
-  ).toHaveAttribute(
-    "href",
-    "https://github.com/30ozSteak?tab=repositories",
-  );
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+  ).toBe(true);
+
+  const links = page.locator(".portal-link");
+  for (let index = 0; index < (await links.count()); index += 1) {
+    const box = await links.nth(index).boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(320);
+    expect(box!.height).toBeGreaterThanOrEqual(44);
+  }
+
+  const github = page.getByRole("link", { name: "GITHUB", exact: true });
+  expect(await sweepScale(github)).toBeLessThan(0.01);
+
+  await github.focus();
+  await expect(github).toBeFocused();
+  await expect.poll(() => sweepScale(github)).toBeGreaterThan(0.99);
+
+  await expect(page.getByTestId("public-nudge")).toHaveCount(0);
+  await expect(page.getByTestId("drawing-menu-toggle")).toBeVisible();
+  await expect(page.getByTestId("drawing-toggle")).toBeVisible();
 });

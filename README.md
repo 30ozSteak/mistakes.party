@@ -1,7 +1,7 @@
 # MXP / MISTAKES.PARTY
 
-A loud, text-first portfolio for websites, apps, games, art, code, and useful
-mistakes.
+A quiet, mobile-first link portal for GitHub, Medium, Patreon, itch.io, and
+useful mistakes.
 
 ## Local development
 
@@ -111,6 +111,6 @@ Solo artwork remains in that browser's IndexedDB and is never uploaded. Public
 pod artwork lives only in the Worker for its short afterglow, while private
 party artwork continues to use the original invite-room lifecycle.
 
-The homepage and blog index use Incremental Static Regeneration to refresh the
-Medium feed every 15 minutes. The portfolio also loads public repositories from
-GitHub and falls back safely when either upstream feed is unavailable.
+The homepage is a static external-link portal. The preserved blog index uses
+Incremental Static Regeneration to refresh the Medium feed every 15 minutes;
+the deeper code routes keep their guarded GitHub integrations.

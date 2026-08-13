@@ -115,7 +115,7 @@ test("restores a Public drawing preference after leaving Patreon", async ({
   await expect(playground).toHaveAttribute("data-hydrated", "true");
   await expect(playground).toHaveAttribute("data-scope", "public");
 
-  await page.getByRole("link", { name: "MEMBERS", exact: true }).click();
+  await page.goto("/patreon/room/");
   await expect(page).toHaveURL(/\/patreon\/?\?returnTo=/);
   await expect(playground).toHaveAttribute("data-scope", "solo");
   expect(

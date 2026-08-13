@@ -73,8 +73,8 @@ async function enableDrawing(page: Page) {
   await expect(toggle(page)).toHaveAttribute("aria-pressed", "true");
 }
 
-async function startParty(page: Page) {
-  await open(page, "/");
+async function startParty(page: Page, pathname = "/") {
+  await open(page, pathname);
   await enableDrawing(page);
   await partyStart(page).click();
   await expect(partyStatus(page)).toHaveText("LIVE");
@@ -463,16 +463,16 @@ test("finishes an active stroke across SPA route changes and restores the new ro
 
   try {
     const host = await newPage(browser, baseURL, contexts);
-    const invite = await startParty(host);
+    const invite = await startParty(host, "/blogs/");
     const guest = await newPage(browser, baseURL, contexts);
     await joinParty(guest, invite);
 
     // Start moving, then navigate before the 150ms idle boundary. The route
-    // transition must flush/end the root stroke before requesting /blogs.
+    // transition must flush/end the blog stroke before requesting the portal.
     await host.mouse.move(170, 260);
     await host.mouse.move(420, 260, { steps: 24 });
-    await host.getByRole("link", { name: "ALL BLOGS" }).click();
-    await expect(host).toHaveURL(/\/blogs\/?$/);
+    await host.getByRole("link", { name: "MISTAKES.PARTY", exact: true }).click();
+    await expect(host).toHaveURL(/\/$/);
     await expectPlayground(host);
     await expect(partyStatus(host)).toHaveText("LIVE");
     await expectNoInk(host, HOST_REGION);
@@ -482,8 +482,8 @@ test("finishes an active stroke across SPA route changes and restores the new ro
     await drawLine(host, { x: 415, y: 330 }, { x: 665, y: 330 });
     await expectInk(host, BLOG_REGION);
 
-    await guest.getByRole("link", { name: "ALL BLOGS" }).click();
-    await expect(guest).toHaveURL(/\/blogs\/?$/);
+    await guest.getByRole("link", { name: "MISTAKES.PARTY", exact: true }).click();
+    await expect(guest).toHaveURL(/\/$/);
     await expectPlayground(guest);
     await expect(partyStatus(guest)).toHaveText("LIVE");
     await expectInk(guest, BLOG_REGION);

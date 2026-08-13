@@ -2175,7 +2175,9 @@ export function DrawingPlayground() {
     <div
       className="drawing-playground"
       data-enabled={enabled}
+      data-home={route === "/"}
       data-hydrated={hydrated}
+      data-menu-open={menuOpen}
       data-party-id={partyRoomId ?? undefined}
       data-party-state={partyState}
       data-public-mode={publicDrawing.mode}
@@ -2256,7 +2258,10 @@ export function DrawingPlayground() {
             );
           })}
 
-      {nudgeVisible && scope === "public" && publicDrawing.mode !== "off" ? (
+      {route !== "/" &&
+      nudgeVisible &&
+      scope === "public" &&
+      publicDrawing.mode !== "off" ? (
         <aside className="drawing-public-nudge" data-testid="public-nudge">
           <span>
             {shownSessionCount}

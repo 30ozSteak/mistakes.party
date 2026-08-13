@@ -109,7 +109,7 @@ function assertDrawingPlayground(html, { publicDrawing = true } = {}) {
   assert.match(html, /data-drawing-anchor="page-root"/);
 }
 
-test("renders the portfolio index", async () => {
+test("renders the quiet external link portal", async () => {
   const { headers, html } = await readRenderedPage("/");
 
   assertDrawingPlayground(html);
@@ -122,76 +122,23 @@ test("renders the portfolio index", async () => {
   assert.notEqual(secondNonce, nonce, "CSP nonces are never reused");
 
   assert.match(html, /<title>MXP — Mistakes\.party<\/title>/i);
-  assert.match(html, /og-mxp\.png/);
-  assert.match(html, /aria-label="MXP — Mistakes dot party"/);
-  assert.match(html, /class="mxp" aria-hidden="true"/);
-  assert.match(html, /class="mxp-x">X<\/span>/);
-  assert.match(html, /THE OCCASIONAL USEFUL MISTAKE/);
+  assert.match(html, /og\.png/);
   assert.equal((html.match(/<h1[ >]/g) || []).length, 1);
-  assert.match(html, /class="skip-link" href="#work">SKIP TO THE WORK/);
-  assert.match(html, /href="#work">WORK<\/a>/);
-  assert.match(html, /href="\/blogs\/">BLOGS<\/a>/);
-  assert.match(html, /href="#github">GITHUB<\/a>/);
-  assert.match(html, /href="#about">ABOUT<\/a>/);
-  assert.match(html, /href="\/patreon\/room\/">MEMBERS<\/a>/);
-  assert.match(html, /aria-label="Open primary navigation"/);
-  assert.match(html, /aria-controls="mobile-navigation"/);
-  assert.match(html, /aria-expanded="false"/);
-  assert.match(html, /aria-hidden="true"[^>]*id="mobile-navigation" inert=""/);
-  assert.match(html, /aria-label="Mobile navigation"/);
-  assert.match(html, /id="work"/);
-  assert.match(html, /id="github"/);
-  assert.match(html, /id="about"/);
-  assert.match(html, /class="sr-only" role="status" aria-live="polite"/);
-  assert.match(html, /class="github-feed" aria-busy="true"/);
-  assert.doesNotMatch(html, /class="github-status"/);
-  assert.equal((html.match(/href="\/work\//g) || []).length, 3);
-  assert.equal((html.match(/href="\/archive\//g) || []).length, 7);
-  assert.match(
-    html,
-    /<a[^>]*aria-label="LIGHTHOUSE CHECKER"[^>]*class="index-row"[^>]*href="\/work\/lighthouse-checker\/"[^>]*>[\s\S]*?<div class="index-main"><h4 class="index-title">LIGHTHOUSE CHECKER<\/h4><\/div><span class="index-meta">TOOL \/ CODE(?:<!-- -->)? · (?:<!-- -->)?PUBLIC<\/span><\/a>/,
-  );
-  assert.match(
-    html,
-    /<a[^>]*aria-label="APPLAUSE BUTTON"[^>]*class="index-row"[^>]*href="\/archive\/applause-button\/"[^>]*>[\s\S]*?<div class="index-main"><h4 class="index-title">APPLAUSE BUTTON<\/h4><\/div><span class="index-meta">FORK \/ WEB<\/span><\/a>/,
-  );
-  assert.doesNotMatch(
-    html,
-    /\bNICK\b|\bWEIRD\b|WORK THAT LEFT A MARK|THE GITHUB WIRE|KEEP CLICKING|MAKE IT USEFUL\. MAKE IT LOUD/i,
-  );
-  assert.doesNotMatch(html, /class="section-heading|class="section-number/);
-  assert.doesNotMatch(html, /class="index-description"/);
-  assert.match(html, />WEBSITES<\/h3>/);
-  assert.match(html, />TOOLS<\/h3>/);
-  assert.match(html, />EXPERIMENTS<\/h3>/);
-  assert.match(html, />BLOGS<\/h3>/);
-  assert.match(html, />PUBLIC CODE<\/h3>/);
-  assert.match(html, />ELSEWHERE<\/h3>/);
-  assert.match(html, /GITHUB \/ SOURCE/);
-  assert.match(html, /Loading GitHub repositories/);
-  assert.equal((html.match(/data-medium-post=/g) || []).length, 5);
-  assert.match(html, /MEDIUM POST 01/);
-  assert.doesNotMatch(html, /MEDIUM POST 06/);
-  assert.doesNotMatch(
-    html,
-    /<script>globalThis\.__mediumXssExecuted=1<\/script>/,
-  );
-  assert.match(
-    html,
-    /&lt;\/script&gt;&lt;script&gt;globalThis\.__mediumXssExecuted=1&lt;\/script&gt;/,
-  );
-  assert.match(
-    html,
-    /<a[^>]*aria-label="ALL BLOGS"[^>]*class="index-row"[^>]*href="\/blogs\/"[^>]*>[\s\S]*?<div class="index-main"><h4 class="index-title">ALL BLOGS<\/h4><\/div>/,
-  );
-  assert.doesNotMatch(html, /class="index-action"/);
-  assert.doesNotMatch(html, />\s*(?:SOURCE|OPEN|READ)\s*(?:↗|→)?\s*</i);
-  assert.match(html, /MISTAKES\.PARTY IS A DENVER HOME/);
-  assert.match(html, /SAY HELLO/);
-  assert.match(
-    html,
-    /href="https:\/\/patreon\.com\/steaks">PATREON ↗<\/a>/,
-  );
+  assert.match(html, /<h1>MISTAKES\.PARTY<\/h1>/);
+  assert.match(html, /<span aria-hidden="true">MXP<\/span>/);
+  assert.match(html, /class="skip-link" href="#elsewhere">SKIP TO THE LINKS/);
+  assert.match(html, /<nav aria-label="Elsewhere"/);
+  assert.equal((html.match(/class="portal-link"/g) || []).length, 4);
+  assert.match(html, /aria-label="GITHUB"[^>]*href="https:\/\/github\.com\/30ozSteak"/);
+  assert.match(html, /aria-label="MEDIUM"[^>]*href="https:\/\/medium\.com\/@30ozsteak"/);
+  assert.match(html, /aria-label="PATREON"[^>]*href="https:\/\/patreon\.com\/steaks"/);
+  assert.match(html, /aria-label="ITCH\.IO"[^>]*href="https:\/\/steaks\.itch\.io"/);
+  assert.match(html, /DENVER/);
+  assert.match(html, /href="mailto:hello@mistakes\.party">HELLO@MISTAKES\.PARTY<\/a>/);
+  assert.doesNotMatch(html, /Open primary navigation|mobile-navigation/);
+  assert.doesNotMatch(html, /class="(?:github-feed|medium-post-row|index-row|hero)"/);
+  assert.doesNotMatch(html, /FOUR BAD DOORS|PICK ONE|THE OCCASIONAL USEFUL MISTAKE/i);
+  assert.doesNotMatch(html, /href="\/(?:work|archive|blogs|code)\//);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
 
@@ -306,9 +253,9 @@ test("ships the custom MXP hero font", async () => {
     new URL("app/globals.css", projectRoot),
     "utf8",
   );
-  assert.match(styles, /\.mxp-x\s*\{[^}]*text-shadow:[^}]*var\(--acid\)/s);
-  assert.match(styles, /\.mxp-x\s*\{[^}]*margin-left:\s*0\.14em/s);
-  assert.doesNotMatch(styles, /\.mxp-x::after/);
+  assert.match(styles, /\.portal-home::before\s*\{[^}]*radial-gradient/s);
+  assert.match(styles, /\.portal-link::before\s*\{[^}]*background:\s*var\(--acid\)/s);
+  assert.match(styles, /\.portal-link:focus-visible::before/s);
 });
 
 test("renders every internal project page", async () => {
@@ -327,11 +274,9 @@ test("renders every internal project page", async () => {
     assert.match(html, new RegExp(title));
     assert.equal((html.match(/<h1[ >]/g) || []).length, 1);
     assert.match(html, /MISTAKES\.PARTY © 2026/);
-    assert.match(html, /href="\/#work">WORK<\/a>/);
     assert.match(html, /href="\/blogs\/">BLOGS<\/a>/);
-    assert.match(html, /href="\/#github">GITHUB<\/a>/);
-    assert.match(html, /href="\/#about">ABOUT<\/a>/);
     assert.match(html, /href="\/patreon\/room\/">MEMBERS<\/a>/);
+    assert.match(html, /href="https:\/\/github\.com\/30ozSteak">GITHUB ↗<\/a>/);
     assert.match(html, /CONTEXT/);
     assert.match(html, /THE MOVE/);
     assert.match(html, /OUTCOME/);

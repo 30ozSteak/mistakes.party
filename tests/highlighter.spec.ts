@@ -246,7 +246,7 @@ test("restores the selected color, preferences, and artwork after reload", async
   await expectInk(page);
 });
 
-test("passes clicks through and keeps drawings separate for each route", async ({
+test("keeps drawings separate for each route", async ({
   page,
 }) => {
   await openHome(page);
@@ -256,7 +256,7 @@ test("passes clicks through and keeps drawings separate for each route", async (
     .poll(async () => (await routeStrokes(page, "/")).length)
     .toBeGreaterThan(0);
 
-  await page.getByRole("link", { name: "THIS INDEX", exact: true }).click();
+  await page.goto("/work/mistakes-party/");
   await expect(page).toHaveURL(/\/work\/mistakes-party\/?$/);
   await expect(toggle(page)).toHaveAttribute("aria-pressed", "true");
   await expectBlank(page);
@@ -268,6 +268,7 @@ test("passes clicks through and keeps drawings separate for each route", async (
     .poll(async () => (await routeStrokes(page, projectPath)).length)
     .toBeGreaterThan(0);
 
+  await page.getByTestId("drawing-menu-toggle").click();
   await clear(page).click();
   await expect(clear(page)).toHaveText("SURE?");
   await page.goBack();
@@ -448,7 +449,8 @@ test("redraws retained artwork after scrolling and resizing", async ({ page }) =
 });
 
 test("connects an active stroke across scrolling", async ({ page }) => {
-  await openHome(page);
+  await page.goto("/work/mistakes-party/");
+  await expect(playground(page)).toHaveAttribute("data-hydrated", "true");
   await toggle(page).click();
 
   await page.mouse.move(280, 440);
@@ -464,7 +466,7 @@ test("connects an active stroke across scrolling", async ({ page }) => {
   let connectedPoints: number[] | null = null;
   await expect
     .poll(async () => {
-      const strokes = await routeStrokes(page, "/");
+      const strokes = await routeStrokes(page, "/work/mistakes-party");
       const connected = strokes.find(({ points }) => {
         if (!Array.isArray(points)) return false;
         const verticalCoordinates = (points as number[]).filter(
@@ -502,7 +504,7 @@ test("connects an active stroke across scrolling", async ({ page }) => {
   const connectionY = points[points.length - 1];
   await expect
     .poll(async () => {
-      const strokes = await routeStrokes(page, "/");
+      const strokes = await routeStrokes(page, "/work/mistakes-party");
       return strokes.some(({ points: candidate }) => {
         if (!Array.isArray(candidate) || candidate.length < 4) return false;
         const candidatePoints = candidate as number[];
