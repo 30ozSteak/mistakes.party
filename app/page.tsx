@@ -1,4 +1,5 @@
 import { Suspense, type ReactNode } from "react";
+import { PortalAtmosphere } from "./components/PortalAtmosphere";
 import { getGithubRepos } from "./lib/githubServer";
 import { getMediumPosts, MEDIUM_PROFILE_URL } from "./lib/medium";
 
@@ -130,6 +131,8 @@ export default function Home() {
       </a>
 
       <main className="portal-home" id="content">
+        <PortalAtmosphere />
+
         <header className="portal-masthead">
           <h1>MISTAKES.PARTY</h1>
           <a href={SUPPORT_URL}>SUPPORT ↗</a>

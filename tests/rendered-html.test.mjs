@@ -151,6 +151,10 @@ test("renders the quiet expandable external index", async () => {
   assert.doesNotMatch(html, /FOUR BAD DOORS|THE OCCASIONAL USEFUL MISTAKE/i);
   assert.doesNotMatch(html, /href="\/(?:work|archive|blogs|code)\//);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
+  assert.match(
+    html,
+    /aria-hidden="true" class="portal-atmosphere" data-testid="portal-atmosphere"/,
+  );
 });
 
 test("renders the Patreon door without leaking member-room content", async () => {
@@ -253,7 +257,7 @@ test("renders a Medium fixture detail page with its authoritative source CTA", a
   );
 });
 
-test("ships the custom display font and scrollable disclosure portal", async () => {
+test("ships the custom display font and viewport-contained disclosure portal", async () => {
   const details = await stat(
     new URL("public/fonts/kill-the-noise.otf", projectRoot),
   );
@@ -264,11 +268,26 @@ test("ships the custom display font and scrollable disclosure portal", async () 
     new URL("app/globals.css", projectRoot),
     "utf8",
   );
-  assert.match(styles, /\.portal-home::before\s*\{[^}]*radial-gradient/s);
-  assert.match(styles, /\.portal-home\s*\{[^}]*min-height:\s*100vh;[^}]*min-height:\s*100dvh;/s);
-  assert.match(styles, /grid-template-rows:\s*auto minmax\(min-content, 1fr\) auto/);
-  assert.match(styles, /\.portal-home\s*\{[^}]*overflow-x:\s*clip;[^}]*overflow-y:\s*visible;/s);
-  assert.doesNotMatch(styles, /\.portal-home\s*\{[^}]*overflow:\s*clip/s);
+  assert.match(
+    styles,
+    /\.portal-atmosphere-field::before\s*\{[^}]*radial-gradient/s,
+  );
+  assert.match(
+    styles,
+    /\.portal-atmosphere-glass\s*\{[^}]*backdrop-filter:\s*blur\(30px\)/s,
+  );
+  assert.match(
+    styles,
+    /@keyframes portal-spectrum-turn\s*\{[^}]*rotate\(-9deg\)/s,
+  );
+  assert.match(
+    styles,
+    /\.portal-atmosphere\s*\{[^}]*pointer-events:\s*none/s,
+  );
+  assert.match(
+    styles,
+    /\.portal-home\s*\{[^}]*min-height:\s*100vh;[^}]*min-height:\s*100dvh;[^}]*grid-template-rows:\s*auto minmax\(min-content, 1fr\) auto;[^}]*overflow:\s*clip;/s,
+  );
   assert.doesNotMatch(styles, /\.portal-link(?::[^\s,{]+)?::before/);
   assert.match(styles, /\.portal-toggle::before\s*\{[^}]*width:\s*100%/s);
   assert.match(styles, /\.portal-toggle::after\s*\{[^}]*height:\s*100%/s);

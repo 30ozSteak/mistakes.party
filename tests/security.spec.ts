@@ -27,6 +27,17 @@ test("enforces the nonce CSP without breaking hydration", async ({ page }) => {
   expect(nonEmptyScriptNonces.length).toBeGreaterThan(0);
   expect(nonEmptyScriptNonces.every((value) => value === nonce)).toBe(true);
 
+  const atmosphere = page.getByTestId("portal-atmosphere");
+  await expect(atmosphere).toHaveAttribute("aria-hidden", "true");
+  await page.mouse.move(1200, 700);
+  await expect
+    .poll(() =>
+      atmosphere.evaluate((element) =>
+        element.style.getPropertyValue("--portal-pointer-x"),
+      ),
+    )
+    .not.toBe("");
+
   // Turbopack may append same-origin HMR scripts after parsing, so those tags
   // need not copy the nonce. Inline scripts still require it.
   await page.waitForTimeout(100);
