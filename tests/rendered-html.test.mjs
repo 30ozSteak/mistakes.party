@@ -75,6 +75,11 @@ function assertDrawingPlayground(html) {
   assert.match(html, /data-testid="drawing-canvas"/);
   assert.match(html, /data-testid="drawing-toolbar"/);
   assert.match(html, /data-testid="drawing-toggle"/);
+  assert.match(html, /data-testid="drawing-session-count"/);
+  assert.match(html, /data-testid="drawing-menu-toggle"/);
+  assert.match(html, /data-testid="drawing-companion-menu"/);
+  assert.match(html, /data-testid="drawing-scope-public"/);
+  assert.match(html, /data-testid="drawing-scope-solo"/);
   assert.match(html, /aria-pressed="false"/);
   assert.match(html, /aria-label="Highlighter color"/);
   assert.match(html, /data-testid="drawing-color-acid"/);
@@ -82,7 +87,8 @@ function assertDrawingPlayground(html) {
   assert.match(html, /data-testid="drawing-color-cyan"/);
   assert.match(html, /data-testid="drawing-color-orange"/);
   assert.match(html, /data-testid="party-start"/);
-  assert.match(html, />START PARTY<\/button>/);
+  assert.match(html, />\s*START PARTY\s*<\/button>/);
+  assert.match(html, /data-drawing-anchor="page-root"/);
 }
 
 test("renders the portfolio index", async () => {

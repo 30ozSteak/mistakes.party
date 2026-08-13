@@ -21,10 +21,21 @@ import {
   isDrawingParticipantName,
   isDrawingParticipantToken,
   isDrawingRoomId,
+  isPublicDrawingRoute,
   normalizeDrawingParticipantName,
   normalizeDrawingRoute,
   parseDrawingClientMessageJson,
 } from "../../app/lib/drawingRealtimeProtocol";
+import {
+  hasPublicDrawingProtocol,
+  PUBLIC_POD_PATH_PREFIX,
+  PUBLIC_PRESENCE_PATH,
+  type PublicDrawingEnv,
+  publicDrawingGeneration,
+  publicDrawingMode,
+} from "./publicDrawing";
+
+export { PublicDrawingPod, PublicRouteLobby } from "./publicDrawing";
 
 const META_KEY = "room:meta";
 const STROKE_PREFIX = "stroke:";
@@ -37,8 +48,9 @@ const MAX_CONNECTIONS_PER_PARTICIPANT = 2;
 const MAX_REGISTERED_IDENTITIES = 32;
 const MAX_STORAGE_DELETE_BATCH = 128;
 
-interface Env {
+interface Env extends PublicDrawingEnv {
   DRAWING_ROOMS: DurableObjectNamespace<DrawingRoom>;
+  PUBLIC_HANDSHAKE_RATE_LIMITER?: RateLimit;
   ALLOWED_ORIGINS?: string;
   ROOM_TTL_SECONDS?: string;
 }
@@ -140,6 +152,94 @@ export default {
         status: 204,
         headers: corsHeaders(request, env),
       });
+    }
+
+    const isPublicPresence = url.pathname === PUBLIC_PRESENCE_PATH;
+    const isPublicPod = url.pathname.startsWith(PUBLIC_POD_PATH_PREFIX);
+    if (isPublicPresence || isPublicPod) {
+      if (request.method !== "GET") {
+        return jsonResponse(
+          { code: "METHOD_NOT_ALLOWED", message: "Public drawing requires GET." },
+          { status: 405 },
+          corsHeaders(request, env),
+        );
+      }
+      if (!isAllowedOrigin(request, env)) {
+        return jsonResponse(
+          { code: "FORBIDDEN_ORIGIN", message: "Origin is not allowed." },
+          { status: 403 },
+        );
+      }
+      if (isPublicPod && publicDrawingMode(env) !== "live") {
+        return jsonResponse(
+          { code: "LIVE_DISABLED", message: "Public drawing is disabled." },
+          { status: 503 },
+          corsHeaders(request, env),
+        );
+      }
+      if (request.headers.get("upgrade")?.toLowerCase() !== "websocket") {
+        return jsonResponse(
+          { code: "UPGRADE_REQUIRED", message: "A WebSocket upgrade is required." },
+          { status: 426, headers: { upgrade: "websocket" } },
+          corsHeaders(request, env),
+        );
+      }
+      if (!hasPublicDrawingProtocol(request.headers.get("sec-websocket-protocol"))) {
+        return jsonResponse(
+          { code: "BAD_REQUEST", message: "The public drawing protocol is required." },
+          { status: 400 },
+          corsHeaders(request, env),
+        );
+      }
+
+      const route = url.searchParams.get("route");
+      if (!isPublicDrawingRoute(route)) {
+        return jsonResponse(
+          { code: "BAD_REQUEST", message: "A canonical route is required." },
+          { status: 400 },
+          corsHeaders(request, env),
+        );
+      }
+      const clientIp = request.headers.get("cf-connecting-ip") ?? "local";
+      if (env.PUBLIC_HANDSHAKE_RATE_LIMITER) {
+        try {
+          const outcome = await env.PUBLIC_HANDSHAKE_RATE_LIMITER.limit({ key: clientIp });
+          if (!outcome.success) {
+            console.log(JSON.stringify({ event: "public_handshake_rate_limited" }));
+            return jsonResponse(
+              { code: "RATE_LIMITED", message: "Too many public drawing connections." },
+              { status: 429 },
+              corsHeaders(request, env),
+            );
+          }
+        } catch {
+          console.log(JSON.stringify({ event: "public_handshake_rate_limiter_unavailable" }));
+        }
+      }
+      const generation = publicDrawingGeneration(env);
+      if (isPublicPresence) {
+        return env.PUBLIC_ROUTE_LOBBIES.getByName(
+          `public-route:${generation}:${route}`,
+        ).fetch(request);
+      }
+
+      const encodedPodId = url.pathname.slice(PUBLIC_POD_PATH_PREFIX.length);
+      let podId = "";
+      try {
+        podId = decodeURIComponent(encodedPodId);
+      } catch {
+        // The Durable Object performs the authoritative identifier validation.
+      }
+      if (!podId || podId.includes("/")) {
+        return jsonResponse(
+          { code: "NOT_FOUND", message: "Public drawing pod not found." },
+          { status: 404 },
+          corsHeaders(request, env),
+        );
+      }
+      return env.PUBLIC_DRAWING_PODS.getByName(
+        `public-pod:${generation}:${route}:${podId}`,
+      ).fetch(request);
     }
 
     const roomId = roomIdFromPath(url.pathname);

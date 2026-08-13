@@ -123,7 +123,11 @@ export function SiteHeader({ currentPage, indexLink = false }: SiteHeaderProps) 
   }
 
   return (
-    <header className="site-header" data-menu-open={menuOpen}>
+    <header
+      className="site-header"
+      data-drawing-anchor="site-header"
+      data-menu-open={menuOpen}
+    >
       <Link
         aria-hidden={menuOpen || undefined}
         className="brand"

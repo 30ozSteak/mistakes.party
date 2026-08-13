@@ -21,20 +21,28 @@ export default async function BlogsPage() {
       </a>
       <SiteHeader currentPage="blogs" indexLink />
 
-      <main className="blogs-page" id="blog-content">
-        <header className="blogs-hero">
+      <main
+        className="blogs-page"
+        data-drawing-anchor="blogs:index"
+        id="blog-content"
+      >
+        <header className="blogs-hero" data-drawing-anchor="blogs:hero">
           <h1>BLOGS</h1>
           <a className="blogs-source mono-label" href={MEDIUM_PROFILE_URL}>
             READ ON MEDIUM ↗
           </a>
         </header>
 
-        <section className="blogs-index" aria-label="Posts from Medium">
+        <section
+          className="blogs-index"
+          aria-label="Posts from Medium"
+          data-drawing-anchor="blogs:list"
+        >
           <MediumPostList headingLevel="h2" posts={posts} />
         </section>
       </main>
 
-      <footer className="site-footer">
+      <footer className="site-footer" data-drawing-anchor="site-footer">
         <span>MISTAKES.PARTY © 2026</span>
         <Link href="/">BACK TO THE INDEX ↑</Link>
       </footer>

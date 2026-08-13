@@ -1,8 +1,10 @@
 # Drawing realtime service
 
-The drawing party backend is a Cloudflare Worker with one SQLite-backed
-Durable Object per invite-only room. The Worker is intentionally separate from
-the Next.js deployment; no Cloudflare credentials are required for local use.
+The drawing backend is a Cloudflare Worker with SQLite-backed Durable Objects.
+Protocol v1 provides private invite rooms. The additive v2 protocol provides
+ambient route presence and ephemeral public drawing pods. The Worker is
+intentionally separate from the Next.js deployment; no Cloudflare credentials
+are required for local use.
 
 ## Local development
 
@@ -22,6 +24,16 @@ the exact production and preview origins allowed to open browser WebSockets.
 `ROOM_TTL_SECONDS` controls how long stored room artwork survives after its last
 participant disconnects and defaults to 1,800 seconds.
 
+Public v2 uses these variables:
+
+- `PUBLIC_DRAWING_MODE=off|presence|live` controls the public layer. The Worker
+  enforces it on admission and on existing sockets; private v1 is unaffected.
+- `PUBLIC_DRAWING_GENERATION` partitions public state. Bump it to abandon all
+  prior public lobbies and pods without touching private rooms.
+- `PUBLIC_GRANT_MS`, `PUBLIC_SEAT_HOLD_MS`, `PUBLIC_AFTERGLOW_MS`, and
+  `PUBLIC_FADE_MS` control one-use matchmaking grants, paused-seat retention,
+  artwork retention, and the final fade window.
+
 The top-level `ALLOWED_ORIGINS` value is development-only so local Next.js and
 Playwright servers work without extra flags. `npm run deploy:realtime` selects
 the checked-in Wrangler `production` environment, whose allowlist contains only
@@ -32,6 +44,12 @@ WebSocket access.
 Before deploying, run `npm run check:realtime`. Deploy the room service with
 `npm run deploy:realtime`, then set the resulting HTTPS origin as
 `NEXT_PUBLIC_DRAWING_REALTIME_URL` in the website deployment and rebuild it.
+
+For an additive rollout, deploy the v2 Durable Object migration with Public
+mode `off`, verify private v1 and public v2 from the canonical production
+origin, deploy the compatible browser client, and only then set mode to `live`.
+Changing Worker code disconnects WebSockets; both clients reconnect and
+resynchronize from authoritative snapshots.
 
 ## WebSocket contract
 
@@ -92,3 +110,39 @@ strokes on the active route. `room:reset` is restricted to the current host.
 Room storage is bounded to 2,000 strokes, 20,000 points per stroke, and 200,000
 points total. Incoming messages are schema-validated, limited in size, and
 rate-limited before storage or broadcast.
+
+## Public v2 contract
+
+The browser first opens:
+
+```text
+/v2/public/presence?route=:normalizedPathname
+```
+
+using the `mistakes-party-drawing-v2` subprotocol. The route lobby issues an
+anonymous, tab-scoped identity and reports browser sessions on that pathname.
+Query strings and hashes never create distinct lobbies. Ambient clients receive
+only the count and sampled live cursor previews—never pod artwork.
+
+`match:request` asks the lobby for a watcher or drawer assignment. The lobby
+atomically obtains a short-lived, one-use grant from a pod before returning its
+opaque ID. The browser then connects to:
+
+```text
+/v2/public/pods/:opaquePodId?route=:normalizedPathname&sessionId=:id&grant=:grant
+```
+
+and offers both `mistakes-party-drawing-v2` and
+`mistakes-party-public-auth.SESSION_TOKEN` as WebSocket subprotocols. The
+credential is tab-scoped `sessionStorage` data and must not be logged.
+
+Each route is capped at eight pods. Each pod has four drawer seats and 32
+watchers; route presence is capped at 256 sockets. Stroke updates use immutable
+anchor IDs, normalized coordinates, an epoch, an author generation, and ordered
+sequence numbers. SQLite stores stroke metadata and append chunks; cursors and
+presence are never persisted. `clear:mine` advances only that author's
+generation, preventing delayed frames from restoring cleared marks.
+
+When a pod loses its final drawer seat, its marks remain solid until the
+configured fade window, then disappear at the configured afterglow deadline.
+Watchers do not extend retention. A new drawer cancels the countdown.

@@ -16,6 +16,7 @@ export default function CodePage() {
     <SourceDetail
       backHref="/#github"
       description="Public repositories, experiments, utilities, and useful mistakes—kept open for inspection, reuse, and the next attempt."
+      drawingAnchorId="code:index"
       facts={[
         { label: "OWNER", value: GITHUB_OWNER.toUpperCase() },
         { label: "PLATFORM", value: "GITHUB" },

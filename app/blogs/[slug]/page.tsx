@@ -63,6 +63,7 @@ export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
       backHref="/blogs"
       backLabel="BACK TO BLOGS ↑"
       description="A dispatch from Mistakes.party, preserved here as a quick introduction before continuing to the original post."
+      drawingAnchorId={`blog:${post.slug}`}
       facts={[
         { label: "PUBLISHED", value: formatDate(post.publishedAt) },
         { label: "PLATFORM", value: "MEDIUM" },

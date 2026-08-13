@@ -18,6 +18,22 @@ const partyStatus = (page: Page) => page.getByTestId("party-live-status");
 const partyCount = (page: Page) => page.getByTestId("party-count");
 const partyClearMine = (page: Page) => page.getByTestId("party-clear-mine");
 const partyLeave = (page: Page) => page.getByTestId("party-leave");
+const DRAWING_SCOPE_KEY = "mistakes-party.drawing.scope.v1";
+
+async function selectSoloOnFirstLoad(context: BrowserContext) {
+  await context.addInitScript((scopeKey) => {
+    localStorage.setItem(
+      scopeKey,
+      JSON.stringify({ version: 1, scope: "solo" }),
+    );
+  }, DRAWING_SCOPE_KEY);
+}
+
+test.beforeEach(async ({ context }) => {
+  // Private v1 rooms are an explicit secondary mode now. Keep these regression
+  // tests in Solo until an invite is accepted.
+  await selectSoloOnFirstLoad(context);
+});
 
 const SNAPSHOT_REGION: Region = { x: 130, y: 205, width: 340, height: 115 };
 const LIVE_REGION: Region = { x: 130, y: 355, width: 340, height: 115 };
@@ -35,6 +51,7 @@ async function newPage(
     viewport: { width: 1_100, height: 760 },
   });
   contexts.push(context);
+  await selectSoloOnFirstLoad(context);
   return context.newPage();
 }
 
@@ -73,6 +90,9 @@ async function startParty(page: Page) {
 async function joinParty(page: Page, invite: string) {
   await open(page, invite);
   await expect(partyStatus(page)).toHaveText("LIVE");
+  // Invite links connect and reveal the private room, but never publish cursor
+  // movement until the guest explicitly presses P or the balloon.
+  await expect(toggle(page)).toHaveAttribute("aria-pressed", "false");
 }
 
 async function drawLine(page: Page, from: Point, to: Point) {

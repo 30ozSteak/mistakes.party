@@ -3,11 +3,32 @@
   "name": "mistakes-party-drawing-realtime",
   "main": "src/index.ts",
   "compatibility_date": "2026-08-12",
+  "observability": {
+    "enabled": true
+  },
+  "ratelimits": [
+    {
+      "name": "PUBLIC_HANDSHAKE_RATE_LIMITER",
+      "namespace_id": "73190412",
+      "simple": {
+        "limit": 360,
+        "period": 60
+      }
+    }
+  ],
   "durable_objects": {
     "bindings": [
       {
         "name": "DRAWING_ROOMS",
         "class_name": "DrawingRoom"
+      },
+      {
+        "name": "PUBLIC_ROUTE_LOBBIES",
+        "class_name": "PublicRouteLobby"
+      },
+      {
+        "name": "PUBLIC_DRAWING_PODS",
+        "class_name": "PublicDrawingPod"
       }
     ]
   },
@@ -15,26 +36,63 @@
     {
       "tag": "v1",
       "new_sqlite_classes": ["DrawingRoom"]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": ["PublicRouteLobby", "PublicDrawingPod"]
     }
   ],
   "vars": {
     "ALLOWED_ORIGINS": "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3100,http://127.0.0.1:3100",
-    "ROOM_TTL_SECONDS": "1800"
+    "ROOM_TTL_SECONDS": "1800",
+    "PUBLIC_DRAWING_MODE": "live",
+    "PUBLIC_DRAWING_GENERATION": "v1",
+    "PUBLIC_GRANT_MS": "15000",
+    "PUBLIC_SEAT_HOLD_MS": "120000",
+    "PUBLIC_AFTERGLOW_MS": "600000",
+    "PUBLIC_FADE_MS": "60000"
   },
   "env": {
     "production": {
       "name": "mistakes-party-drawing-realtime",
+      "observability": {
+        "enabled": true
+      },
+      "ratelimits": [
+        {
+          "name": "PUBLIC_HANDSHAKE_RATE_LIMITER",
+          "namespace_id": "73190412",
+          "simple": {
+            "limit": 360,
+            "period": 60
+          }
+        }
+      ],
       "durable_objects": {
         "bindings": [
           {
             "name": "DRAWING_ROOMS",
             "class_name": "DrawingRoom"
+          },
+          {
+            "name": "PUBLIC_ROUTE_LOBBIES",
+            "class_name": "PublicRouteLobby"
+          },
+          {
+            "name": "PUBLIC_DRAWING_PODS",
+            "class_name": "PublicDrawingPod"
           }
         ]
       },
       "vars": {
         "ALLOWED_ORIGINS": "https://www.mistakes.party",
-        "ROOM_TTL_SECONDS": "1800"
+        "ROOM_TTL_SECONDS": "1800",
+        "PUBLIC_DRAWING_MODE": "live",
+        "PUBLIC_DRAWING_GENERATION": "v1",
+        "PUBLIC_GRANT_MS": "15000",
+        "PUBLIC_SEAT_HOLD_MS": "120000",
+        "PUBLIC_AFTERGLOW_MS": "600000",
+        "PUBLIC_FADE_MS": "60000"
       }
     }
   }

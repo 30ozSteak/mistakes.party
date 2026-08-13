@@ -11,6 +11,12 @@ import {
   useState,
 } from "react";
 import {
+  anchoredBoundsToDocumentBounds,
+  anchoredPointToDocumentPoint,
+  anchoredPointsToDocumentPoints,
+  documentPointToAnchoredPoint,
+} from "../lib/drawingAnchors";
+import {
   clearStrokes,
   DEFAULT_COLOR,
   type DrawingPreferences,
@@ -42,6 +48,18 @@ import {
   parseDrawingServerMessageJson,
 } from "../lib/drawingRealtimeProtocol";
 import { DRAWING_REALTIME_URL } from "../lib/drawingRealtimeConfig";
+import {
+  dismissPublicNudge,
+  type DrawingScope,
+  isPublicNudgeDismissed,
+  type PersistedDrawingScope,
+  resolveInitialDrawingScope,
+  writePersistedDrawingScope,
+} from "./publicDrawingPreferences";
+import {
+  type PublicDrawingController,
+  usePublicDrawing,
+} from "./usePublicDrawing";
 
 const STROKE_WIDTH = DRAWING_STROKE_WIDTH;
 const STROKE_OPACITY = DRAWING_STROKE_OPACITY;
@@ -50,6 +68,7 @@ const IDLE_BREAK_MS = 150;
 const CHECKPOINT_INTERVAL_MS = 1_000;
 const CLEAR_CONFIRMATION_MS = 5_000;
 const PARTY_SEND_INTERVAL_MS = 50;
+const PUBLIC_CURSOR_LABEL_MS = 2_000;
 const PARTY_SESSION_KEY = "mistakes-party.drawing.party.v1";
 const PARTY_IDENTITY_KEY_PREFIX = "mistakes-party.drawing.participant.v2.";
 const LEGACY_PARTY_IDENTITY_KEY = "mistakes-party.drawing.participant.v1";
@@ -245,6 +264,22 @@ function inviteUrl(roomId: string): string {
   return url.toString();
 }
 
+function isTextEntryTarget(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element &&
+    target.closest(
+      'input, textarea, select, dialog, [role="dialog"], [role="textbox"], [contenteditable]:not([contenteditable="false"])',
+    ) !== null
+  );
+}
+
+function usesCoarsePrimaryPointer(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.matchMedia("(pointer: coarse)").matches
+  );
+}
+
 function drawStroke(context: CanvasRenderingContext2D, stroke: StrokeRecord) {
   const { points } = stroke;
   if (points.length < 2) return;
@@ -302,6 +337,9 @@ export function DrawingPlayground() {
   const [partyShareUrl, setPartyShareUrl] = useState("");
   const [partyError, setPartyError] = useState("");
   const [remoteCursors, setRemoteCursors] = useState<RemoteCursor[]>([]);
+  const [scope, setScope] = useState<DrawingScope>("solo");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [nudgeVisible, setNudgeVisible] = useState(false);
 
   const rootRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -345,6 +383,14 @@ export function DrawingPlayground() {
   const storageQueueRef = useRef<Promise<void>>(Promise.resolve());
   const mobileNavigationOpenRef = useRef(false);
   const mountedRef = useRef(false);
+  const scopeRef = useRef<DrawingScope>("solo");
+  const previousScopeRef = useRef<PersistedDrawingScope>("solo");
+  const soloEnabledRef = useRef(false);
+  const partyArmOnWelcomeRef = useRef(false);
+  const initialPrivateRoomRef = useRef<string | null | undefined>(undefined);
+  const initialPrivateInviteRef = useRef<boolean | undefined>(undefined);
+  const privateAdmittedRef = useRef(false);
+  const publicControllerRef = useRef<PublicDrawingController | null>(null);
 
   const paintCanvas = useCallback(() => {
     frameRef.current = null;
@@ -381,9 +427,13 @@ export function DrawingPlayground() {
       bottom: window.scrollY + viewportHeight,
     };
 
-    const visibleStrokes = partyRoomIdRef.current
-      ? partyStrokesRef.current
-      : currentStrokesRef.current;
+    const activeScope = scopeRef.current;
+    const visibleStrokes =
+      activeScope === "private"
+        ? partyStrokesRef.current
+        : activeScope === "solo"
+          ? currentStrokesRef.current
+          : [];
 
     for (const stroke of visibleStrokes) {
       const padding = stroke.width / 2;
@@ -399,6 +449,65 @@ export function DrawingPlayground() {
       drawStroke(context, stroke);
     }
 
+    if (activeScope === "public") {
+      const publicDrawing = publicControllerRef.current;
+      const now = Date.now();
+      const reducedMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
+      let afterglowOpacity = 1;
+
+      if (publicDrawing?.expiresAt) {
+        const remaining = publicDrawing.expiresAt - now;
+        if (remaining <= 0) {
+          afterglowOpacity = 0;
+        } else if (
+          !reducedMotion &&
+          publicDrawing.fadeAt &&
+          now > publicDrawing.fadeAt
+        ) {
+          afterglowOpacity =
+            remaining /
+            Math.max(1, publicDrawing.expiresAt - publicDrawing.fadeAt);
+        }
+      }
+
+      for (const stroke of publicDrawing?.strokesRef.current ?? []) {
+        if (
+          publicDrawing?.mutedAuthors.has(stroke.authorId) ||
+          afterglowOpacity <= 0
+        ) {
+          continue;
+        }
+
+        const bounds = anchoredBoundsToDocumentBounds(stroke);
+        const points = anchoredPointsToDocumentPoints(stroke);
+        if (!bounds || !points) continue;
+
+        const padding = stroke.width / 2;
+        if (
+          bounds.maxX + padding < viewport.left ||
+          bounds.minX - padding > viewport.right ||
+          bounds.maxY + padding < viewport.top ||
+          bounds.minY - padding > viewport.bottom
+        ) {
+          continue;
+        }
+
+        drawStroke(context, {
+          version: 1,
+          id: stroke.id,
+          route: stroke.route,
+          color: stroke.color,
+          width: stroke.width,
+          opacity: stroke.opacity * afterglowOpacity,
+          createdAt: stroke.createdAt,
+          points,
+          bounds,
+        });
+      }
+    }
+
     context.globalAlpha = 1;
     context.globalCompositeOperation = "source-over";
   }, []);
@@ -407,6 +516,86 @@ export function DrawingPlayground() {
     if (frameRef.current !== null) return;
     frameRef.current = window.requestAnimationFrame(paintCanvas);
   }, [paintCanvas]);
+
+  const publicDrawing = usePublicDrawing({
+    route,
+    realtimeUrl: PARTY_REALTIME_URL,
+    color,
+    width: STROKE_WIDTH,
+    opacity: STROKE_OPACITY,
+    onRedraw: scheduleRedraw,
+    onStatus: setStatusMessage,
+  });
+
+  useEffect(() => {
+    publicControllerRef.current = publicDrawing;
+    scheduleRedraw();
+  }, [publicDrawing, scheduleRedraw]);
+
+  useEffect(() => {
+    if (
+      !publicDrawing.expiresAt ||
+      !publicDrawing.fadeAt ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ) {
+      return;
+    }
+
+    let timer: number | null = null;
+    let fadeStartTimer: number | null = null;
+    const startFadeRedraws = () => {
+      scheduleRedraw();
+      timer = window.setInterval(scheduleRedraw, 250);
+    };
+
+    const delay = publicDrawing.fadeAt - Date.now();
+    if (delay > 0) {
+      fadeStartTimer = window.setTimeout(startFadeRedraws, delay);
+    } else {
+      startFadeRedraws();
+    }
+
+    return () => {
+      if (fadeStartTimer !== null) window.clearTimeout(fadeStartTimer);
+      if (timer !== null) window.clearInterval(timer);
+    };
+  }, [publicDrawing.expiresAt, publicDrawing.fadeAt, scheduleRedraw]);
+
+  useEffect(() => {
+    if (scopeRef.current !== "public") return;
+    const shouldBeEnabled = publicDrawing.state === "drawing";
+    if (
+      publicDrawing.state !== "matching" &&
+      enabledRef.current !== shouldBeEnabled
+    ) {
+      enabledRef.current = shouldBeEnabled;
+      // Public armed state is intentionally session-only; the persisted v1
+      // enabled preference belongs to the Solo layer.
+      setEnabled(shouldBeEnabled);
+    }
+  }, [publicDrawing.state]);
+
+  useEffect(() => {
+    if (
+      !hydrated ||
+      !PARTY_REALTIME_URL ||
+      publicDrawing.mode !== "off" ||
+      scopeRef.current !== "public"
+    ) {
+      return;
+    }
+
+    scopeRef.current = "solo";
+    previousScopeRef.current = "solo";
+    writePersistedDrawingScope("solo");
+    enabledRef.current = soloEnabledRef.current;
+    // The server-side kill switch removes Public from the active experience
+    // without deleting private local preferences or artwork.
+    setScope("solo");
+    setEnabled(soloEnabledRef.current);
+    setMenuOpen(false);
+    scheduleRedraw();
+  }, [hydrated, publicDrawing.mode, scheduleRedraw]);
 
   const markStorageUnavailable = useCallback(() => {
     storageAvailableRef.current = false;
@@ -508,7 +697,18 @@ export function DrawingPlayground() {
     if (markerRef.current) {
       markerRef.current.dataset.visible = "false";
     }
-    if (partyCursorVisibleRef.current) {
+    if (scopeRef.current === "public") {
+      publicControllerRef.current?.sendCursor(
+        {
+          anchorSchemaVersion: 1,
+          anchorId: "page-root",
+          x: 0,
+          y: 0,
+        },
+        false,
+      );
+    }
+    if (scopeRef.current === "private" && partyCursorVisibleRef.current) {
       partyCursorVisibleRef.current = false;
       sendPartyMessage({
         type: "cursor:move",
@@ -525,6 +725,10 @@ export function DrawingPlayground() {
     if (idleTimerRef.current !== null) {
       clearTimeout(idleTimerRef.current);
       idleTimerRef.current = null;
+    }
+
+    if (scopeRef.current === "public") {
+      publicControllerRef.current?.finishStroke();
     }
 
     const stroke = activeStrokeRef.current;
@@ -571,7 +775,12 @@ export function DrawingPlayground() {
 
   const addDocumentPoint = useCallback(
     (point: Point, pointerId: number) => {
-      const drawingInParty = partyRoomIdRef.current !== null;
+      if (scopeRef.current === "public") {
+        publicControllerRef.current?.addPoint(point, pointerId);
+        return;
+      }
+
+      const drawingInParty = scopeRef.current === "private";
       if (
         drawingInParty &&
         (partyStateRef.current !== "live" ||
@@ -678,9 +887,12 @@ export function DrawingPlayground() {
       colorRef.current = nextColor;
       setEnabled(nextEnabled);
       setColor(nextColor);
+      if (scopeRef.current === "solo") {
+        soloEnabledRef.current = nextEnabled;
+      }
       const preferencesSaved = writePreferences({
         version: 1,
-        enabled: nextEnabled,
+        enabled: soloEnabledRef.current,
         color: nextColor,
       } satisfies DrawingPreferences);
       if (!preferencesSaved && mountedRef.current) {
@@ -700,47 +912,61 @@ export function DrawingPlayground() {
 
   useEffect(() => {
     mountedRef.current = true;
+    let disposed = false;
     const preferences = readPreferences();
     discardLegacyPartyIdentity();
-    enabledRef.current = preferences.enabled;
+    soloEnabledRef.current = preferences.enabled;
     colorRef.current = preferences.color;
     // Browser preferences can only be restored after the server-rendered shell
     // hydrates. Synchronizing these two controls here is intentional.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setEnabled(preferences.enabled);
     setColor(preferences.color);
-    setHydrated(true);
     if (!hasPreferenceStorageAccess()) {
       setNotSaving(true);
     }
 
-    const invitedRoom = parsePartyHash();
-    const rememberedRoom = readSessionParty();
-    const initialRoom = invitedRoom ?? rememberedRoom;
-    if (initialRoom) {
-      const identity = readOrCreatePartyIdentity(initialRoom);
-      partyRoomIdRef.current = initialRoom;
-      partyIdentityRef.current = identity;
-      partyRouteReadyRef.current = false;
-      partyClearPendingRouteRef.current = null;
-      setPartyRoomId(initialRoom);
-      setPartyIdentity(identity);
-      writeSessionParty(initialRoom);
-      setPartyShareUrl(inviteUrl(initialRoom));
-      updatePartyState(PARTY_REALTIME_URL ? "connecting" : "unavailable");
+    if (initialPrivateRoomRef.current === undefined) {
+      const invitedRoom = parsePartyHash();
+      initialPrivateInviteRef.current = invitedRoom !== null;
+      initialPrivateRoomRef.current = invitedRoom ?? readSessionParty();
     }
+    const initialRoom = initialPrivateRoomRef.current;
 
-    if (invitedRoom) {
-      const cleanUrl = new URL(window.location.href);
-      cleanUrl.hash = "";
-      window.history.replaceState(
-        window.history.state,
-        "",
-        `${cleanUrl.pathname}${cleanUrl.search}`,
+    void resolveInitialDrawingScope().then(({ scope: initialScope }) => {
+      if (disposed) return;
+      scopeRef.current = initialScope;
+      previousScopeRef.current = initialScope;
+      setScope(initialScope);
+      const initialEnabled =
+        initialScope === "solo" ? preferences.enabled : false;
+      enabledRef.current = initialEnabled;
+      setEnabled(initialEnabled);
+      setNudgeVisible(
+        initialScope === "public" && !isPublicNudgeDismissed(),
       );
-    }
+      setHydrated(true);
+
+      if (initialRoom) {
+        // Membership is remembered again only after the server admits this
+        // tab. A rejected/full/offline reconnect must not become sticky.
+        if (initialPrivateInviteRef.current) writeSessionParty(null);
+        const identity = readOrCreatePartyIdentity(initialRoom);
+        partyRoomIdRef.current = initialRoom;
+        partyIdentityRef.current = identity;
+        partyRouteReadyRef.current = false;
+        partyClearPendingRouteRef.current = null;
+        partyArmOnWelcomeRef.current = false;
+        privateAdmittedRef.current = false;
+        setPartyRoomId(initialRoom);
+        setPartyIdentity(identity);
+        setPartyShareUrl(inviteUrl(initialRoom));
+        setMenuOpen(true);
+        updatePartyState(PARTY_REALTIME_URL ? "connecting" : "unavailable");
+      }
+    });
 
     return () => {
+      disposed = true;
       mountedRef.current = false;
     };
   }, [updatePartyState]);
@@ -798,12 +1024,41 @@ export function DrawingPlayground() {
       switch (message.type) {
         case "welcome":
           partyReconnectAttemptsRef.current = 0;
+          privateAdmittedRef.current = true;
           // A welcome is an authoritative reconnect snapshot. It resolves a
           // clear whose acknowledgement may have been lost with the old socket.
           partyClearPendingRouteRef.current = null;
           setPartyParticipants(message.participants);
           setPartyError("");
           installSnapshot(message.route, message.strokes);
+          writeSessionParty(activeRoomId);
+          initialPrivateRoomRef.current = activeRoomId;
+          initialPrivateInviteRef.current = false;
+
+          if (parsePartyHash() === activeRoomId) {
+            const cleanUrl = new URL(window.location.href);
+            cleanUrl.hash = "";
+            window.history.replaceState(
+              window.history.state,
+              "",
+              `${cleanUrl.pathname}${cleanUrl.search}`,
+            );
+          }
+
+          if (scopeRef.current !== "private") {
+            const priorScope = scopeRef.current;
+            previousScopeRef.current = priorScope;
+            if (priorScope === "public") {
+              publicControllerRef.current?.leave();
+            }
+            scopeRef.current = "private";
+            setScope("private");
+            const shouldArm = partyArmOnWelcomeRef.current;
+            enabledRef.current = shouldArm;
+            setEnabled(shouldArm);
+            setMenuOpen(true);
+            scheduleRedraw();
+          }
           // Navigation can finish while the WebSocket handshake is still in
           // flight. Reassert the live pathname before any subsequent stroke
           // messages so the server and canvas cannot remain on different pages.
@@ -1131,13 +1386,35 @@ export function DrawingPlayground() {
       const isOverControls =
         target instanceof Element &&
         target.closest("[data-drawing-control]") !== null;
-
-      if (
-        !enabledRef.current ||
-        (partyRoomIdRef.current !== null &&
+      const activeScope = scopeRef.current;
+      const realtimeNotReady =
+        (activeScope === "private" &&
           (partyStateRef.current !== "live" ||
             !partyRouteReadyRef.current ||
             partyClearPendingRouteRef.current !== null)) ||
+        (activeScope === "public" &&
+          !publicControllerRef.current?.drawingReady);
+
+      if (
+        activeScope === "public" &&
+        event.pointerType === "pen" &&
+        !enabledRef.current &&
+        !isOverControls &&
+        !mobileNavigationOpenRef.current &&
+        (publicControllerRef.current?.state === "watching" ||
+          publicControllerRef.current?.state === "paused")
+      ) {
+        enabledRef.current = true;
+        setEnabled(true);
+        publicControllerRef.current?.requestDrawing();
+        setStatusMessage("Joining a public drawing seat for your stylus.");
+        hideMarker();
+        return;
+      }
+
+      if (
+        !enabledRef.current ||
+        realtimeNotReady ||
         isOverControls ||
         mobileNavigationOpenRef.current
       ) {
@@ -1183,7 +1460,7 @@ export function DrawingPlayground() {
 
       const now = performance.now();
       if (
-        partyRoomIdRef.current &&
+        activeScope === "private" &&
         partyStateRef.current === "live" &&
         now - lastPartyCursorSentRef.current >= PARTY_SEND_INTERVAL_MS
       ) {
@@ -1197,6 +1474,14 @@ export function DrawingPlayground() {
           color: colorRef.current,
           visible: true,
         });
+      } else if (activeScope === "public") {
+        const anchored = documentPointToAnchoredPoint(
+          event.clientX + window.scrollX,
+          event.clientY + window.scrollY,
+        );
+        if (anchored) {
+          publicControllerRef.current?.sendCursor(anchored, true);
+        }
       }
     }
 
@@ -1216,17 +1501,23 @@ export function DrawingPlayground() {
       if (document.visibilityState === "hidden") {
         hideMarker();
         finishActiveStroke();
+        if (scopeRef.current === "public") {
+          enabledRef.current = false;
+          setEnabled(false);
+        }
+        publicControllerRef.current?.releaseForBackground();
       }
     }
 
     function handlePageHide() {
       hideMarker();
       finishActiveStroke();
+      publicControllerRef.current?.releaseForBackground();
     }
 
     function handleViewportChange() {
       scheduleRedraw();
-      if (partyRoomIdRef.current) {
+      if (scopeRef.current === "private") {
         setRemoteCursors((cursors) => [...cursors]);
       }
     }
@@ -1236,7 +1527,6 @@ export function DrawingPlayground() {
     });
     window.addEventListener("pointercancel", handlePointerCancel, true);
     window.addEventListener("pointerout", handleWindowExit, true);
-    window.addEventListener("blur", handlePageHide);
     window.addEventListener("pagehide", handlePageHide);
     window.addEventListener("scroll", handleViewportChange, { passive: true });
     window.addEventListener("resize", handleViewportChange, { passive: true });
@@ -1246,7 +1536,6 @@ export function DrawingPlayground() {
       window.removeEventListener("pointermove", handlePointerMove, true);
       window.removeEventListener("pointercancel", handlePointerCancel, true);
       window.removeEventListener("pointerout", handleWindowExit, true);
-      window.removeEventListener("blur", handlePageHide);
       window.removeEventListener("pagehide", handlePageHide);
       window.removeEventListener("scroll", handleViewportChange);
       window.removeEventListener("resize", handleViewportChange);
@@ -1292,6 +1581,16 @@ export function DrawingPlayground() {
   }, [finishActiveStroke, hideMarker]);
 
   useEffect(() => {
+    if (typeof ResizeObserver === "undefined") return;
+    const anchors = document.querySelectorAll<HTMLElement>(
+      "[data-drawing-anchor]",
+    );
+    const observer = new ResizeObserver(scheduleRedraw);
+    anchors.forEach((anchor) => observer.observe(anchor));
+    return () => observer.disconnect();
+  }, [route, scheduleRedraw]);
+
+  useEffect(() => {
     return () => {
       if (frameRef.current !== null) {
         window.cancelAnimationFrame(frameRef.current);
@@ -1306,14 +1605,151 @@ export function DrawingPlayground() {
     };
   }, []);
 
-  function handleToggle() {
+  const handleToggle = useCallback((forceDrawer = false) => {
     cancelClearConfirmation();
+
+    if (
+      scopeRef.current === "public" &&
+      publicControllerRef.current?.mode === "off" &&
+      PARTY_REALTIME_URL
+    ) {
+      scopeRef.current = "solo";
+      previousScopeRef.current = "solo";
+      writePersistedDrawingScope("solo");
+      enabledRef.current = soloEnabledRef.current;
+      setScope("solo");
+      setEnabled(soloEnabledRef.current);
+    }
+
+    if (scopeRef.current === "public") {
+      finishActiveStroke();
+      if (publicControllerRef.current?.mode === "off") {
+        enabledRef.current = false;
+        setEnabled(false);
+        setStatusMessage(
+          "Live drawing is offline. Open drawing options to draw Solo.",
+        );
+        return;
+      }
+      if (
+        enabledRef.current ||
+        publicControllerRef.current?.state === "drawing" ||
+        publicControllerRef.current?.state === "matching"
+      ) {
+        enabledRef.current = false;
+        setEnabled(false);
+        publicControllerRef.current?.pause();
+        hideMarker();
+        setMenuOpen(false);
+        setStatusMessage("Public drawing paused.");
+        return;
+      }
+
+      setNudgeVisible(false);
+      dismissPublicNudge();
+      if (usesCoarsePrimaryPointer() && !forceDrawer) {
+        enabledRef.current = false;
+        setEnabled(false);
+        publicControllerRef.current?.requestWatching();
+        setStatusMessage(
+          "Watching public drawing. Touch gestures still scroll and tap normally.",
+        );
+      } else {
+        enabledRef.current = true;
+        setEnabled(true);
+        publicControllerRef.current?.requestDrawing();
+        setStatusMessage("Joining a public drawing pod.");
+      }
+      return;
+    }
+
     const nextEnabled = !enabledRef.current;
     finishActiveStroke();
-    if (!nextEnabled) hideMarker();
-    commitPreferences(nextEnabled, colorRef.current);
+    if (!nextEnabled) {
+      hideMarker();
+      setMenuOpen(false);
+    }
+    if (scopeRef.current === "private") {
+      enabledRef.current = nextEnabled;
+      setEnabled(nextEnabled);
+    } else {
+      commitPreferences(nextEnabled, colorRef.current);
+    }
     setStatusMessage(nextEnabled ? "Drawing mode on." : "Drawing mode off.");
-  }
+  }, [
+    cancelClearConfirmation,
+    commitPreferences,
+    finishActiveStroke,
+    hideMarker,
+  ]);
+
+  useEffect(() => {
+    function handleDrawingShortcut(event: KeyboardEvent) {
+      if (
+        !event.defaultPrevented &&
+        !event.isComposing &&
+        !event.altKey &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        event.key === "Escape" &&
+        document.querySelector(
+          'dialog[open], [role="dialog"][aria-modal="true"]',
+        ) === null &&
+        !mobileNavigationOpenRef.current
+      ) {
+        finishActiveStroke();
+        hideMarker();
+        if (scopeRef.current === "public") {
+          publicControllerRef.current?.pause();
+        } else if (scopeRef.current === "private") {
+          enabledRef.current = false;
+          setEnabled(false);
+        } else if (enabledRef.current) {
+          commitPreferences(false, colorRef.current);
+        }
+        enabledRef.current = false;
+        setEnabled(false);
+        setMenuOpen(false);
+        cancelClearConfirmation();
+        setStatusMessage("Drawing paused and options closed.");
+        return;
+      }
+
+      if (
+        event.defaultPrevented ||
+        event.repeat ||
+        event.isComposing ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.key.toLowerCase() !== "p" ||
+        isTextEntryTarget(event.target) ||
+        document.querySelector(
+          'dialog[open], [role="dialog"][aria-modal="true"]',
+        ) !== null ||
+        mobileNavigationOpenRef.current
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      const wasPublicAmbient =
+        scopeRef.current === "public" &&
+        !enabledRef.current &&
+        publicControllerRef.current?.state === "ambient";
+      handleToggle(true);
+      if (wasPublicAmbient) setMenuOpen(false);
+    }
+
+    window.addEventListener("keydown", handleDrawingShortcut);
+    return () => window.removeEventListener("keydown", handleDrawingShortcut);
+  }, [
+    cancelClearConfirmation,
+    commitPreferences,
+    finishActiveStroke,
+    handleToggle,
+    hideMarker,
+  ]);
 
   function handleColorChange(nextColor: HighlighterColor, label: string) {
     cancelClearConfirmation();
@@ -1387,7 +1823,14 @@ export function DrawingPlayground() {
     }
 
     finishActiveStroke();
+    if (scopeRef.current !== "private") {
+      previousScopeRef.current = scopeRef.current;
+    }
+    partyArmOnWelcomeRef.current = enabledRef.current;
     const roomId = createDrawingRoomId();
+    initialPrivateRoomRef.current = roomId;
+    initialPrivateInviteRef.current = false;
+    privateAdmittedRef.current = false;
     const identity = readOrCreatePartyIdentity(roomId);
     partyRoomIdRef.current = roomId;
     partyIdentityRef.current = identity;
@@ -1400,7 +1843,6 @@ export function DrawingPlayground() {
     setPartyParticipants([]);
     setPartyError("");
     setPartyShareUrl(inviteUrl(roomId));
-    writeSessionParty(roomId);
     updatePartyState("connecting");
     scheduleRedraw();
     setStatusMessage("Party created. Connecting now.");
@@ -1450,7 +1892,63 @@ export function DrawingPlayground() {
     }
   }
 
-  function handleLeaveParty() {
+  function handlePublicClearMine() {
+    if (!clearConfirming) {
+      setClearConfirming(true);
+      setStatusMessage(
+        "Press Clear My Marks again within five seconds to erase your public marks.",
+      );
+      clearTimerRef.current = setTimeout(() => {
+        clearTimerRef.current = null;
+        setClearConfirming(false);
+        setStatusMessage("Clear confirmation expired.");
+      }, CLEAR_CONFIRMATION_MS);
+      return;
+    }
+
+    cancelClearConfirmation();
+    finishActiveStroke();
+    if (publicDrawing.clearMine()) {
+      hideMarker();
+      setStatusMessage("Clearing your public marks.");
+    } else {
+      setStatusMessage("Could not clear marks while Live is offline.");
+    }
+  }
+
+  function selectPersistedScope(nextScope: PersistedDrawingScope) {
+    if (scopeRef.current === nextScope && partyRoomIdRef.current === null) return;
+    cancelClearConfirmation();
+    finishActiveStroke();
+    hideMarker();
+
+    if (scopeRef.current === "private") {
+      handleLeaveParty(nextScope);
+      return;
+    }
+
+    if (scopeRef.current === "public") {
+      publicDrawing.leave();
+    }
+
+    scopeRef.current = nextScope;
+    previousScopeRef.current = nextScope;
+    setScope(nextScope);
+    writePersistedDrawingScope(nextScope);
+    const nextEnabled = nextScope === "solo" ? soloEnabledRef.current : false;
+    enabledRef.current = nextEnabled;
+    setEnabled(nextEnabled);
+    scheduleRedraw();
+    setStatusMessage(
+      nextScope === "solo"
+        ? "Solo drawing selected. Marks stay in this browser."
+        : "Public drawing selected. Press P or the balloon to join.",
+    );
+  }
+
+  function handleLeaveParty(restoredScope = previousScopeRef.current) {
+    const wasAdmitted = privateAdmittedRef.current;
+    const enabledBeforeLeave = enabledRef.current;
     cancelClearConfirmation();
     finishActiveStroke();
     hideMarker();
@@ -1466,6 +1964,9 @@ export function DrawingPlayground() {
     partySocket?.close(1000, "Leaving party");
     partyRoomIdRef.current = null;
     partyIdentityRef.current = null;
+    initialPrivateRoomRef.current = null;
+    initialPrivateInviteRef.current = false;
+    privateAdmittedRef.current = false;
     setPartyRoomId(null);
     setPartyIdentity(null);
     setPartyParticipants([]);
@@ -1473,7 +1974,33 @@ export function DrawingPlayground() {
     setPartyShareUrl("");
     setRemoteCursors([]);
     writeSessionParty(null);
+    const invitedRoom = parsePartyHash();
+    if (invitedRoom) {
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.hash = "";
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${cleanUrl.pathname}${cleanUrl.search}`,
+      );
+    }
     updatePartyState("solo");
+    scopeRef.current = restoredScope;
+    previousScopeRef.current = restoredScope;
+    setScope(restoredScope);
+    writePersistedDrawingScope(restoredScope);
+    const restoredEnabled = wasAdmitted ? false : enabledBeforeLeave;
+    if (wasAdmitted && restoredScope === "solo") {
+      soloEnabledRef.current = false;
+      const saved = writePreferences({
+        version: 1,
+        enabled: false,
+        color: colorRef.current,
+      } satisfies DrawingPreferences);
+      if (!saved) setNotSaving(true);
+    }
+    enabledRef.current = restoredEnabled;
+    setEnabled(restoredEnabled);
     scheduleRedraw();
     setStatusMessage("You left the drawing party.");
   }
@@ -1481,8 +2008,24 @@ export function DrawingPlayground() {
   const rootStyle = {
     "--drawing-color": color,
   } as CSSProperties;
-  const partyToolsVisible =
-    enabled || partyRoomId !== null;
+  const toolsVisible = menuOpen;
+  const publicFeatureAvailable =
+    publicDrawing.mode !== "off" || PARTY_REALTIME_URL.length === 0;
+  const shownSessionCount = Math.min(99, publicDrawing.sessionCount);
+  const publicStatusLabel =
+    publicDrawing.state === "drawing"
+      ? "LIVE · DRAWING"
+      : publicDrawing.state === "matching"
+        ? "MATCHING"
+        : publicDrawing.state === "paused"
+          ? "LIVE · PAUSED"
+          : publicDrawing.state === "watching"
+            ? "LIVE · WATCHING"
+            : publicDrawing.state === "busy"
+              ? "LIVE BUSY"
+              : publicDrawing.state === "offline"
+                ? "LIVE OFFLINE"
+                : `${publicDrawing.sessionCount} HERE`;
 
   return (
     <div
@@ -1491,7 +2034,10 @@ export function DrawingPlayground() {
       data-hydrated={hydrated}
       data-party-id={partyRoomId ?? undefined}
       data-party-state={partyState}
+      data-public-mode={publicDrawing.mode}
+      data-public-state={publicDrawing.state}
       data-saving={notSaving ? "memory-only" : "persistent"}
+      data-scope={scope}
       data-testid="drawing-playground"
       ref={rootRef}
       style={rootStyle}
@@ -1499,6 +2045,7 @@ export function DrawingPlayground() {
       <canvas
         aria-hidden="true"
         className="drawing-canvas"
+        data-visible-scope={scope}
         data-testid="drawing-canvas"
         key={route}
         ref={canvasRef}
@@ -1511,7 +2058,7 @@ export function DrawingPlayground() {
         ref={markerRef}
       />
 
-      {remoteCursors
+      {scope === "private" && remoteCursors
         .filter((cursor) => cursor.visible && cursor.route === route)
         .map((cursor) => (
           <span
@@ -1530,6 +2077,63 @@ export function DrawingPlayground() {
           </span>
         ))}
 
+      {scope === "public" &&
+        publicDrawing.cursors
+          .filter(
+            (cursor) =>
+              cursor.visible && !publicDrawing.mutedAuthors.has(cursor.authorId),
+          )
+          .map((cursor) => {
+            if (cursor.anchorSchemaVersion !== 1) return null;
+            const point = anchoredPointToDocumentPoint({
+              anchorSchemaVersion: 1,
+              anchorId: cursor.anchorId,
+              x: cursor.x,
+              y: cursor.y,
+            });
+            if (!point) return null;
+            return (
+              <span
+                aria-hidden="true"
+                className="drawing-remote-cursor"
+                data-testid="public-remote-cursor"
+                key={cursor.authorId}
+                style={
+                  {
+                    "--remote-cursor-color": cursor.color,
+                    transform: `translate3d(${point.x - window.scrollX - STROKE_WIDTH / 2}px, ${point.y - window.scrollY - STROKE_WIDTH / 2}px, 0)`,
+                  } as CSSProperties
+                }
+              >
+                <span style={{ "--cursor-label-ms": `${PUBLIC_CURSOR_LABEL_MS}ms` } as CSSProperties}>
+                  {cursor.authorName}
+                </span>
+              </span>
+            );
+          })}
+
+      {nudgeVisible && scope === "public" && publicDrawing.mode !== "off" ? (
+        <aside className="drawing-public-nudge" data-testid="public-nudge">
+          <span>
+            {shownSessionCount}
+            {publicDrawing.sessionCount > 99 ? "+" : ""} HERE ·{" "}
+            {usesCoarsePrimaryPointer() ? "TAP TO WATCH" : "PRESS P TO DRAW"}
+          </span>
+          <button
+            aria-label="Dismiss live drawing tip"
+            data-drawing-control
+            data-testid="public-nudge-dismiss"
+            onClick={() => {
+              dismissPublicNudge();
+              setNudgeVisible(false);
+            }}
+            type="button"
+          >
+            ×
+          </button>
+        </aside>
+      ) : null}
+
       <div
         className="drawing-toolbar"
         data-drawing-control
@@ -1542,9 +2146,12 @@ export function DrawingPlayground() {
       >
         <div
           className="drawing-tool-stack"
-          data-visible={partyToolsVisible}
+          data-testid="drawing-companion-menu"
+          data-visible={toolsVisible}
           id="drawing-tools"
-          inert={!partyToolsVisible ? true : undefined}
+          inert={!toolsVisible ? true : undefined}
+          aria-label="Drawing options"
+          role="group"
         >
           <div
             aria-label="Highlighter color"
@@ -1575,20 +2182,174 @@ export function DrawingPlayground() {
 
           {partyRoomId === null ? (
             <>
-              <button
-                aria-label={
-                  clearConfirming
-                    ? "Confirm clear drawing for this page"
-                    : "Clear drawing for this page"
-                }
-                className="drawing-clear"
-                data-confirming={clearConfirming || undefined}
-                data-testid="drawing-clear"
-                onClick={handleClear}
-                type="button"
+              <section
+                aria-label="Drawing scope"
+                className="drawing-scope-panel"
               >
-                {clearConfirming ? "SURE?" : "CLEAR"}
-              </button>
+                <span className="drawing-menu-label">DRAW WITH</span>
+                <div
+                  className="drawing-scope-options"
+                  data-public-available={publicFeatureAvailable}
+                >
+                  {publicFeatureAvailable ? (
+                    <button
+                      aria-pressed={scope === "public"}
+                      className="drawing-scope-button"
+                      data-testid="drawing-scope-public"
+                      onClick={() => selectPersistedScope("public")}
+                      type="button"
+                    >
+                      PUBLIC
+                    </button>
+                  ) : null}
+                  <button
+                    aria-pressed={scope === "solo"}
+                    className="drawing-scope-button"
+                    data-testid="drawing-scope-solo"
+                    onClick={() => selectPersistedScope("solo")}
+                    type="button"
+                  >
+                    SOLO
+                  </button>
+                </div>
+              </section>
+
+              {scope === "public" && publicFeatureAvailable ? (
+                <section
+                  aria-label="Public drawing"
+                  className="drawing-public-panel"
+                >
+                  <div className="drawing-party-heading">
+                    <strong data-testid="public-live-status">
+                      {publicStatusLabel}
+                    </strong>
+                    <span>
+                      {
+                        publicDrawing.participants.filter(
+                          (participant) => participant.drawing,
+                        ).length
+                      }
+                      /4 DRAWING
+                    </span>
+                  </div>
+
+                  {publicDrawing.identity ? (
+                    <p className="drawing-party-identity">
+                      YOU: {publicDrawing.identity.name}
+                    </p>
+                  ) : null}
+
+                  {publicDrawing.participants.length > 0 ? (
+                    <ul
+                      aria-label="Public pod participants"
+                      className="drawing-public-participants"
+                      data-testid="public-participant-list"
+                    >
+                      {publicDrawing.participants.map((participant) => {
+                        const isSelf =
+                          participant.id === publicDrawing.identity?.id;
+                        const muted = publicDrawing.mutedAuthors.has(
+                          participant.id,
+                        );
+                        return (
+                          <li
+                            data-testid={`public-drawer-${participant.id}`}
+                            key={participant.id}
+                          >
+                            <span>
+                              {participant.name}
+                              {isSelf ? " · YOU" : ""}
+                            </span>
+                            {!isSelf ? (
+                              <button
+                                aria-pressed={muted}
+                                data-testid={`public-mute-${participant.id}`}
+                                onClick={() =>
+                                  publicDrawing.toggleMute(participant.id)
+                                }
+                                type="button"
+                              >
+                                {muted ? "UNMUTE" : "MUTE"}
+                              </button>
+                            ) : null}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : null}
+
+                  {publicDrawing.error ? (
+                    <p className="drawing-public-error" role="alert">
+                      {publicDrawing.error}
+                    </p>
+                  ) : null}
+
+                  {publicDrawing.state === "offline" ||
+                  publicDrawing.state === "busy" ? (
+                    <div className="drawing-public-actions">
+                      <button
+                        className="drawing-party-button"
+                        data-testid="public-retry"
+                        onClick={publicDrawing.retry}
+                        type="button"
+                      >
+                        RETRY LIVE
+                      </button>
+                      <button
+                        className="drawing-party-button"
+                        data-testid="public-draw-solo"
+                        onClick={() => selectPersistedScope("solo")}
+                        type="button"
+                      >
+                        DRAW SOLO
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {publicDrawing.state !== "ambient" ? (
+                        <button
+                          aria-label={
+                            clearConfirming
+                              ? "Confirm clear your public marks"
+                              : "Clear your public marks"
+                          }
+                          className="drawing-party-button"
+                          data-confirming={clearConfirming || undefined}
+                          data-testid="public-clear-mine"
+                          onClick={handlePublicClearMine}
+                          type="button"
+                        >
+                          {clearConfirming ? "SURE?" : "CLEAR MY MARKS"}
+                        </button>
+                      ) : null}
+                      <button
+                        className="drawing-party-button drawing-party-leave"
+                        data-testid="public-leave"
+                        disabled={publicDrawing.state === "ambient"}
+                        onClick={publicDrawing.leave}
+                        type="button"
+                      >
+                        RETURN TO AMBIENT
+                      </button>
+                    </>
+                  )}
+                </section>
+              ) : (
+                <button
+                  aria-label={
+                    clearConfirming
+                      ? "Confirm clear drawing for this page"
+                      : "Clear drawing for this page"
+                  }
+                  className="drawing-clear"
+                  data-confirming={clearConfirming || undefined}
+                  data-testid="drawing-clear"
+                  onClick={handleClear}
+                  type="button"
+                >
+                  {clearConfirming ? "SURE?" : "CLEAR"}
+                </button>
+              )}
 
               <button
                 className="drawing-party-start"
@@ -1674,7 +2435,7 @@ export function DrawingPlayground() {
               <button
                 className="drawing-party-button drawing-party-leave"
                 data-testid="party-leave"
-                onClick={handleLeaveParty}
+                onClick={() => handleLeaveParty()}
                 type="button"
               >
                 LEAVE PARTY
@@ -1705,23 +2466,70 @@ export function DrawingPlayground() {
           {statusMessage}
         </span>
 
-        <button
-          aria-controls="drawing-tools"
-          aria-expanded={partyToolsVisible}
-          aria-label={enabled ? "Turn drawing mode off" : "Turn drawing mode on"}
-          aria-pressed={enabled}
-          className="drawing-toggle"
-          data-testid="drawing-toggle"
-          onClick={handleToggle}
-          type="button"
-        >
-          <span aria-hidden="true" className="drawing-balloon">
-            <span className="drawing-balloon-body" />
-            <span className="drawing-balloon-knot" />
-            <span className="drawing-balloon-string" />
-          </span>
-          <span className="sr-only">Drawing highlighter</span>
-        </button>
+        <div className="drawing-control-row">
+          <button
+            aria-controls="drawing-tools"
+            aria-expanded={menuOpen}
+            aria-label={menuOpen ? "Close drawing options" : "Open drawing options"}
+            className="drawing-menu-toggle"
+            data-testid="drawing-menu-toggle"
+            onClick={() => {
+              finishActiveStroke();
+              hideMarker();
+              setMenuOpen((open) => !open);
+            }}
+            title="Drawing options"
+            type="button"
+          >
+            <span aria-hidden="true">•••</span>
+          </button>
+
+          <button
+            aria-controls="drawing-tools"
+            aria-expanded={toolsVisible}
+            aria-keyshortcuts="P"
+            aria-label={
+              enabled
+                ? `Pause ${scope} drawing.${
+                    publicDrawing.mode !== "off"
+                      ? ` ${publicDrawing.sessionCount} sessions here.`
+                      : ""
+                  }`
+                : `Start ${scope} drawing.${
+                    publicDrawing.mode !== "off"
+                      ? ` ${publicDrawing.sessionCount} sessions here.`
+                      : ""
+                  }`
+            }
+            aria-pressed={enabled}
+            className="drawing-toggle"
+            data-testid="drawing-toggle"
+            onClick={() => {
+              const activating = !enabledRef.current;
+              handleToggle();
+              if (activating) setMenuOpen(true);
+            }}
+            title={enabled ? "Pause drawing (P)" : "Start drawing (P)"}
+            type="button"
+          >
+            <span aria-hidden="true" className="drawing-balloon">
+              <span className="drawing-balloon-body" />
+              <span className="drawing-balloon-knot" />
+              <span className="drawing-balloon-string" />
+            </span>
+            {publicDrawing.mode !== "off" ? (
+              <span
+                aria-hidden="true"
+                className="drawing-session-count"
+                data-testid="drawing-session-count"
+              >
+                {shownSessionCount}
+                {publicDrawing.sessionCount > 99 ? "+" : ""}
+              </span>
+            ) : null}
+            <span className="sr-only">Drawing highlighter</span>
+          </button>
+        </div>
       </div>
     </div>
   );

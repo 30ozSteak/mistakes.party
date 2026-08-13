@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const PREFERENCES_KEY = "mistakes-party.drawing.preferences.v1";
+const DRAWING_SCOPE_KEY = "mistakes-party.drawing.scope.v1";
 const DATABASE_NAME = "mistakes-party-drawing";
 const STORE_NAME = "strokes";
 
@@ -22,6 +23,18 @@ const toggle = (page: Page) => page.getByTestId("drawing-toggle");
 const clear = (page: Page) => page.getByTestId("drawing-clear");
 const color = (page: Page, name: "acid" | "pink" | "cyan" | "orange") =>
   page.getByTestId(`drawing-color-${name}`);
+
+test.beforeEach(async ({ page }) => {
+  // These are the legacy/private highlighter regressions. A clean profile now
+  // starts in Public Ambient, so opt into Solo without manufacturing legacy
+  // preferences or artwork that would weaken the migration tests.
+  await page.addInitScript((scopeKey) => {
+    localStorage.setItem(
+      scopeKey,
+      JSON.stringify({ version: 1, scope: "solo" }),
+    );
+  }, DRAWING_SCOPE_KEY);
+});
 
 function normalizedRoute(pathname: string) {
   if (pathname === "/") return pathname;
@@ -167,6 +180,29 @@ test("defaults off, then paints from button-free mouse movement", async ({
   await expect(toggle(page)).toHaveAttribute("aria-pressed", "true");
   await drawLine(page);
   await expectInk(page);
+});
+
+test("P toggles drawing mode without firing while typing", async ({ page }) => {
+  await openHome(page);
+  await expect(toggle(page)).toHaveAttribute("aria-keyshortcuts", "P");
+  await expect(toggle(page)).toHaveAttribute("aria-pressed", "false");
+
+  await page.keyboard.press("p");
+  await expect(toggle(page)).toHaveAttribute("aria-pressed", "true");
+  await page.keyboard.press("p");
+  await expect(toggle(page)).toHaveAttribute("aria-pressed", "false");
+
+  await page.evaluate(() => {
+    const input = document.createElement("input");
+    input.setAttribute("aria-label", "Shortcut typing check");
+    document.body.append(input);
+    input.focus();
+  });
+  await page.keyboard.press("p");
+  await expect(
+    page.getByRole("textbox", { name: "Shortcut typing check" }),
+  ).toHaveValue("p");
+  await expect(toggle(page)).toHaveAttribute("aria-pressed", "false");
 });
 
 test("restores the selected color, preferences, and artwork after reload", async ({

@@ -8,6 +8,7 @@ const managedBaseURL = `http://localhost:${port}`;
 const managedRealtimeURL = `http://127.0.0.1:${realtimePort}`;
 const managedOrigin = `http://localhost:${port}`;
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? managedBaseURL;
+const managedRealtimeStorage = `/tmp/mistakes-party-wrangler-${process.pid}`;
 
 export default defineConfig({
   testDir: "./tests",
@@ -34,7 +35,7 @@ export default defineConfig({
     ? undefined
     : [
         {
-          command: `npm run dev:realtime -- --port ${realtimePort} --var ALLOWED_ORIGINS:${managedOrigin}`,
+          command: `npm run dev:realtime -- --port ${realtimePort} --persist-to ${managedRealtimeStorage} --var ALLOWED_ORIGINS:${managedOrigin} --var PUBLIC_DRAWING_MODE:live --var PUBLIC_DRAWING_GENERATION:playwright-v1 --var PUBLIC_GRANT_MS:15000 --var PUBLIC_SEAT_HOLD_MS:2500 --var PUBLIC_AFTERGLOW_MS:4000 --var PUBLIC_FADE_MS:1000`,
           url: `${managedRealtimeURL}/health`,
           reuseExistingServer: !process.env.CI,
           timeout: 120_000,

@@ -1,0 +1,41 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="1200"
+  height="360"
+  viewBox="0 0 1200 360"
+  preserveAspectRatio="xMidYMid meet"
+  role="img"
+  aria-labelledby="banner-title banner-desc"
+  focusable="false"
+  shape-rendering="geometricPrecision"
+>
+  <title id="banner-title">MXP — Mistakes Party</title>
+  <desc id="banner-desc">A bold warm-paper poster for 30ozSteak featuring the MXP mark, an acid-lime crooked X, and the words web, apps, XR, games, art, and useful mistakes.</desc>
+
+  <rect width="1200" height="360" fill="#f2f1e9"/>
+  <rect x="3" y="3" width="1194" height="354" fill="none" stroke="#090a08" stroke-width="6"/>
+
+  <rect x="6" y="6" width="1188" height="46" fill="#090a08"/>
+  <rect x="25" y="20" width="16" height="16" fill="#dfff00"/>
+  <text x="54" y="36" fill="#f2f1e9" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="18" font-weight="900" letter-spacing="1.4">MISTAKES.PARTY</text>
+  <text x="1171" y="36" fill="#f2f1e9" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16" font-weight="900" letter-spacing="1.2">30OZSTEAK / GITHUB PROFILE</text>
+
+  <g aria-hidden="true">
+    <path fill="#090a08" d="M54 278V76h70l54 122 54-122h70v202h-50V145l-49 133h-50l-49-133v133Z"/>
+    <path fill="#dfff00" transform="translate(10 10) rotate(-2.5 414 177)" d="M324 76h62l29 61 30-61h63l-57 101 61 101h-64l-34-63-33 63h-64l60-101Z"/>
+    <path fill="#090a08" transform="rotate(-2.5 414 177)" d="M324 76h62l29 61 30-61h63l-57 101 61 101h-64l-34-63-33 63h-64l60-101Z"/>
+    <path fill="#090a08" fill-rule="evenodd" d="M538 76h108c72 0 108 35 108 99 0 64-36 94-103 94h-53v9h-60Zm60 52v89h44c35 0 52-14 52-44s-17-45-52-45Z"/>
+  </g>
+
+  <rect x="788" y="76" width="4" height="202" fill="#090a08"/>
+  <text x="824" y="96" fill="#090a08" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" font-weight="900" letter-spacing="1.5">DESIGN + DEVELOPMENT / PUBLIC CODE</text>
+  <text x="824" y="145" fill="#090a08" font-family="Impact, Haettenschweiler, 'Arial Narrow Bold', 'Arial Black', Arial, sans-serif" font-size="38" font-weight="900" letter-spacing="-1" textLength="340" lengthAdjust="spacingAndGlyphs">WEB / APPS / XR</text>
+  <text x="824" y="190" fill="#090a08" font-family="Impact, Haettenschweiler, 'Arial Narrow Bold', 'Arial Black', Arial, sans-serif" font-size="38" font-weight="900" letter-spacing="-1" textLength="340" lengthAdjust="spacingAndGlyphs">GAMES / ART +</text>
+  <text x="824" y="222" fill="#090a08" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="14" font-weight="900" letter-spacing="1.5">THE OCCASIONAL</text>
+  <text x="824" y="267" fill="#090a08" font-family="Impact, Haettenschweiler, 'Arial Narrow Bold', 'Arial Black', Arial, sans-serif" font-size="38" font-weight="900" letter-spacing="-1" textLength="340" lengthAdjust="spacingAndGlyphs">USEFUL MISTAKE.</text>
+
+  <rect x="6" y="304" width="1188" height="50" fill="#dfff00"/>
+  <rect x="6" y="304" width="1188" height="5" fill="#090a08"/>
+  <text x="26" y="339" fill="#090a08" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="18" font-weight="900" letter-spacing="1.25">WEBSITES / TOOLS / EXPERIMENTS / PUBLIC CODE</text>
+  <text x="1172" y="339" fill="#090a08" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="18" font-weight="900" letter-spacing="1.25">OPEN SOURCE ↗</text>
+</svg>

@@ -72,10 +72,16 @@ body {
   gap: 0.8rem;
   align-items: flex-end;
   font-family: var(--mono);
-  pointer-events: auto;
+  pointer-events: none;
   transition:
     opacity 140ms linear,
     visibility 0s;
+}
+
+.drawing-control-row {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-end;
 }
 
 .drawing-toolbar[inert] {
@@ -107,25 +113,32 @@ body {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transform: translateY(0.65rem) scale(0.94);
+  transform: translateY(0.65rem);
   transition-delay: 0s, 0s, 140ms;
 }
 
 .drawing-tool-stack[data-visible="true"] {
   opacity: 1;
   visibility: visible;
+  pointer-events: auto;
   transform: none;
+}
+
+.drawing-control-row {
+  pointer-events: auto;
 }
 
 .drawing-colors {
   display: grid;
-  grid-template-columns: repeat(2, 2.65rem);
+  grid-template-columns: repeat(2, 2.75rem);
   gap: 0.4rem;
 }
 
 .drawing-color,
 .drawing-clear,
-.drawing-toggle {
+.drawing-toggle,
+.drawing-menu-toggle,
+.drawing-scope-button {
   appearance: none;
   border: 0;
   border-radius: 0;
@@ -134,11 +147,165 @@ body {
   font: inherit;
 }
 
+.drawing-menu-toggle {
+  box-sizing: border-box;
+  flex: 0 0 2.75rem;
+  inline-size: 2.75rem;
+  min-width: 2.75rem;
+  min-inline-size: 2.75rem;
+  min-height: 2.75rem;
+  block-size: 2.75rem;
+  min-block-size: 2.75rem;
+  padding: 0;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  box-shadow: 4px 4px 0 var(--ink);
+  font-size: 0.85rem;
+  font-weight: 900;
+  letter-spacing: -0.12em;
+}
+
+.drawing-menu-toggle:hover,
+.drawing-menu-toggle:focus-visible {
+  background: var(--acid);
+}
+
+.drawing-scope-panel,
+.drawing-public-panel {
+  display: grid;
+  width: min(18rem, calc(100vw - 4rem));
+  gap: 0.55rem;
+}
+
+.drawing-scope-panel {
+  padding-bottom: 0.55rem;
+  border-bottom: 2px solid var(--ink);
+}
+
+.drawing-menu-label {
+  color: var(--muted);
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.drawing-scope-options,
+.drawing-public-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+
+.drawing-scope-options[data-public-available="false"] {
+  grid-template-columns: 1fr;
+}
+
+.drawing-scope-button {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0.5rem;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  font-size: 0.65rem;
+  font-weight: 900;
+}
+
+.drawing-scope-button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--acid);
+}
+
+.drawing-public-panel {
+  padding-top: 0.15rem;
+  font-size: 0.65rem;
+}
+
+.drawing-public-panel p {
+  margin: 0;
+}
+
+.drawing-public-participants {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.drawing-public-participants li {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.35rem;
+  border: 1px solid var(--ink);
+  background: rgb(255 255 255 / 0.46);
+}
+
+.drawing-public-participants span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drawing-public-participants button {
+  appearance: none;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0.3rem;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  color: inherit;
+  cursor: pointer;
+  font: 900 0.52rem/1 var(--mono);
+}
+
+.drawing-public-participants button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--acid);
+}
+
+.drawing-public-error {
+  color: #9c1c12;
+  font-size: 0.6rem;
+  font-weight: 900;
+}
+
+.drawing-public-nudge {
+  position: fixed;
+  right: max(1.25rem, calc(env(safe-area-inset-right) + 0.75rem));
+  bottom: max(6.65rem, calc(env(safe-area-inset-bottom) + 6.1rem));
+  z-index: 120;
+  display: flex;
+  max-width: calc(100vw - 2.5rem);
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.55rem 0.65rem;
+  border: 2px solid var(--ink);
+  background: var(--acid);
+  box-shadow: 4px 4px 0 var(--ink);
+  font: 900 0.62rem/1.2 var(--mono);
+  letter-spacing: 0.035em;
+}
+
+.drawing-public-nudge button {
+  appearance: none;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  color: var(--ink);
+  cursor: pointer;
+  font: 900 1rem/1 var(--mono);
+}
+
 .drawing-color {
   --swatch-color: var(--acid);
   display: grid;
-  width: 2.65rem;
-  height: 2.65rem;
+  width: 2.75rem;
+  height: 2.75rem;
   place-items: center;
   padding: 0;
   border: 2px solid transparent;
@@ -214,7 +381,8 @@ body {
 
 .drawing-party-start,
 .drawing-party-button {
-  min-height: 2.7rem;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
   padding: 0.62rem 0.72rem;
   border: 2px solid var(--ink);
   background: var(--acid);
@@ -244,7 +412,7 @@ body {
 
 .drawing-party-panel {
   display: grid;
-  width: min(18rem, calc(100vw - 2.5rem));
+  width: min(18rem, calc(100vw - 4rem));
   gap: 0.45rem;
   padding-top: 0.55rem;
   border-top: 2px solid var(--ink);
@@ -303,8 +471,11 @@ body {
 .drawing-toggle {
   position: relative;
   display: grid;
+  flex: 0 0 4.5rem;
   width: 4.5rem;
+  min-width: 4.5rem;
   height: 4.5rem;
+  min-height: 4.5rem;
   place-items: center;
   padding: 0;
   border: 3px solid var(--ink);
@@ -315,6 +486,22 @@ body {
     background-color 140ms linear,
     box-shadow 140ms linear,
     transform 140ms linear;
+}
+
+.drawing-session-count {
+  position: absolute;
+  top: 0.36rem;
+  right: 0.3rem;
+  display: grid;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  place-items: center;
+  padding: 0 0.18rem;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--acid);
+  color: var(--ink);
+  font: 900 0.52rem/1 var(--mono);
 }
 
 .drawing-toggle:hover,
@@ -426,6 +613,21 @@ body {
   text-transform: uppercase;
   transform: translateX(-50%);
   white-space: nowrap;
+  animation: drawing-cursor-label var(--cursor-label-ms, 2000ms) steps(1, end)
+    both;
+}
+
+@keyframes drawing-cursor-label {
+  0%,
+  99% {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  100% {
+    opacity: 0;
+    visibility: hidden;
+  }
 }
 
 a {
@@ -656,7 +858,6 @@ a {
   color: inherit;
   cursor: pointer;
   text-decoration: none;
-  transition: background-color 140ms linear;
 }
 
 .index-row > * {
@@ -683,7 +884,60 @@ a {
 }
 
 .index-title {
+  position: relative;
+  isolation: isolate;
+  width: fit-content;
+  max-width: 100%;
   transition: transform 140ms linear;
+}
+
+.index-title::after {
+  position: absolute;
+  top: 50%;
+  left: -0.25rem;
+  width: calc(100% + 6.25rem);
+  height: calc(100% + clamp(1rem, 1.8vw, 2rem));
+  background: linear-gradient(
+    90deg,
+    rgb(223 255 0 / 0.76) 0%,
+    rgb(223 255 0 / 0.94) 8%,
+    rgb(223 255 0 / 0.82) 24%,
+    rgb(223 255 0 / 0.96) 43%,
+    rgb(223 255 0 / 0.8) 64%,
+    rgb(223 255 0 / 0.93) 84%,
+    rgb(223 255 0 / 0.74) 100%
+  );
+  clip-path: polygon(
+    0 22%,
+    7% 14%,
+    15% 19%,
+    24% 10%,
+    34% 17%,
+    44% 12%,
+    54% 20%,
+    65% 9%,
+    76% 16%,
+    87% 11%,
+    95% 18%,
+    100% 13%,
+    100% 84%,
+    92% 90%,
+    82% 83%,
+    72% 91%,
+    61% 85%,
+    50% 93%,
+    39% 86%,
+    28% 92%,
+    18% 84%,
+    8% 91%,
+    0 82%
+  );
+  content: "";
+  pointer-events: none;
+  transform: translateY(-50%) scaleX(0);
+  transform-origin: right center;
+  transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: -1;
 }
 
 .index-meta {
@@ -701,9 +955,10 @@ a {
   gap: 0.25rem 0.6rem;
 }
 
-.index-row:hover,
-.index-row:focus-visible {
-  background: var(--acid);
+.index-row:hover .index-title::after,
+.index-row:focus-visible .index-title::after {
+  transform: translateY(-50%) scaleX(1);
+  transform-origin: left center;
 }
 
 .index-row:hover .index-title,
@@ -1442,6 +1697,16 @@ a {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }
+
+  .drawing-playground[data-scope="public"] .drawing-remote-cursor {
+    display: none;
+  }
+
+  .drawing-remote-cursor > span {
+    animation: none;
+    opacity: 0;
+    visibility: hidden;
+  }
 }
 
 @media (forced-colors: active) {
@@ -1468,6 +1733,8 @@ a {
 
   .drawing-tool-stack,
   .drawing-toggle,
+  .drawing-menu-toggle,
+  .drawing-scope-button,
   .drawing-clear,
   .drawing-party-start,
   .drawing-party-button,
@@ -1476,6 +1743,11 @@ a {
   }
 
   .drawing-remote-cursor {
+    forced-color-adjust: none;
+  }
+
+  .drawing-session-count,
+  .drawing-public-nudge {
     forced-color-adjust: none;
   }
 }

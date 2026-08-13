@@ -16,6 +16,7 @@ function ProjectRow({ project }: { project: Project }) {
     <Link
       aria-label={project.title}
       className="index-row"
+      data-drawing-anchor={`project:${project.slug}`}
       href={`/work/${project.slug}`}
     >
       <div className="index-main">
@@ -33,6 +34,7 @@ function ArchiveRow({ link }: { link: ArchiveLink }) {
     <Link
       aria-label={link.label}
       className="index-row"
+      data-drawing-anchor={`archive:${link.slug}`}
       href={`/archive/${link.slug}`}
     >
       <div className="index-main">
@@ -47,7 +49,11 @@ function ArchiveCategory({ category }: { category: ArchiveLink["category"] }) {
   const links = archiveLinks.filter((link) => link.category === category);
 
   return (
-    <section className="index-category" aria-labelledby={`${category.toLowerCase().replace(" ", "-")}-label`}>
+    <section
+      className="index-category"
+      aria-labelledby={`${category.toLowerCase().replace(" ", "-")}-label`}
+      data-drawing-anchor={`home:category:${category.toLowerCase().replace(" ", "-")}`}
+    >
       <h3
         className="index-category-label"
         id={`${category.toLowerCase().replace(" ", "-")}-label`}
@@ -76,8 +82,12 @@ export default async function Home() {
       </a>
       <SiteHeader />
 
-      <main id="content">
-        <section className="hero" aria-labelledby="hero-title">
+      <main data-drawing-anchor="home" id="content">
+        <section
+          className="hero"
+          aria-labelledby="hero-title"
+          data-drawing-anchor="home:hero"
+        >
           <div className="hero-lockup">
             <h1 id="hero-title" aria-label="MXP — Mistakes dot party">
               <span className="mxp" aria-hidden="true">
@@ -92,9 +102,18 @@ export default async function Home() {
           </div>
         </section>
 
-        <div className="signal-stripes" aria-hidden="true" />
+        <div
+          className="signal-stripes"
+          aria-hidden="true"
+          data-drawing-anchor="home:signal"
+        />
 
-        <section className="work-index" id="work" aria-labelledby="work-index-title">
+        <section
+          className="work-index"
+          data-drawing-anchor="home:work"
+          id="work"
+          aria-labelledby="work-index-title"
+        >
           <h2 className="sr-only" id="work-index-title">
             Work, code, and links
           </h2>
@@ -111,6 +130,7 @@ export default async function Home() {
               <section
                 className="index-category"
                 aria-labelledby={`${category.toLowerCase()}-label`}
+                data-drawing-anchor={`home:category:${category.toLowerCase()}`}
                 key={category}
               >
                 <h3
@@ -133,6 +153,7 @@ export default async function Home() {
 
           <section
             className="index-category"
+            data-drawing-anchor="home:category:blogs"
             id="blogs"
             aria-labelledby="blogs-label"
           >
@@ -144,6 +165,7 @@ export default async function Home() {
               <Link
                 aria-label="ALL BLOGS"
                 className="index-row"
+                data-drawing-anchor="blogs:index"
                 href="/blogs"
               >
                 <div className="index-main">
@@ -156,6 +178,7 @@ export default async function Home() {
 
           <section
             className="index-category"
+            data-drawing-anchor="home:category:public-code"
             id="github"
             aria-labelledby="public-code-label"
           >
@@ -173,7 +196,12 @@ export default async function Home() {
           <ArchiveCategory category="ELSEWHERE" />
         </section>
 
-        <section className="about" id="about" aria-label="About Mistakes dot party">
+        <section
+          className="about"
+          data-drawing-anchor="home:about"
+          id="about"
+          aria-label="About Mistakes dot party"
+        >
           <div className="about-grid">
             <p className="about-lede">
               MISTAKES.PARTY IS A DENVER HOME FOR WEB, APPS, XR, GAMES, ART +
@@ -184,13 +212,17 @@ export default async function Home() {
               SOMETHING WRONG ON THE WAY TO GETTING IT RIGHT.
             </p>
           </div>
-          <a className="contact-blast" href="mailto:hello@mistakes.party">
+          <a
+            className="contact-blast"
+            data-drawing-anchor="home:contact"
+            href="mailto:hello@mistakes.party"
+          >
             SAY HELLO <span aria-hidden="true">↗</span>
           </a>
         </section>
       </main>
 
-      <footer className="site-footer">
+      <footer className="site-footer" data-drawing-anchor="site-footer">
         <span>MISTAKES.PARTY © 2026</span>
         <span>
           <a href="https://github.com/30ozSteak">GITHUB ↗</a> /{" "}

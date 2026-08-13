@@ -201,6 +201,23 @@ export function normalizeDrawingRoute(value: string): string {
   return route.slice(0, 512);
 }
 
+/**
+ * Public lobby routes must be canonical browser pathnames. Private v1 keeps
+ * its broader normalization contract for backward compatibility.
+ */
+export function isPublicDrawingRoute(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length >= 1 &&
+    value.length <= 256 &&
+    normalizeDrawingRoute(value) === value &&
+    /^\/(?:[A-Za-z0-9._~!$&'()*+,;=:@%-]+\/)*[A-Za-z0-9._~!$&'()*+,;=:@%-]*$/.test(
+      value,
+    ) &&
+    !value.includes("..")
+  );
+}
+
 export function isDrawingRoomId(value: unknown): value is string {
   return typeof value === "string" && ID_PATTERN.test(value);
 }

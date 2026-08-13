@@ -39,6 +39,7 @@ export function MediumPostList({
         <Link
           aria-label={post.title}
           className="index-row medium-post-row"
+          data-drawing-anchor={`blog:${post.slug}`}
           data-medium-post
           href={`/blogs/${post.slug}`}
           key={post.id}

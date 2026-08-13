@@ -51,8 +51,10 @@ export default async function RootLayout({
       </head>
       <body>
         <DrawingPlayground />
-        <div className="site-surface">{children}</div>
-        <Analytics />
+        <div className="site-surface" data-drawing-anchor="page-root">
+          {children}
+        </div>
+        <Analytics mode="production" />
       </body>
     </html>
   );

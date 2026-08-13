@@ -111,6 +111,7 @@ export function GithubFeed() {
             <Link
               aria-label={repo.name}
               className="index-row"
+              data-drawing-anchor={`repository:${repo.name.toLowerCase()}`}
               href={`/code/${encodeURIComponent(repo.name)}`}
               key={repo.id}
             >
@@ -135,7 +136,12 @@ export function GithubFeed() {
         </div>
       ) : null}
 
-      <Link aria-label="ALL REPOS" className="index-row" href="/code">
+      <Link
+        aria-label="ALL REPOS"
+        className="index-row"
+        data-drawing-anchor="code:index"
+        href="/code"
+      >
         <div className="index-main">
           <h4 className="index-title">ALL REPOS</h4>
         </div>
