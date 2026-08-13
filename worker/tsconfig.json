@@ -7,6 +7,6 @@
     "noEmit": true,
     "types": ["@cloudflare/workers-types"]
   },
-  "include": ["src/**/*.ts", "../app/lib/drawingRealtimeProtocol.ts"],
+  "include": ["src/**/*.ts", "../app/lib/partyProtocol.ts", "env.d.ts"],
   "exclude": ["../node_modules"]
 }

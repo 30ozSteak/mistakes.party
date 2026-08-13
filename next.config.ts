@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
-const drawingRealtimeUrl =
-  process.env.NEXT_PUBLIC_DRAWING_REALTIME_URL?.trim() ||
+const partyRealtimeUrl =
+  process.env.NEXT_PUBLIC_PARTY_REALTIME_URL?.trim() ||
   (process.env.NODE_ENV === "production"
     ? "https://mistakes-party-drawing-realtime.mistakes.workers.dev"
     : "");
@@ -34,7 +34,7 @@ const nextConfig: NextConfig = {
   // Freeze one public relay value into both the browser and proxy bundles so
   // the CSP and WebSocket target cannot diverge at runtime.
   env: {
-    NEXT_PUBLIC_DRAWING_REALTIME_URL: drawingRealtimeUrl,
+    NEXT_PUBLIC_PARTY_REALTIME_URL: partyRealtimeUrl,
   },
   poweredByHeader: false,
   trailingSlash: true,

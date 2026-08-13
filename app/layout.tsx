@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { connection } from "next/server";
 import { Analytics } from "@vercel/analytics/next";
-import { DrawingPlayground } from "./components/DrawingPlayground";
+import { PartyPresence } from "./components/PartyPresence";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -46,7 +46,7 @@ export default async function RootLayout({
   await connection();
 
   return (
-    <html lang="en">
+    <html data-scroll-behavior="smooth" lang="en">
       <head>
         <link
           as="font"
@@ -57,10 +57,8 @@ export default async function RootLayout({
         />
       </head>
       <body>
-        <DrawingPlayground />
-        <div className="site-surface" data-drawing-anchor="page-root">
-          {children}
-        </div>
+        <PartyPresence />
+        {children}
         <Analytics mode="production" />
       </body>
     </html>

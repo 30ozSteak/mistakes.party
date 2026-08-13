@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 const destinations = [
   ["GITHUB", "https://github.com/30ozSteak"],
@@ -9,18 +9,10 @@ const destinations = [
 
 async function waitForHome(page: Page) {
   await page.goto("/");
-  await expect(page.getByTestId("drawing-playground")).toHaveAttribute(
+  await expect(page.getByTestId("party-presence")).toHaveAttribute(
     "data-hydrated",
     "true",
   );
-}
-
-async function sweepScale(link: Locator) {
-  return link.evaluate((element) => {
-    const transform = getComputedStyle(element, "::before").transform;
-    if (transform === "none") return 1;
-    return new DOMMatrixReadOnly(transform).a;
-  });
 }
 
 test("the homepage is a direct four-link portal", async ({ page }) => {
@@ -41,36 +33,88 @@ test("the homepage is a direct four-link portal", async ({ page }) => {
 
   await expect(page.getByRole("button", { name: "Open primary navigation" })).toHaveCount(0);
   await expect(page.getByText("FOUR BAD DOORS")).toHaveCount(0);
-  await expect(page.getByText("PICK ONE")).toHaveCount(0);
+  await expect(page.getByText("PICK ONE. IT DISAPPEARS.")).toBeHidden();
 });
 
-test("the portal stays usable at 320px and reveals neon only on interaction", async ({
+test("the portal fits a small mobile viewport without a block hover treatment", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 320, height: 640 });
+  await page.setViewportSize({ width: 320, height: 568 });
   await waitForHome(page);
 
-  expect(
-    await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
-  ).toBe(true);
-
   const links = page.locator(".portal-link");
-  for (let index = 0; index < (await links.count()); index += 1) {
-    const box = await links.nth(index).boundingBox();
-    expect(box).not.toBeNull();
-    expect(box!.x).toBeGreaterThanOrEqual(0);
-    expect(box!.x + box!.width).toBeLessThanOrEqual(320);
-    expect(box!.height).toBeGreaterThanOrEqual(44);
+  for (const size of [
+    { width: 320, height: 640 },
+    { width: 320, height: 400 },
+    { width: 640, height: 320 },
+  ]) {
+    await page.setViewportSize(size);
+
+    const viewport = await page.locator(".portal-home").evaluate((home) => ({
+      bodyScrollHeight: document.body.scrollHeight,
+      documentScrollHeight: document.documentElement.scrollHeight,
+      documentScrollWidth: document.documentElement.scrollWidth,
+      height: home.getBoundingClientRect().height,
+      innerHeight,
+      innerWidth,
+    }));
+    expect(viewport.documentScrollWidth).toBeLessThanOrEqual(
+      viewport.innerWidth,
+    );
+    expect(viewport.documentScrollHeight).toBeLessThanOrEqual(
+      viewport.innerHeight,
+    );
+    expect(viewport.bodyScrollHeight).toBeLessThanOrEqual(viewport.innerHeight);
+    expect(Math.abs(viewport.height - viewport.innerHeight)).toBeLessThanOrEqual(
+      1,
+    );
+
+    for (let index = 0; index < (await links.count()); index += 1) {
+      const box = await links.nth(index).boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.y).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(size.width);
+      expect(box!.y + box!.height).toBeLessThanOrEqual(size.height);
+      expect(box!.height).toBeGreaterThanOrEqual(44);
+    }
   }
 
   const github = page.getByRole("link", { name: "GITHUB", exact: true });
-  expect(await sweepScale(github)).toBeLessThan(0.01);
+  expect(
+    await github.evaluate(
+      (element) => getComputedStyle(element, "::before").content,
+    ),
+  ).toBe("none");
+  const restingBackground = await github.evaluate(
+    (element) => getComputedStyle(element).backgroundColor,
+  );
 
+  await github.hover();
+  await expect
+    .poll(() =>
+      github.evaluate((element) => getComputedStyle(element).backgroundColor),
+    )
+    .toBe(restingBackground);
   await github.focus();
   await expect(github).toBeFocused();
-  await expect.poll(() => sweepScale(github)).toBeGreaterThan(0.99);
+  await expect(github).toHaveCSS("outline-style", "solid");
 
-  await expect(page.getByTestId("public-nudge")).toHaveCount(0);
-  await expect(page.getByTestId("drawing-menu-toggle")).toBeVisible();
-  await expect(page.getByTestId("drawing-toggle")).toBeVisible();
+  await page.setViewportSize({ width: 320, height: 568 });
+  const partyTrigger = page.getByTestId("party-trigger");
+  await expect(page.getByTestId("party-presence")).toHaveAttribute(
+    "data-connection",
+    "live",
+  );
+  await expect(partyTrigger).toBeVisible();
+  const partyBox = await partyTrigger.boundingBox();
+  expect(partyBox).not.toBeNull();
+  expect(partyBox!.width).toBeGreaterThanOrEqual(48);
+  expect(partyBox!.height).toBeGreaterThanOrEqual(48);
+  expect(partyBox!.x + partyBox!.width).toBeLessThanOrEqual(320);
+  expect(partyBox!.y + partyBox!.height).toBeLessThanOrEqual(568);
+
+  await partyTrigger.click();
+  await expect(page.getByTestId("party-dialog")).toBeVisible();
+  await expect(page.getByTestId("party-signal-cheers")).toBeFocused();
 });

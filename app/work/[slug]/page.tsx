@@ -40,15 +40,8 @@ export default async function WorkPage({ params }: WorkPageProps) {
       </a>
       <SiteHeader indexLink />
 
-      <main
-        id="project-content"
-        className="work-page"
-        data-drawing-anchor={`work:${project.slug}`}
-      >
-        <section
-          className="work-hero"
-          data-drawing-anchor={`work:${project.slug}:hero`}
-        >
+      <main id="project-content" className="work-page">
+        <section className="work-hero">
           <div className="work-kicker mono-label">
             <span>{String(index + 1).padStart(2, "0")} / SELECTED WORK</span>
             <span>{project.kind}</span>
@@ -57,11 +50,7 @@ export default async function WorkPage({ params }: WorkPageProps) {
           <p className="work-deck">{project.description}</p>
         </section>
 
-        <section
-          className="project-facts"
-          aria-label="Project facts"
-          data-drawing-anchor={`work:${project.slug}:facts`}
-        >
+        <section className="project-facts" aria-label="Project facts">
           <dl>
             <div>
               <dt>YEAR</dt>
@@ -82,22 +71,18 @@ export default async function WorkPage({ params }: WorkPageProps) {
           </dl>
         </section>
 
-        <section
-          className="case-notes"
-          aria-label="Project notes"
-          data-drawing-anchor={`work:${project.slug}:notes`}
-        >
-          <article data-drawing-anchor={`work:${project.slug}:note:context`}>
+        <section className="case-notes" aria-label="Project notes">
+          <article>
             <p className="case-number">01</p>
             <h2>CONTEXT</h2>
             <p>{project.context}</p>
           </article>
-          <article data-drawing-anchor={`work:${project.slug}:note:move`}>
+          <article>
             <p className="case-number">02</p>
             <h2>THE MOVE</h2>
             <p>{project.move}</p>
           </article>
-          <article data-drawing-anchor={`work:${project.slug}:note:outcome`}>
+          <article>
             <p className="case-number">03</p>
             <h2>OUTCOME</h2>
             <p>{project.outcome}</p>
@@ -107,7 +92,6 @@ export default async function WorkPage({ params }: WorkPageProps) {
         <section
           className="project-links"
           aria-labelledby="project-links-title"
-          data-drawing-anchor={`work:${project.slug}:links`}
         >
           <p className="mono-label" id="project-links-title">
             04 / LEAVE THIS PAGE
@@ -122,7 +106,6 @@ export default async function WorkPage({ params }: WorkPageProps) {
 
         <Link
           className="next-project"
-          data-drawing-anchor={`project:${nextProject.slug}`}
           href={`/work/${nextProject.slug}`}
         >
           <span className="mono-label">NEXT / {nextProject.kind}</span>
@@ -131,7 +114,7 @@ export default async function WorkPage({ params }: WorkPageProps) {
         </Link>
       </main>
 
-      <footer className="site-footer" data-drawing-anchor="site-footer">
+      <footer className="site-footer">
         <span>MISTAKES.PARTY © 2026</span>
         <Link href="/">BACK TO THE INDEX ↑</Link>
       </footer>

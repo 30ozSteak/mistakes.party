@@ -15,10 +15,10 @@
     "start": "next start",
     "test": "node tests/run-production-tests.mjs",
     "test:e2e": "playwright test",
-    "test:public": "playwright test tests/public-multiplayer.spec.ts",
-    "test:public:off": "playwright test --config playwright.off.config.ts",
+    "test:party": "playwright test tests/party-presence.spec.ts",
+    "test:party:off": "playwright test --config playwright.off.config.ts",
     "test:security": "playwright test tests/security.spec.ts",
-    "test:unit": "node --test tests/medium-feed.test.mjs tests/github-feed.test.mjs tests/drawing-anchors.test.mjs tests/public-drawing-protocol.test.mjs",
+    "test:unit": "node --test tests/medium-feed.test.mjs tests/github-feed.test.mjs tests/party-protocol.test.mjs",
     "lint": "eslint . --ignore-pattern .next --ignore-pattern '.next-playwright-*'"
   },
   "dependencies": {

@@ -82,11 +82,7 @@ export default async function PatreonPage({ searchParams }: PatreonPageProps) {
       </a>
       <SiteHeader currentPage="patreon" indexLink />
 
-      <main
-        className="patreon-page"
-        data-drawing-anchor="patreon:door"
-        id="patreon-content"
-      >
+      <main className="patreon-page" id="patreon-content">
         <div className="patreon-status mono-label">
           <span>MISTAKES.PARTY SUPPORTERS</span>
           <span>SHARED PASS / 30 DAYS</span>
@@ -96,7 +92,7 @@ export default async function PatreonPage({ searchParams }: PatreonPageProps) {
         </PatreonOnly>
       </main>
 
-      <footer className="site-footer" data-drawing-anchor="site-footer">
+      <footer className="site-footer">
         <span>MISTAKES.PARTY © 2026</span>
         <Link href="/">BACK TO THE INDEX ↑</Link>
       </footer>

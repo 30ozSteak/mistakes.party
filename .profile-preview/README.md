@@ -14,7 +14,7 @@ Denver-based developer making sharp interfaces, small tools, public experiments,
 
 |   | PROJECT | SIGNAL |
 |--:|:--------|:-------|
-| **01** | **[MISTAKES.PARTY ↗](https://www.mistakes.party)**<br>A loud, text-first home for work, code, dispatches, and shared highlighter chaos.<br>[SOURCE](https://github.com/30ozSteak/mistakes.party) | `WEB / INDEX`<br>`NEXT / TYPESCRIPT / CLOUDFLARE`<br>`2026 / ONGOING` |
+| **01** | **[MISTAKES.PARTY ↗](https://www.mistakes.party)**<br>A loud, text-first home for work, code, dispatches, and tiny live signals from whoever is here.<br>[SOURCE](https://github.com/30ozSteak/mistakes.party) | `WEB / INDEX`<br>`NEXT / TYPESCRIPT / CLOUDFLARE`<br>`2026 / ONGOING` |
 | **02** | **[ITADW ↗](https://github.com/30ozSteak/ITADW)**<br>A browser extension built to push back on unsolicited DMs. | `CHROME EXTENSION`<br>`JAVASCRIPT`<br>`2020 / ARCHIVE` |
 | **03** | **[LIGHTHOUSE CHECKER ↗](https://github.com/30ozSteak/lighthouse-checker)**<br>Performance-audit snapshots and a small Lighthouse working set, preserved in public. | `WEB PERFORMANCE`<br>`LIGHTHOUSE / JAVASCRIPT`<br>`2021 / ARCHIVE` |
 

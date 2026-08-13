@@ -94,45 +94,15 @@ test("fails closed for a tampered grant and can lock a shared browser", async ({
   ).toBe(false);
 });
 
-test("never offers anonymous public drawing on Patreon pages", async ({ page }) => {
+test("never exposes anonymous party presence on Patreon pages", async ({ page }) => {
   await page.goto("/patreon/");
-  await page.getByTestId("drawing-menu-toggle").click();
-  await expect(page.getByTestId("drawing-scope-public")).toHaveCount(0);
-  await expect(page.locator(".drawing-scope-options")).toHaveAttribute(
-    "data-public-available",
-    "false",
-  );
-  await expect(page.getByTestId("drawing-scope-solo")).toBeVisible();
-});
-
-test("restores a Public drawing preference after leaving Patreon", async ({
-  page,
-}) => {
-  const scopeKey = "mistakes-party.drawing.scope.v1";
-
-  await page.goto("/");
-  const playground = page.getByTestId("drawing-playground");
-  await expect(playground).toHaveAttribute("data-hydrated", "true");
-  await expect(playground).toHaveAttribute("data-scope", "public");
+  await expect(page.getByTestId("party-presence")).toHaveCount(0);
 
   await page.goto("/patreon/room/");
   await expect(page).toHaveURL(/\/patreon\/?\?returnTo=/);
-  await expect(playground).toHaveAttribute("data-scope", "solo");
-  expect(
-    await page.evaluate(
-      (key) => JSON.parse(localStorage.getItem(key) ?? "null"),
-      scopeKey,
-    ),
-  ).toEqual({ version: 1, scope: "public" });
+  await expect(page.getByTestId("party-presence")).toHaveCount(0);
 
   await page.getByRole("link", { name: "MISTAKES.PARTY", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
-  await expect(playground).toHaveAttribute("data-scope", "public");
-  await expect(page.getByTestId("drawing-session-count")).toBeVisible();
-  expect(
-    await page.evaluate(
-      (key) => JSON.parse(localStorage.getItem(key) ?? "null"),
-      scopeKey,
-    ),
-  ).toEqual({ version: 1, scope: "public" });
+  await expect(page.getByTestId("party-presence")).toBeVisible();
 });

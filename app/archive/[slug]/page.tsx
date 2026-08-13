@@ -59,7 +59,6 @@ export default async function ArchivePage({ params }: ArchivePageProps) {
   return (
     <SourceDetail
       description={link.description}
-      drawingAnchorId={`archive:${link.slug}`}
       facts={[
         { label: "CATEGORY", value: link.category },
         { label: "FORMAT", value: link.meta },

@@ -28,15 +28,8 @@ export default function Home() {
         SKIP TO THE LINKS
       </a>
 
-      <main
-        className="portal-home"
-        data-drawing-anchor="home"
-        id="content"
-      >
-        <header
-          className="portal-masthead"
-          data-drawing-anchor="home:masthead"
-        >
+      <main className="portal-home" id="content">
+        <header className="portal-masthead">
           <h1>MISTAKES.PARTY</h1>
           <span aria-hidden="true">MXP</span>
         </header>
@@ -44,7 +37,6 @@ export default function Home() {
         <nav
           aria-label="Elsewhere"
           className="portal-destinations"
-          data-drawing-anchor="home:elsewhere"
           id="elsewhere"
         >
           <ol>
@@ -53,7 +45,6 @@ export default function Home() {
                 <a
                   aria-label={destination.label}
                   className="portal-link"
-                  data-drawing-anchor={`home:${destination.label.toLowerCase()}`}
                   href={destination.href}
                 >
                   <span className="portal-number">{destination.number}</span>
@@ -67,7 +58,7 @@ export default function Home() {
           </ol>
         </nav>
 
-        <footer className="portal-footer" data-drawing-anchor="home:footer">
+        <footer className="portal-footer">
           <span>DENVER</span>
           <span aria-hidden="true">/</span>
           <a href="mailto:hello@mistakes.party">HELLO@MISTAKES.PARTY</a>

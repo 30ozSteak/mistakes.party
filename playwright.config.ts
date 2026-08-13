@@ -35,7 +35,7 @@ export default defineConfig({
     ? undefined
     : [
         {
-          command: `npm run dev:realtime -- --port ${realtimePort} --persist-to ${managedRealtimeStorage} --var ALLOWED_ORIGINS:${managedOrigin} --var PUBLIC_DRAWING_MODE:live --var PUBLIC_DRAWING_GENERATION:playwright-v1 --var PUBLIC_GRANT_MS:15000 --var PUBLIC_SEAT_HOLD_MS:2500 --var PUBLIC_AFTERGLOW_MS:4000 --var PUBLIC_FADE_MS:1000`,
+          command: `npm run dev:realtime -- --port ${realtimePort} --persist-to ${managedRealtimeStorage} --var ALLOWED_ORIGINS:${managedOrigin} --var PARTY_MODE:live --var PARTY_GENERATION:playwright-v1`,
           url: `${managedRealtimeURL}/health`,
           reuseExistingServer: !process.env.CI,
           timeout: 120_000,
@@ -46,7 +46,7 @@ export default defineConfig({
             MEDIUM_FEED_URL: "http://127.0.0.1:9/playwright-offline-feed",
             MEDIUM_FEED_ALLOW_LOCALHOST: "1",
             NEXT_DIST_DIR: ".next-playwright",
-            NEXT_PUBLIC_DRAWING_REALTIME_URL: managedRealtimeURL,
+            NEXT_PUBLIC_PARTY_REALTIME_URL: managedRealtimeURL,
             PATREON_ACCESS_PASSWORD: "playwright-member-password",
             PATREON_SESSION_SECRET:
               "playwright-session-secret-at-least-32-characters",

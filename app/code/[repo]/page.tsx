@@ -78,7 +78,6 @@ export default async function CodeDetailPage({ params }: CodeDetailPageProps) {
     <SourceDetail
       backHref="/"
       description={description}
-      drawingAnchorId={`repository:${repo.toLowerCase()}`}
       facts={facts}
       kicker="PUBLIC CODE / REPOSITORY"
       kind={detail?.language ?? "GITHUB / CODE"}

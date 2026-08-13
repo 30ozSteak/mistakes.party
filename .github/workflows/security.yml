@@ -42,5 +42,8 @@ jobs:
       - name: Install Chromium for CSP regression test
         run: npx playwright install --with-deps chromium
 
-      - name: Test browser injection protections
-        run: npm run test:security
+      - name: Test browser interactions and injection protections
+        run: npm run test:e2e
+
+      - name: Test the party kill switch
+        run: npm run test:party:off

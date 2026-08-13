@@ -20,11 +20,7 @@ export default async function PatreonRoomPage() {
       </a>
       <SiteHeader currentPage="patreon" indexLink />
 
-      <main
-        className="patreon-room-page"
-        data-drawing-anchor="patreon:room"
-        id="patreon-room-content"
-      >
+      <main className="patreon-room-page" id="patreon-room-content">
         <section className="patreon-room-hero">
           <div className="patreon-status mono-label">
             <span>PATREON / ACCESS GRANTED</span>
@@ -64,7 +60,7 @@ export default async function PatreonRoomPage() {
         </section>
       </main>
 
-      <footer className="site-footer" data-drawing-anchor="site-footer">
+      <footer className="site-footer">
         <span>MISTAKES.PARTY © 2026</span>
         <Link href="/">BACK TO THE INDEX ↑</Link>
       </footer>

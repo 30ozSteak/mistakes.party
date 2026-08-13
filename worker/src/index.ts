@@ -1,83 +1,47 @@
 import { DurableObject } from "cloudflare:workers";
 
 import {
-  DRAWING_REALTIME_PATH_PREFIX,
-  DRAWING_REALTIME_PROTOCOL_VERSION,
-  DRAWING_REALTIME_SUBPROTOCOL,
-  DRAWING_ROOM_MAX_PARTICIPANTS,
-  DRAWING_ROOM_MAX_POINTS_PER_MESSAGE,
-  DRAWING_ROOM_MAX_POINTS_PER_STROKE,
-  DRAWING_ROOM_MAX_SOCKETS,
-  DRAWING_ROOM_MAX_STROKES,
-  type DrawingBounds,
-  type DrawingClientMessage,
-  type DrawingParticipant,
-  type DrawingRoomErrorCode,
-  type DrawingServerMessage,
-  type DrawingSharedStroke,
-  drawingParticipantTokenFromWebSocketProtocols,
-  hasDrawingRealtimeSubprotocol,
-  isDrawingParticipantId,
-  isDrawingParticipantName,
-  isDrawingParticipantToken,
-  isDrawingRoomId,
-  isPublicDrawingRoute,
-  normalizeDrawingParticipantName,
-  normalizeDrawingRoute,
-  parseDrawingClientMessageJson,
-} from "../../app/lib/drawingRealtimeProtocol";
-import {
-  hasPublicDrawingProtocol,
-  PUBLIC_POD_PATH_PREFIX,
-  PUBLIC_PRESENCE_PATH,
-  type PublicDrawingEnv,
-  publicDrawingGeneration,
-  publicDrawingMode,
-} from "./publicDrawing";
+  PARTY_PROTOCOL_VERSION,
+  PARTY_REALTIME_PATH,
+  PARTY_REALTIME_SUBPROTOCOL,
+  isPartyRoute,
+  isPartySessionId,
+  parsePartyClientMessageJson,
+  type PartyServerMessage,
+} from "../../app/lib/partyProtocol";
 
-export { PublicDrawingPod, PublicRouteLobby } from "./publicDrawing";
+const MAX_ROUTE_SOCKETS = 256;
+const MAX_SOCKETS_PER_SESSION = 2;
+const MESSAGE_WINDOW_MS = 10_000;
+const MAX_MESSAGES_PER_WINDOW = 20;
+const INVALID_WINDOW_MS = 10_000;
+const MAX_INVALID_MESSAGES_PER_WINDOW = 3;
+const SIGNAL_WINDOW_MS = 60_000;
+const MAX_SIGNALS_PER_WINDOW = 12;
+const MIN_SIGNAL_INTERVAL_MS = 1_000;
+const ROUTE_SIGNAL_BURST = 12;
+const ROUTE_SIGNAL_REFILL_PER_SECOND = 8;
+const PARTY_PING_FRAME = JSON.stringify({ type: "ping" });
+const PARTY_PONG_FRAME = JSON.stringify({ type: "pong" });
+const GENERATION_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
-const META_KEY = "room:meta";
-const STROKE_PREFIX = "stroke:";
-const IDENTITY_PREFIX = "identity:";
-const DEFAULT_ROOM_TTL_SECONDS = 30 * 60;
-const MAX_ROOM_TOTAL_POINTS = 200_000;
-const RATE_WINDOW_MS = 1_000;
-const MAX_MESSAGES_PER_RATE_WINDOW = 120;
-const MAX_CONNECTIONS_PER_PARTICIPANT = 2;
-const MAX_REGISTERED_IDENTITIES = 32;
-const MAX_STORAGE_DELETE_BATCH = 128;
+type PartyMode = "off" | "live";
 
-interface Env extends PublicDrawingEnv {
-  DRAWING_ROOMS: DurableObjectNamespace<DrawingRoom>;
-  PUBLIC_HANDSHAKE_RATE_LIMITER?: RateLimit;
-  ALLOWED_ORIGINS?: string;
-  ROOM_TTL_SECONDS?: string;
-}
+type PartyEnv = GeneratedPartyEnv;
 
-interface RoomMeta {
+interface PartySocketAttachment {
   version: 1;
-  hostId: string;
-  revision: number;
-  strokeCount: number;
-  totalPoints: number;
-  lastActivityAt: number;
-  emptySince: number | null;
-}
-
-interface SocketAttachment {
-  version: 1;
-  participantId: string;
-  name: string;
-  joinedAt: number;
+  sessionId: string;
   route: string;
-  rateWindowStartedAt: number;
-  rateMessageCount: number;
-  rejected?: true;
-}
-
-interface StoredDrawingStroke extends DrawingSharedStroke {
-  ended?: boolean;
+  generation: string;
+  joinedAt: number;
+  messageWindowStartedAt: number;
+  messageCount: number;
+  invalidWindowStartedAt: number;
+  invalidCount: number;
+  signalWindowStartedAt: number;
+  signalCount: number;
+  lastSignalAt: number;
 }
 
 function jsonResponse(
@@ -94,7 +58,16 @@ function jsonResponse(
   return new Response(JSON.stringify(body), { ...init, headers });
 }
 
-function allowedOrigins(env: Env): Set<string> {
+function partyMode(env: PartyEnv): PartyMode {
+  return env.PARTY_MODE === "live" ? "live" : "off";
+}
+
+function partyGeneration(env: PartyEnv): string {
+  const value = (env.PARTY_GENERATION ?? "v1").trim();
+  return GENERATION_PATTERN.test(value) ? value : "v1";
+}
+
+function allowedOrigins(env: PartyEnv): Set<string> {
   return new Set(
     (env.ALLOWED_ORIGINS ?? "")
       .split(",")
@@ -103,7 +76,13 @@ function allowedOrigins(env: Env): Set<string> {
   );
 }
 
-function corsHeaders(request: Request, env: Env): HeadersInit {
+function isAllowedOrigin(request: Request, env: PartyEnv): boolean {
+  const origin = request.headers.get("origin");
+  // Origin constrains browser callers; it is not client authentication.
+  return origin !== null && allowedOrigins(env).has(origin);
+}
+
+function corsHeaders(request: Request, env: PartyEnv): HeadersInit {
   const origin = request.headers.get("origin");
   return origin && allowedOrigins(env).has(origin)
     ? {
@@ -115,27 +94,37 @@ function corsHeaders(request: Request, env: Env): HeadersInit {
     : {};
 }
 
-function isAllowedOrigin(request: Request, env: Env): boolean {
-  const origin = request.headers.get("origin");
-  // This enforces the browser-facing cross-origin policy. Origin is not an
-  // authentication mechanism; non-browser clients can supply it themselves.
-  return origin !== null && allowedOrigins(env).has(origin);
+function hasPartySubprotocol(header: string | null): boolean {
+  const protocols = (header ?? "")
+    .split(",")
+    .map((protocol) => protocol.trim())
+    .filter(Boolean);
+  return protocols.length === 1 && protocols[0] === PARTY_REALTIME_SUBPROTOCOL;
 }
 
-function roomIdFromPath(pathname: string): string | null {
-  if (!pathname.startsWith(DRAWING_REALTIME_PATH_PREFIX)) return null;
-  const tail = pathname.slice(DRAWING_REALTIME_PATH_PREFIX.length);
-  if (tail.includes("/")) return null;
-  return isDrawingRoomId(tail) ? tail : null;
+function hasExactPartyQuery(url: URL): boolean {
+  let onlyKnownKeys = true;
+  url.searchParams.forEach((_value, key) => {
+    if (key !== "route" && key !== "sessionId") onlyKnownKeys = false;
+  });
+  return (
+    onlyKnownKeys &&
+    url.searchParams.getAll("route").length === 1 &&
+    url.searchParams.getAll("sessionId").length <= 1
+  );
+}
+
+function log(event: string, details: Record<string, number | string> = {}): void {
+  console.log(JSON.stringify({ event, ...details }));
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: PartyEnv): Promise<Response> {
     const url = new URL(request.url);
 
     if (url.pathname === "/health") {
       return jsonResponse(
-        { ok: true, service: "mistakes-party-drawing-realtime" },
+        { ok: true, service: "mistakes-party-realtime" },
         {},
         corsHeaders(request, env),
       );
@@ -154,110 +143,26 @@ export default {
       });
     }
 
-    const isPublicPresence = url.pathname === PUBLIC_PRESENCE_PATH;
-    const isPublicPod = url.pathname.startsWith(PUBLIC_POD_PATH_PREFIX);
-    if (isPublicPresence || isPublicPod) {
-      if (request.method !== "GET") {
-        return jsonResponse(
-          { code: "METHOD_NOT_ALLOWED", message: "Public drawing requires GET." },
-          { status: 405 },
-          corsHeaders(request, env),
-        );
-      }
-      if (!isAllowedOrigin(request, env)) {
-        return jsonResponse(
-          { code: "FORBIDDEN_ORIGIN", message: "Origin is not allowed." },
-          { status: 403 },
-        );
-      }
-      if (isPublicPod && publicDrawingMode(env) !== "live") {
-        return jsonResponse(
-          { code: "LIVE_DISABLED", message: "Public drawing is disabled." },
-          { status: 503 },
-          corsHeaders(request, env),
-        );
-      }
-      if (request.headers.get("upgrade")?.toLowerCase() !== "websocket") {
-        return jsonResponse(
-          { code: "UPGRADE_REQUIRED", message: "A WebSocket upgrade is required." },
-          { status: 426, headers: { upgrade: "websocket" } },
-          corsHeaders(request, env),
-        );
-      }
-      if (!hasPublicDrawingProtocol(request.headers.get("sec-websocket-protocol"))) {
-        return jsonResponse(
-          { code: "BAD_REQUEST", message: "The public drawing protocol is required." },
-          { status: 400 },
-          corsHeaders(request, env),
-        );
-      }
-
-      const route = url.searchParams.get("route");
-      if (!isPublicDrawingRoute(route)) {
-        return jsonResponse(
-          { code: "BAD_REQUEST", message: "A canonical route is required." },
-          { status: 400 },
-          corsHeaders(request, env),
-        );
-      }
-      const clientIp = request.headers.get("cf-connecting-ip") ?? "local";
-      if (env.PUBLIC_HANDSHAKE_RATE_LIMITER) {
-        try {
-          const outcome = await env.PUBLIC_HANDSHAKE_RATE_LIMITER.limit({ key: clientIp });
-          if (!outcome.success) {
-            console.log(JSON.stringify({ event: "public_handshake_rate_limited" }));
-            return jsonResponse(
-              { code: "RATE_LIMITED", message: "Too many public drawing connections." },
-              { status: 429 },
-              corsHeaders(request, env),
-            );
-          }
-        } catch {
-          console.log(JSON.stringify({ event: "public_handshake_rate_limiter_unavailable" }));
-        }
-      }
-      const generation = publicDrawingGeneration(env);
-      if (isPublicPresence) {
-        return env.PUBLIC_ROUTE_LOBBIES.getByName(
-          `public-route:${generation}:${route}`,
-        ).fetch(request);
-      }
-
-      const encodedPodId = url.pathname.slice(PUBLIC_POD_PATH_PREFIX.length);
-      let podId = "";
-      try {
-        podId = decodeURIComponent(encodedPodId);
-      } catch {
-        // The Durable Object performs the authoritative identifier validation.
-      }
-      if (!podId || podId.includes("/")) {
-        return jsonResponse(
-          { code: "NOT_FOUND", message: "Public drawing pod not found." },
-          { status: 404 },
-          corsHeaders(request, env),
-        );
-      }
-      return env.PUBLIC_DRAWING_PODS.getByName(
-        `public-pod:${generation}:${route}:${podId}`,
-      ).fetch(request);
-    }
-
-    const roomId = roomIdFromPath(url.pathname);
-    if (request.method !== "GET" || roomId === null) {
+    if (url.pathname !== PARTY_REALTIME_PATH) {
       return jsonResponse(
-        { code: "NOT_FOUND", message: "Drawing room not found." },
+        { code: "NOT_FOUND", message: "Party route not found." },
         { status: 404 },
         corsHeaders(request, env),
       );
     }
-
+    if (request.method !== "GET") {
+      return jsonResponse(
+        { code: "METHOD_NOT_ALLOWED", message: "Party presence requires GET." },
+        { status: 405 },
+        corsHeaders(request, env),
+      );
+    }
     if (!isAllowedOrigin(request, env)) {
       return jsonResponse(
         { code: "FORBIDDEN_ORIGIN", message: "Origin is not allowed." },
         { status: 403 },
       );
     }
-
     if (request.headers.get("upgrade")?.toLowerCase() !== "websocket") {
       return jsonResponse(
         { code: "UPGRADE_REQUIRED", message: "A WebSocket upgrade is required." },
@@ -265,722 +170,404 @@ export default {
         corsHeaders(request, env),
       );
     }
-
-    if (
-      !hasDrawingRealtimeSubprotocol(
-        request.headers.get("sec-websocket-protocol"),
-      )
-    ) {
+    if (!hasPartySubprotocol(request.headers.get("sec-websocket-protocol"))) {
       return jsonResponse(
-        {
-          code: "BAD_REQUEST",
-          message: "The drawing WebSocket protocol is required.",
-        },
+        { code: "BAD_REQUEST", message: "The party WebSocket protocol is required." },
         { status: 400 },
         corsHeaders(request, env),
       );
     }
 
-    const participantId = url.searchParams.get("participantId");
-    if (!isDrawingParticipantId(participantId)) {
+    if (!hasExactPartyQuery(url)) {
       return jsonResponse(
-        { code: "BAD_REQUEST", message: "A valid participantId is required." },
+        { code: "BAD_REQUEST", message: "The party query is invalid." },
         { status: 400 },
         corsHeaders(request, env),
       );
     }
 
-    const roomObjectId = env.DRAWING_ROOMS.idFromName(roomId);
-    return env.DRAWING_ROOMS.get(roomObjectId).fetch(request);
+    const route = url.searchParams.get("route");
+    if (!isPartyRoute(route)) {
+      return jsonResponse(
+        { code: "BAD_REQUEST", message: "A canonical public route is required." },
+        { status: 400 },
+        corsHeaders(request, env),
+      );
+    }
+    const requestedSessionId = url.searchParams.get("sessionId");
+    if (requestedSessionId !== null && !isPartySessionId(requestedSessionId)) {
+      return jsonResponse(
+        { code: "BAD_REQUEST", message: "The party session ID is invalid." },
+        { status: 400 },
+        corsHeaders(request, env),
+      );
+    }
+
+    const clientIp = request.headers.get("cf-connecting-ip") ?? "local";
+    if (env.PARTY_HANDSHAKE_RATE_LIMITER) {
+      try {
+        const outcome = await env.PARTY_HANDSHAKE_RATE_LIMITER.limit({
+          key: clientIp,
+        });
+        if (!outcome.success) {
+          log("party_handshake_rate_limited");
+          return jsonResponse(
+            { code: "RATE_LIMITED", message: "Too many party connections." },
+            { status: 429 },
+            corsHeaders(request, env),
+          );
+        }
+      } catch {
+        // The route socket cap remains an amplification bound if the binding fails.
+        log("party_handshake_rate_limiter_unavailable");
+      }
+    }
+
+    const generation = partyGeneration(env);
+    return env.PARTY_ROUTES.getByName(
+      `party-route:${generation}:${route}`,
+    ).fetch(request);
   },
-} satisfies ExportedHandler<Env>;
+} satisfies ExportedHandler<PartyEnv>;
 
-function parseAttachment(socket: WebSocket): SocketAttachment | null {
+function partyAttachment(socket: WebSocket): PartySocketAttachment | null {
   try {
-    const value = socket.deserializeAttachment() as Partial<SocketAttachment> | null;
+    const value = socket.deserializeAttachment() as
+      | Partial<PartySocketAttachment>
+      | null;
     return value?.version === 1 &&
-      typeof value.participantId === "string" &&
-      isDrawingParticipantName(value.name) &&
-      typeof value.joinedAt === "number" &&
-      typeof value.route === "string"
-      ? (value as SocketAttachment)
+      isPartySessionId(value.sessionId) &&
+      isPartyRoute(value.route) &&
+      typeof value.generation === "string" &&
+      GENERATION_PATTERN.test(value.generation)
+      ? (value as PartySocketAttachment)
       : null;
   } catch {
     return null;
   }
 }
 
-function activeSockets(ctx: DurableObjectState): WebSocket[] {
-  return ctx.getWebSockets().filter((socket) => socket.readyState === 1);
+function isOpen(socket: WebSocket): boolean {
+  return socket.readyState === WebSocket.OPEN;
 }
 
-function socketParticipants(ctx: DurableObjectState): DrawingParticipant[] {
-  const byId = new Map<string, DrawingParticipant>();
-
-  for (const socket of activeSockets(ctx)) {
-    const attachment = parseAttachment(socket);
-    if (!attachment || attachment.rejected) continue;
-    const existing = byId.get(attachment.participantId);
-    if (existing) {
-      existing.connections += 1;
-      if (attachment.joinedAt < existing.joinedAt) {
-        existing.joinedAt = attachment.joinedAt;
-        existing.name = attachment.name;
-        existing.route = attachment.route;
-      }
-    } else {
-      byId.set(attachment.participantId, {
-        id: attachment.participantId,
-        name: attachment.name,
-        joinedAt: attachment.joinedAt,
-        connections: 1,
-        route: attachment.route,
-      });
-    }
+function send(socket: WebSocket, message: PartyServerMessage): void {
+  try {
+    socket.send(JSON.stringify(message));
+  } catch {
+    // The socket may close between enumeration and send.
   }
-
-  return [...byId.values()].sort(
-    (left, right) =>
-      left.joinedAt - right.joinedAt || left.id.localeCompare(right.id),
-  );
 }
 
-function strokeStoragePrefix(route: string): string {
-  return `${STROKE_PREFIX}${encodeURIComponent(route)}:`;
-}
-
-function strokeStorageKey(
-  route: string,
-  authorId: string,
-  strokeId: string,
-): string {
-  return `${strokeStoragePrefix(route)}${authorId}:${strokeId}`;
-}
-
-function mergedBounds(
-  previous: DrawingBounds,
-  points: readonly number[],
-): DrawingBounds {
-  const next = { ...previous };
-  for (let index = 0; index < points.length; index += 2) {
-    const x = points[index];
-    const y = points[index + 1];
-    next.minX = Math.min(next.minX, x);
-    next.minY = Math.min(next.minY, y);
-    next.maxX = Math.max(next.maxX, x);
-    next.maxY = Math.max(next.maxY, y);
-  }
-  return next;
-}
-
-export class DrawingRoom extends DurableObject<Env> {
-  private operationQueue: Promise<unknown> = Promise.resolve();
-
-  private exclusive<T>(operation: () => Promise<T>): Promise<T> {
-    const result = this.operationQueue.then(operation, operation);
-    this.operationQueue = result.catch(() => undefined);
-    return result;
-  }
-
-  private roomId(request: Request): string {
-    return roomIdFromPath(new URL(request.url).pathname) ?? "unknown-room";
-  }
-
-  private ttlMilliseconds(): number {
-    const configured = Number.parseInt(this.env.ROOM_TTL_SECONDS ?? "", 10);
-    const seconds = Number.isFinite(configured)
-      ? Math.max(60, Math.min(configured, 24 * 60 * 60))
-      : DEFAULT_ROOM_TTL_SECONDS;
-    return seconds * 1_000;
-  }
-
-  private async meta(fallbackHostId: string): Promise<RoomMeta> {
-    const stored = await this.ctx.storage.get<RoomMeta>(META_KEY);
-    return stored?.version === 1
-      ? stored
-      : {
-          version: 1,
-          hostId: fallbackHostId,
-          revision: 0,
-          strokeCount: 0,
-          totalPoints: 0,
-          lastActivityAt: Date.now(),
-          emptySince: null,
-        };
-  }
-
-  private send(socket: WebSocket, message: DrawingServerMessage): void {
+function closeWithError(
+  socket: WebSocket,
+  code: string,
+  message: string,
+  fatal = false,
+  retryAfterMs?: number,
+): void {
+  send(socket, {
+    type: "error",
+    code,
+    message,
+    ...(fatal ? { fatal: true } : {}),
+    ...(retryAfterMs === undefined ? {} : { retryAfterMs }),
+  });
+  if (fatal) {
     try {
-      socket.send(JSON.stringify(message));
+      socket.close(1008, code);
     } catch {
-      // A peer may disconnect between getWebSockets() and send().
+      // The peer may already have closed.
     }
   }
+}
 
-  private error(
+export class PartyRoute extends DurableObject<PartyEnv> {
+  private routeSignalTokens = ROUTE_SIGNAL_BURST;
+  private routeSignalRefilledAt = Date.now();
+
+  constructor(ctx: DurableObjectState, env: PartyEnv) {
+    super(ctx, env);
+    this.ctx.setWebSocketAutoResponse(
+      new WebSocketRequestResponsePair(PARTY_PING_FRAME, PARTY_PONG_FRAME),
+    );
+  }
+
+  private sockets(except?: WebSocket): WebSocket[] {
+    return this.ctx
+      .getWebSockets()
+      .filter(
+        (socket) =>
+          socket !== except && isOpen(socket) && partyAttachment(socket) !== null,
+      );
+  }
+
+  private presenceCount(except?: WebSocket): number {
+    return new Set(
+      this.sockets(except).map((socket) => partyAttachment(socket)!.sessionId),
+    ).size;
+  }
+
+  private broadcast(message: PartyServerMessage, except?: WebSocket): void {
+    for (const socket of this.sockets(except)) send(socket, message);
+  }
+
+  private broadcastPresence(except?: WebSocket): void {
+    this.broadcast(
+      { type: "presence", presenceCount: this.presenceCount(except) },
+      except,
+    );
+  }
+
+  private consumeRouteSignal(now: number): number {
+    const elapsedSeconds = Math.max(
+      0,
+      (now - this.routeSignalRefilledAt) / 1_000,
+    );
+    this.routeSignalTokens = Math.min(
+      ROUTE_SIGNAL_BURST,
+      this.routeSignalTokens + elapsedSeconds * ROUTE_SIGNAL_REFILL_PER_SECOND,
+    );
+    this.routeSignalRefilledAt = now;
+    if (this.routeSignalTokens >= 1) {
+      this.routeSignalTokens -= 1;
+      return 0;
+    }
+    return Math.ceil(
+      ((1 - this.routeSignalTokens) / ROUTE_SIGNAL_REFILL_PER_SECOND) * 1_000,
+    );
+  }
+
+  private configurationError(
     socket: WebSocket,
-    code: DrawingRoomErrorCode,
-    message: string,
-    fatal = false,
-  ): void {
-    this.send(socket, { type: "error", code, message, fatal: fatal || undefined });
-    if (fatal) {
-      try {
-        socket.close(1008, code);
-      } catch {
-        // The peer may already have closed.
-      }
-    }
-  }
-
-  private broadcast(
-    message: DrawingServerMessage,
-    options: { route?: string; except?: WebSocket } = {},
-  ): void {
-    for (const socket of activeSockets(this.ctx)) {
-      if (socket === options.except) continue;
-      const attachment = parseAttachment(socket);
-      if (!attachment || attachment.rejected) continue;
-      if (options.route && attachment.route !== options.route) continue;
-      this.send(socket, message);
-    }
-  }
-
-  private async routeStrokes(route: string): Promise<DrawingSharedStroke[]> {
-    const records = await this.ctx.storage.list<StoredDrawingStroke>({
-      prefix: strokeStoragePrefix(route),
-    });
-    return [...records.values()]
-      .map((stroke) => ({
-        version: stroke.version,
-        id: stroke.id,
-        route: stroke.route,
-        color: stroke.color,
-        width: stroke.width,
-        opacity: stroke.opacity,
-        createdAt: stroke.createdAt,
-        points: stroke.points,
-        bounds: stroke.bounds,
-        authorId: stroke.authorId,
-        authorName: stroke.authorName,
-      }))
-      .sort(
-        (left, right) =>
-          left.createdAt - right.createdAt || left.id.localeCompare(right.id),
-      );
-  }
-
-  private async deleteKeysAndWriteMeta(
-    keys: readonly string[],
-    meta: RoomMeta,
-  ): Promise<void> {
-    await this.ctx.storage.transaction(async (transaction) => {
-      for (let index = 0; index < keys.length; index += MAX_STORAGE_DELETE_BATCH) {
-        await transaction.delete(
-          keys.slice(index, index + MAX_STORAGE_DELETE_BATCH),
-        );
-      }
-      await transaction.put(META_KEY, meta);
-    });
-  }
-
-  private async broadcastPresence(meta: RoomMeta): Promise<void> {
-    const participants = socketParticipants(this.ctx);
-    if (!participants.some((participant) => participant.id === meta.hostId)) {
-      meta.hostId = participants[0]?.id ?? meta.hostId;
-    }
-    meta.revision += 1;
-    meta.lastActivityAt = Date.now();
-    await this.ctx.storage.put(META_KEY, meta);
-    this.broadcast({
-      type: "presence",
-      hostId: meta.hostId,
-      participants,
-      revision: meta.revision,
-    });
-  }
-
-  async fetch(request: Request): Promise<Response> {
-    return this.exclusive(async () => {
-      const url = new URL(request.url);
-      const participantId = url.searchParams.get("participantId");
-      if (!isDrawingParticipantId(participantId)) {
-        return jsonResponse(
-          { code: "BAD_REQUEST", message: "A valid participantId is required." },
-          { status: 400 },
-        );
-      }
-
-      const name = normalizeDrawingParticipantName(url.searchParams.get("name"));
-      const participantToken = drawingParticipantTokenFromWebSocketProtocols(
-        request.headers.get("sec-websocket-protocol"),
-      );
-      const route = normalizeDrawingRoute(url.searchParams.get("route") ?? "/");
-      const participantsBeforeJoin = socketParticipants(this.ctx);
-      const socketsBeforeJoin = activeSockets(this.ctx).filter(
-        (socket) => !parseAttachment(socket)?.rejected,
-      );
-      const returningParticipant = participantsBeforeJoin.some(
-        (participant) => participant.id === participantId,
-      );
-      const participantConnections =
-        participantsBeforeJoin.find(
-          (participant) => participant.id === participantId,
-        )?.connections ?? 0;
-
-      const pair = new WebSocketPair();
-      const [client, server] = Object.values(pair) as [WebSocket, WebSocket];
-      const now = Date.now();
-      const storedToken = isDrawingParticipantToken(participantToken)
-        ? await this.ctx.storage.get<string>(`${IDENTITY_PREFIX}${participantId}`)
-        : undefined;
-      const registeredIdentities =
-        storedToken === undefined && isDrawingParticipantToken(participantToken)
-          ? await this.ctx.storage.list<string>({
-              prefix: IDENTITY_PREFIX,
-              limit: MAX_REGISTERED_IDENTITIES,
-            })
-          : null;
-      const identityRejected =
-        !isDrawingParticipantToken(participantToken) ||
-        (storedToken !== undefined && storedToken !== participantToken);
-      const rejection = (() => {
-        if (identityRejected) {
-          return {
-            code: "BAD_REQUEST" as const,
-            message: "The participant identity is invalid.",
-          };
-        }
-        if (
-          registeredIdentities !== null &&
-          registeredIdentities.size >= MAX_REGISTERED_IDENTITIES
-        ) {
-          return {
-            code: "ROOM_LIMIT_REACHED" as const,
-            message: "This party has reached its guest history limit.",
-          };
-        }
-        if (participantConnections >= MAX_CONNECTIONS_PER_PARTICIPANT) {
-          return {
-            code: "TOO_MANY_CONNECTIONS" as const,
-            message: "This participant already has two open connections.",
-          };
-        }
-        if (socketsBeforeJoin.length >= DRAWING_ROOM_MAX_SOCKETS) {
-          return {
-            code: "TOO_MANY_CONNECTIONS" as const,
-            message: "This party has too many open connections.",
-          };
-        }
-        if (
-          !returningParticipant &&
-          participantsBeforeJoin.length >= DRAWING_ROOM_MAX_PARTICIPANTS
-        ) {
-          return {
-            code: "ROOM_FULL" as const,
-            message: "This party already has four people.",
-          };
-        }
-        return null;
-      })();
-
-      const attachment: SocketAttachment = {
-        version: 1,
-        participantId,
-        name,
-        joinedAt: now,
-        route,
-        rateWindowStartedAt: now,
-        rateMessageCount: 0,
-        rejected: rejection ? true : undefined,
-      };
-      server.serializeAttachment(attachment);
-      this.ctx.acceptWebSocket(server, [`participant:${participantId}`]);
-
-      if (rejection) {
-        this.error(server, rejection.code, rejection.message, true);
-        return new Response(null, {
-          status: 101,
-          webSocket: client,
-          headers: {
-            "sec-websocket-protocol": DRAWING_REALTIME_SUBPROTOCOL,
-          },
-        });
-      }
-
-      if (storedToken === undefined) {
-        await this.ctx.storage.put(
-          `${IDENTITY_PREFIX}${participantId}`,
-          participantToken,
-        );
-      }
-
-      const meta = await this.meta(participantId);
-      meta.emptySince = null;
-      const participantsAfterJoin = socketParticipants(this.ctx);
-      if (
-        !participantsAfterJoin.some(
-          (participant) => participant.id === meta.hostId,
-        )
-      ) {
-        meta.hostId = participantsAfterJoin[0]?.id ?? participantId;
-      }
-      meta.revision += 1;
-      meta.lastActivityAt = now;
-      await Promise.all([
-        this.ctx.storage.put(META_KEY, meta),
-        this.ctx.storage.deleteAlarm(),
-      ]);
-
-      const strokes = await this.routeStrokes(route);
-      const participants = participantsAfterJoin;
-      this.send(server, {
-        type: "welcome",
-        protocolVersion: DRAWING_REALTIME_PROTOCOL_VERSION,
-        roomId: this.roomId(request),
-        selfId: participantId,
-        hostId: meta.hostId,
-        participants,
-        route,
-        strokes,
-        revision: meta.revision,
-      });
-      this.broadcast(
-        {
-          type: "presence",
-          hostId: meta.hostId,
-          participants,
-          revision: meta.revision,
-        },
-        { except: server },
-      );
-
-      return new Response(null, {
-        status: 101,
-        webSocket: client,
-        headers: {
-          "sec-websocket-protocol": DRAWING_REALTIME_SUBPROTOCOL,
-        },
-      });
-    });
-  }
-
-  webSocketMessage(socket: WebSocket, data: string | ArrayBuffer): Promise<void> {
-    return this.exclusive(async () => {
-      const attachment = parseAttachment(socket);
-      if (!attachment || attachment.rejected) return;
-      if (typeof data !== "string") {
-        this.error(socket, "INVALID_MESSAGE", "Only JSON text messages are accepted.");
-        return;
-      }
-
-      const now = Date.now();
-      if (now - attachment.rateWindowStartedAt >= RATE_WINDOW_MS) {
-        attachment.rateWindowStartedAt = now;
-        attachment.rateMessageCount = 0;
-      }
-      attachment.rateMessageCount += 1;
-      socket.serializeAttachment(attachment);
-      if (attachment.rateMessageCount > MAX_MESSAGES_PER_RATE_WINDOW) {
-        this.error(socket, "RATE_LIMITED", "Drawing updates are arriving too quickly.");
-        return;
-      }
-
-      const message = parseDrawingClientMessageJson(data);
-      if (!message) {
-        this.error(socket, "INVALID_MESSAGE", "The drawing message is invalid.");
-        return;
-      }
-
-      await this.handleMessage(socket, attachment, message);
-    }).catch(() => {
-      this.error(socket, "SERVER_ERROR", "The drawing room could not process that update.");
-    });
-  }
-
-  private routeMatches(
-    socket: WebSocket,
-    attachment: SocketAttachment,
-    route: string,
+    attachment: PartySocketAttachment,
   ): boolean {
-    if (attachment.route === route) return true;
-    this.error(socket, "INVALID_MESSAGE", "The update does not match the active route.");
+    if (attachment.generation !== partyGeneration(this.env)) {
+      closeWithError(
+        socket,
+        "GENERATION_CHANGED",
+        "This party presence generation has ended.",
+        true,
+      );
+      return true;
+    }
+    if (partyMode(this.env) !== "live") {
+      closeWithError(
+        socket,
+        "PARTY_DISABLED",
+        "Party presence is disabled.",
+        true,
+      );
+      return true;
+    }
     return false;
   }
 
-  private async handleMessage(
-    socket: WebSocket,
-    attachment: SocketAttachment,
-    message: DrawingClientMessage,
-  ): Promise<void> {
-    if (message.type === "ping") {
-      this.send(socket, { type: "pong", nonce: message.nonce });
-      return;
+  async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    const route = url.searchParams.get("route");
+    if (!isPartyRoute(route)) {
+      return new Response("Invalid party route", { status: 400 });
     }
 
-    if (message.type === "cursor:move") {
-      if (!this.routeMatches(socket, attachment, message.route)) return;
-      this.broadcast(
-        {
-          type: "cursor:move",
-          route: message.route,
-          authorId: attachment.participantId,
-          authorName: attachment.name,
-          x: message.x,
-          y: message.y,
-          color: message.color,
-          visible: message.visible,
-        },
-        { route: message.route, except: socket },
+    const generation = partyGeneration(this.env);
+    const pair = new WebSocketPair();
+    const [client, server] = Object.values(pair) as [WebSocket, WebSocket];
+
+    if (partyMode(this.env) !== "live") {
+      const now = Date.now();
+      server.serializeAttachment({
+        version: 1,
+        sessionId: crypto.randomUUID(),
+        route,
+        generation,
+        joinedAt: now,
+        messageWindowStartedAt: now,
+        messageCount: 0,
+        invalidWindowStartedAt: now,
+        invalidCount: 0,
+        signalWindowStartedAt: now,
+        signalCount: 0,
+        lastSignalAt: 0,
+      } satisfies PartySocketAttachment);
+      this.ctx.acceptWebSocket(server);
+      closeWithError(
+        server,
+        "PARTY_DISABLED",
+        "Party presence is disabled.",
+        true,
       );
-      return;
+      return new Response(null, {
+        status: 101,
+        webSocket: client,
+        headers: { "sec-websocket-protocol": PARTY_REALTIME_SUBPROTOCOL },
+      });
     }
 
-    const meta = await this.meta(attachment.participantId);
+    const currentSockets = this.sockets();
+    if (currentSockets.length >= MAX_ROUTE_SOCKETS) {
+      return new Response("Party route is full", { status: 429 });
+    }
+    const requestedSessionId = url.searchParams.get("sessionId");
+    const sessionId = isPartySessionId(requestedSessionId)
+      ? requestedSessionId
+      : crypto.randomUUID();
+    const sessionSocketCount = currentSockets.filter(
+      (socket) => partyAttachment(socket)?.sessionId === sessionId,
+    ).length;
+    if (sessionSocketCount >= MAX_SOCKETS_PER_SESSION) {
+      return new Response("Party session has too many connections", {
+        status: 429,
+      });
+    }
 
-    if (message.type === "route:set") {
-      attachment.route = message.route;
+    const now = Date.now();
+    server.serializeAttachment({
+      version: 1,
+      sessionId,
+      route,
+      generation,
+      joinedAt: now,
+      messageWindowStartedAt: now,
+      messageCount: 0,
+      invalidWindowStartedAt: now,
+      invalidCount: 0,
+      signalWindowStartedAt: now,
+      signalCount: 0,
+      lastSignalAt: 0,
+    } satisfies PartySocketAttachment);
+    this.ctx.acceptWebSocket(server, [`session:${sessionId}`]);
+
+    send(server, {
+      type: "welcome",
+      protocolVersion: PARTY_PROTOCOL_VERSION,
+      generation,
+      route,
+      sessionId,
+      presenceCount: this.presenceCount(),
+    });
+    this.broadcastPresence();
+    log("party_presence_connected", {
+      presenceCount: this.presenceCount(),
+      socketCount: this.sockets().length,
+    });
+
+    return new Response(null, {
+      status: 101,
+      webSocket: client,
+      headers: { "sec-websocket-protocol": PARTY_REALTIME_SUBPROTOCOL },
+    });
+  }
+
+  webSocketMessage(socket: WebSocket, data: string | ArrayBuffer): void {
+    const attachment = partyAttachment(socket);
+    if (!attachment || this.configurationError(socket, attachment)) return;
+
+    const now = Date.now();
+    if (now - attachment.messageWindowStartedAt >= MESSAGE_WINDOW_MS) {
+      attachment.messageWindowStartedAt = now;
+      attachment.messageCount = 0;
+    }
+    attachment.messageCount += 1;
+    if (attachment.messageCount > MAX_MESSAGES_PER_WINDOW) {
       socket.serializeAttachment(attachment);
-      meta.revision += 1;
-      meta.lastActivityAt = Date.now();
-      await this.ctx.storage.put(META_KEY, meta);
-      this.send(socket, {
-        type: "route:snapshot",
-        route: message.route,
-        strokes: await this.routeStrokes(message.route),
-        revision: meta.revision,
-      });
-      await this.broadcastPresence(meta);
-      return;
-    }
-
-    if (message.type === "stroke:start") {
-      if (!this.routeMatches(socket, attachment, message.stroke.route)) return;
-      if (message.stroke.points.length > DRAWING_ROOM_MAX_POINTS_PER_MESSAGE * 2) {
-        this.error(socket, "INVALID_MESSAGE", "The first stroke batch is too large.");
-        return;
-      }
-
-      const stroke: DrawingSharedStroke = {
-        ...message.stroke,
-        createdAt: Date.now(),
-        points: [...message.stroke.points],
-        bounds: { ...message.stroke.bounds },
-        authorId: attachment.participantId,
-        authorName: attachment.name,
-      };
-      const key = strokeStorageKey(
-        stroke.route,
-        attachment.participantId,
-        stroke.id,
-      );
-      const existing = await this.ctx.storage.get<StoredDrawingStroke>(key);
-      if (existing) {
-        const isExactRetry =
-          existing.authorId === stroke.authorId &&
-          existing.route === stroke.route &&
-          existing.color === stroke.color &&
-          existing.width === stroke.width &&
-          existing.opacity === stroke.opacity &&
-          existing.points.length === stroke.points.length &&
-          existing.points.every((point, index) => point === stroke.points[index]);
-        if (!isExactRetry) {
-          this.error(socket, "INVALID_MESSAGE", "That stroke ID is already in use.");
-        }
-        return;
-      }
-      if (
-        meta.strokeCount >= DRAWING_ROOM_MAX_STROKES ||
-        meta.totalPoints + message.stroke.points.length / 2 > MAX_ROOM_TOTAL_POINTS
-      ) {
-        this.error(socket, "ROOM_LIMIT_REACHED", "This party drawing is full.");
-        return;
-      }
-      meta.strokeCount += 1;
-      meta.totalPoints += stroke.points.length / 2;
-      meta.revision += 1;
-      meta.lastActivityAt = Date.now();
-      await this.ctx.storage.put({
-        [key]: { ...stroke, ended: false } satisfies StoredDrawingStroke,
-        [META_KEY]: meta,
-      });
-      this.broadcast(
-        { type: "stroke:start", stroke, revision: meta.revision },
-        { route: stroke.route, except: socket },
+      closeWithError(
+        socket,
+        "RATE_LIMITED",
+        "Party messages are arriving too quickly.",
+        true,
       );
       return;
     }
 
-    if (message.type === "stroke:append") {
-      if (!this.routeMatches(socket, attachment, message.route)) return;
-      const key = strokeStorageKey(
-        message.route,
-        attachment.participantId,
-        message.strokeId,
-      );
-      const stroke = await this.ctx.storage.get<StoredDrawingStroke>(key);
-      if (!stroke) {
-        this.error(socket, "STROKE_NOT_FOUND", "That stroke is not active in this room.");
-        return;
+    const message = parsePartyClientMessageJson(data);
+    if (!message) {
+      if (now - attachment.invalidWindowStartedAt >= INVALID_WINDOW_MS) {
+        attachment.invalidWindowStartedAt = now;
+        attachment.invalidCount = 0;
       }
-      // Records written before ended-state tracking are already persisted
-      // snapshots, so treat a missing flag as completed rather than mutable.
-      if (stroke.ended !== false) {
-        this.error(socket, "INVALID_MESSAGE", "A completed stroke cannot be changed.");
-        return;
-      }
-      const newPointCount = message.points.length / 2;
-      if (
-        stroke.points.length / 2 + newPointCount >
-          DRAWING_ROOM_MAX_POINTS_PER_STROKE ||
-        meta.totalPoints + newPointCount > MAX_ROOM_TOTAL_POINTS
-      ) {
-        this.error(socket, "ROOM_LIMIT_REACHED", "This party drawing is full.");
-        return;
-      }
-      stroke.points.push(...message.points);
-      stroke.bounds = mergedBounds(stroke.bounds, message.points);
-      meta.totalPoints += newPointCount;
-      meta.revision += 1;
-      meta.lastActivityAt = Date.now();
-      await this.ctx.storage.put({ [key]: stroke, [META_KEY]: meta });
-      this.broadcast(
-        {
-          type: "stroke:append",
-          route: message.route,
-          strokeId: message.strokeId,
-          authorId: attachment.participantId,
-          points: message.points,
-          bounds: stroke.bounds,
-          revision: meta.revision,
-        },
-        { route: message.route, except: socket },
+      attachment.invalidCount += 1;
+      socket.serializeAttachment(attachment);
+      closeWithError(
+        socket,
+        "INVALID_MESSAGE",
+        "The party message is invalid.",
+        attachment.invalidCount >= MAX_INVALID_MESSAGES_PER_WINDOW,
       );
       return;
     }
 
-    if (message.type === "stroke:end") {
-      if (!this.routeMatches(socket, attachment, message.route)) return;
-      const key = strokeStorageKey(
-        message.route,
-        attachment.participantId,
-        message.strokeId,
+    if (message.type === "ping") {
+      socket.serializeAttachment(attachment);
+      send(socket, { type: "pong" });
+      return;
+    }
+
+    const intervalRemaining =
+      attachment.lastSignalAt + MIN_SIGNAL_INTERVAL_MS - now;
+    if (intervalRemaining > 0) {
+      socket.serializeAttachment(attachment);
+      closeWithError(
+        socket,
+        "RATE_LIMITED",
+        "Wait a moment before sending another signal.",
+        false,
+        Math.min(60_000, intervalRemaining),
       );
-      const stroke = await this.ctx.storage.get<StoredDrawingStroke>(key);
-      if (!stroke) {
-        this.error(socket, "STROKE_NOT_FOUND", "That stroke is not active in this room.");
-        return;
-      }
-      if (stroke.ended !== false) return;
-      stroke.ended = true;
-      meta.revision += 1;
-      meta.lastActivityAt = Date.now();
-      await this.ctx.storage.put({ [key]: stroke, [META_KEY]: meta });
-      this.broadcast(
-        {
-          type: "stroke:end",
-          route: message.route,
-          strokeId: message.strokeId,
-          authorId: attachment.participantId,
-          revision: meta.revision,
-        },
-        { route: message.route, except: socket },
+      return;
+    }
+    if (now - attachment.signalWindowStartedAt >= SIGNAL_WINDOW_MS) {
+      attachment.signalWindowStartedAt = now;
+      attachment.signalCount = 0;
+    }
+    if (attachment.signalCount >= MAX_SIGNALS_PER_WINDOW) {
+      const retryAfterMs = Math.min(
+        60_000,
+        Math.max(0, attachment.signalWindowStartedAt + SIGNAL_WINDOW_MS - now),
+      );
+      socket.serializeAttachment(attachment);
+      closeWithError(
+        socket,
+        "RATE_LIMITED",
+        "This party session has sent enough signals for now.",
+        false,
+        retryAfterMs,
+      );
+      return;
+    }
+    const routeRetryAfterMs = this.consumeRouteSignal(now);
+    if (routeRetryAfterMs > 0) {
+      socket.serializeAttachment(attachment);
+      closeWithError(
+        socket,
+        "RATE_LIMITED",
+        "This page is cheering too quickly.",
+        false,
+        Math.min(60_000, routeRetryAfterMs),
       );
       return;
     }
 
-    if (message.type === "clear:mine") {
-      if (!this.routeMatches(socket, attachment, message.route)) return;
-      const strokes = await this.ctx.storage.list<StoredDrawingStroke>({
-        prefix: strokeStoragePrefix(message.route),
-      });
-      const owned = [...strokes.entries()].filter(
-        ([, stroke]) => stroke.authorId === attachment.participantId,
-      );
-      if (owned.length > 0) {
-        meta.strokeCount = Math.max(0, meta.strokeCount - owned.length);
-        meta.totalPoints = Math.max(
-          0,
-          meta.totalPoints -
-            owned.reduce((sum, [, stroke]) => sum + stroke.points.length / 2, 0),
-        );
-      }
-      meta.revision += 1;
-      meta.lastActivityAt = Date.now();
-      await this.deleteKeysAndWriteMeta(
-        owned.map(([key]) => key),
-        meta,
-      );
-      this.broadcast(
-        {
-          type: "strokes:cleared",
-          scope: "mine",
-          route: message.route,
-          authorId: attachment.participantId,
-          revision: meta.revision,
-        },
-        { route: message.route },
-      );
-      return;
-    }
-
-    if (message.type === "room:reset") {
-      if (meta.hostId !== attachment.participantId) {
-        this.error(socket, "NOT_HOST", "Only the party host can reset the room.");
-        return;
-      }
-      const strokes = await this.ctx.storage.list({ prefix: STROKE_PREFIX });
-      meta.strokeCount = 0;
-      meta.totalPoints = 0;
-      meta.revision += 1;
-      meta.lastActivityAt = Date.now();
-      await this.deleteKeysAndWriteMeta([...strokes.keys()], meta);
-      this.broadcast({
-        type: "room:reset",
-        authorId: attachment.participantId,
-        revision: meta.revision,
-      });
-    }
-  }
-
-  webSocketClose(socket: WebSocket): Promise<void> {
-    return this.connectionEnded(socket);
-  }
-
-  webSocketError(socket: WebSocket): Promise<void> {
-    return this.connectionEnded(socket);
-  }
-
-  private connectionEnded(socket: WebSocket): Promise<void> {
-    return this.exclusive(async () => {
-      const attachment = parseAttachment(socket);
-      if (!attachment || attachment.rejected) return;
-      const meta = await this.meta(attachment.participantId);
-      const participants = socketParticipants(this.ctx);
-      if (participants.length === 0) {
-        meta.emptySince = Date.now();
-        meta.lastActivityAt = meta.emptySince;
-        await Promise.all([
-          this.ctx.storage.put(META_KEY, meta),
-          this.ctx.storage.setAlarm(meta.emptySince + this.ttlMilliseconds()),
-        ]);
-        return;
-      }
-      await this.broadcastPresence(meta);
+    attachment.lastSignalAt = now;
+    attachment.signalCount += 1;
+    socket.serializeAttachment(attachment);
+    this.broadcast({
+      type: "signal",
+      id: crypto.randomUUID(),
+      kind: message.kind,
+      sentAt: now,
     });
   }
 
-  alarm(): Promise<void> {
-    return this.exclusive(async () => {
-      if (socketParticipants(this.ctx).length > 0) return;
-      const meta = await this.ctx.storage.get<RoomMeta>(META_KEY);
-      if (!meta?.emptySince) return;
-      const expiresAt = meta.emptySince + this.ttlMilliseconds();
-      if (Date.now() < expiresAt) {
-        await this.ctx.storage.setAlarm(expiresAt);
-        return;
-      }
-      await this.ctx.storage.deleteAll();
+  webSocketClose(socket: WebSocket): void {
+    this.broadcastPresence(socket);
+    log("party_presence_disconnected", {
+      presenceCount: this.presenceCount(socket),
+      socketCount: this.sockets(socket).length,
     });
+  }
+
+  webSocketError(socket: WebSocket): void {
+    this.broadcastPresence(socket);
   }
 }

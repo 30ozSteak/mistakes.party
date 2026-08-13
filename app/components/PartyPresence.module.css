@@ -1,0 +1,300 @@
+.root {
+  position: fixed;
+  right: max(1.25rem, calc(env(safe-area-inset-right) + 0.75rem));
+  bottom: max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem));
+  z-index: 120;
+  font-family: var(--mono);
+  pointer-events: none;
+}
+
+.root[inert] {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.trigger,
+.close,
+.signalButton {
+  appearance: none;
+  border: 0;
+  border-radius: 0;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+}
+
+.trigger {
+  min-width: 5.5rem;
+  min-height: 3rem;
+  padding: 0.7rem 0.9rem;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--paper);
+  box-shadow: 3px 3px 0 var(--ink);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.035em;
+  pointer-events: auto;
+  transition:
+    background-color 120ms linear,
+    box-shadow 120ms linear,
+    transform 120ms linear;
+}
+
+.trigger:active,
+.root[data-connection="live"] .trigger:focus-visible {
+  background: var(--acid);
+  box-shadow: 1px 1px 0 var(--ink);
+  transform: translate(2px, 2px);
+}
+
+.dialog {
+  position: fixed;
+  inset: auto auto max(0.75rem, env(safe-area-inset-bottom)) 50%;
+  width: min(calc(100vw - 2rem), 30rem);
+  max-width: none;
+  max-height: calc(100dvh - 1.5rem);
+  padding: 0;
+  margin: 0;
+  border: 3px solid var(--ink);
+  border-radius: 0;
+  background: var(--paper);
+  box-shadow: 6px 6px 0 var(--ink);
+  color: var(--ink);
+  font-family: var(--mono);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  pointer-events: auto;
+  transform: translateX(-50%);
+}
+
+.dialog::backdrop {
+  background: rgb(9 10 8 / 0.55);
+}
+
+.sheet {
+  position: relative;
+  display: grid;
+  gap: 0.8rem;
+  padding:
+    1.25rem
+    max(1.1rem, env(safe-area-inset-right))
+    max(1.25rem, calc(env(safe-area-inset-bottom) + 0.75rem))
+    max(1.1rem, env(safe-area-inset-left));
+}
+
+.sheet h2,
+.sheet p {
+  margin: 0;
+}
+
+.sheet h2 {
+  padding-right: 3rem;
+  font-family: var(--display);
+  font-size: clamp(2rem, 10vw, 3.8rem);
+  font-weight: 900;
+  letter-spacing: -0.035em;
+  line-height: 0.9;
+}
+
+.eyebrow,
+.explanation,
+.connection {
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+}
+
+.eyebrow {
+  color: var(--muted);
+}
+
+.connection {
+  padding: 0.55rem;
+  border: 2px solid var(--ink);
+  background: var(--acid);
+}
+
+.close {
+  position: absolute;
+  top: 0.75rem;
+  right: max(0.75rem, env(safe-area-inset-right));
+  display: grid;
+  width: 3rem;
+  min-width: 3rem;
+  height: 3rem;
+  min-height: 3rem;
+  place-items: center;
+  padding: 0;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  font-size: 1.55rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.signalGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.signalButton {
+  min-width: 0;
+  min-height: 3.25rem;
+  padding: 0.65rem 0.45rem;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  font-size: 0.67rem;
+  font-weight: 900;
+  letter-spacing: 0.025em;
+  line-height: 1.1;
+}
+
+.signalButton:disabled {
+  cursor: wait;
+  opacity: 0.48;
+}
+
+.signalButton:not(:disabled):active,
+.close:active {
+  background: var(--acid);
+}
+
+.signalLayer {
+  position: fixed;
+  right: max(1.25rem, calc(env(safe-area-inset-right) + 0.75rem));
+  bottom: max(5.25rem, calc(env(safe-area-inset-bottom) + 4.75rem));
+  display: grid;
+  width: min(11rem, calc(100vw - 2rem));
+  justify-items: end;
+  pointer-events: none;
+}
+
+.signalEvent {
+  position: relative;
+  padding: 0.45rem 0.6rem;
+  border: 2px solid var(--ink);
+  background: var(--acid);
+  box-shadow: 3px 3px 0 var(--ink);
+  color: var(--ink);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  animation: party-signal 1.8s cubic-bezier(0.18, 0.72, 0.2, 1) both;
+}
+
+.signalEvent:nth-last-child(2) {
+  right: 0.4rem;
+}
+
+.signalEvent:nth-last-child(3) {
+  right: 0.8rem;
+}
+
+.signalEvent:nth-last-child(n + 4) {
+  display: none;
+}
+
+.signalEvent[data-kind="hi"] {
+  background: #00e5ff;
+}
+
+.signalEvent[data-kind="bad_idea"] {
+  background: #ff7a00;
+}
+
+.signalEvent[data-kind="i_was_here"] {
+  background: #ff3ea5;
+}
+
+@keyframes party-signal {
+  0% {
+    opacity: 0;
+    transform: translateY(0.75rem) scale(0.82) rotate(-2deg);
+  }
+
+  12%,
+  72% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-2.25rem) scale(1.08) rotate(1deg);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .trigger:hover,
+  .signalButton:not(:disabled):hover,
+  .close:hover {
+    background: var(--acid);
+  }
+}
+
+@media (max-width: 700px) {
+  .root {
+    right: max(0.8rem, calc(env(safe-area-inset-right) + 0.45rem));
+    bottom: max(0.8rem, calc(env(safe-area-inset-bottom) + 0.45rem));
+  }
+
+  .signalLayer {
+    right: max(0.8rem, calc(env(safe-area-inset-right) + 0.45rem));
+    bottom: max(4.8rem, calc(env(safe-area-inset-bottom) + 4.3rem));
+  }
+
+  .dialog {
+    inset: auto 0 0;
+    width: 100%;
+    max-height: calc(100dvh - 0.5rem);
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    box-shadow: 0 -5px 0 var(--ink);
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trigger {
+    transition: none;
+  }
+
+  .signalEvent {
+    animation: party-signal-reduced 1.2s steps(1, end) both;
+  }
+
+  @keyframes party-signal-reduced {
+    0%,
+    99% {
+      opacity: 1;
+    }
+
+    100% {
+      opacity: 0;
+    }
+  }
+}
+
+@media (forced-colors: active) {
+  .trigger,
+  .dialog,
+  .close,
+  .signalButton,
+  .signalEvent,
+  .connection {
+    border-color: ButtonText;
+    background: Canvas;
+    box-shadow: none;
+    color: CanvasText;
+    forced-color-adjust: auto;
+  }
+
+  .trigger:focus-visible,
+  .close:focus-visible,
+  .signalButton:focus-visible {
+    outline: 3px solid Highlight;
+  }
+}

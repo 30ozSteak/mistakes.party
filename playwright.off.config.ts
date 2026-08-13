@@ -8,7 +8,7 @@ const realtimeStorage = `/tmp/mistakes-party-wrangler-off-${process.pid}`;
 
 export default defineConfig({
   testDir: "./tests",
-  testMatch: "**/public-off-mode.off.ts",
+  testMatch: "**/party-off-mode.off.ts",
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),
   retries: 0,
@@ -22,7 +22,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `npm run dev:realtime -- --port ${realtimePort} --persist-to ${realtimeStorage} --var ALLOWED_ORIGINS:${appUrl} --var PUBLIC_DRAWING_MODE:off --var PUBLIC_DRAWING_GENERATION:playwright-off-v1`,
+      command: `npm run dev:realtime -- --port ${realtimePort} --persist-to ${realtimeStorage} --var ALLOWED_ORIGINS:${appUrl} --var PARTY_MODE:off --var PARTY_GENERATION:playwright-off-v1`,
       url: `${realtimeUrl}/health`,
       reuseExistingServer: false,
       timeout: 120_000,
@@ -33,7 +33,7 @@ export default defineConfig({
         MEDIUM_FEED_URL: "http://127.0.0.1:9/playwright-offline-feed",
         MEDIUM_FEED_ALLOW_LOCALHOST: "1",
         NEXT_DIST_DIR: ".next-playwright-off",
-        NEXT_PUBLIC_DRAWING_REALTIME_URL: realtimeUrl,
+        NEXT_PUBLIC_PARTY_REALTIME_URL: realtimeUrl,
       },
       url: appUrl,
       reuseExistingServer: false,

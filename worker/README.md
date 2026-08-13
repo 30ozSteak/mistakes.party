@@ -1,10 +1,12 @@
-# Drawing realtime service
+# Party realtime service
 
-The drawing backend is a Cloudflare Worker with SQLite-backed Durable Objects.
-Protocol v1 provides private invite rooms. The additive v2 protocol provides
-ambient route presence and ephemeral public drawing pods. The Worker is
-intentionally separate from the Next.js deployment; no Cloudflare credentials
-are required for local use.
+The party backend is a Cloudflare Worker with one hibernating Durable Object
+per public pathname. It provides route-local presence counts and four ephemeral
+preset signals. It stores no artwork, messages, names, IP addresses, or signal
+history.
+
+The Worker keeps its existing deployed service name and hostname so replacing
+the feature does not require a second infrastructure migration.
 
 ## Local development
 
@@ -16,133 +18,75 @@ The health endpoint is `http://127.0.0.1:8787/health`. Point the website at the
 local Worker when starting Next.js:
 
 ```bash
-NEXT_PUBLIC_DRAWING_REALTIME_URL=http://127.0.0.1:8787 npm run dev
+NEXT_PUBLIC_PARTY_REALTIME_URL=http://127.0.0.1:8787 npm run dev
 ```
 
-`ALLOWED_ORIGINS` is a comma-separated Worker environment variable. Set it to
-the exact production and preview origins allowed to open browser WebSockets.
-`ROOM_TTL_SECONDS` controls how long stored room artwork survives after its last
-participant disconnects and defaults to 1,800 seconds.
+`ALLOWED_ORIGINS` is a comma-separated list of exact browser origins allowed to
+open WebSockets. The checked-in development value permits only the local app
+and Playwright ports. Production permits only `https://www.mistakes.party`.
+Origin is a browser cross-origin control, not authentication.
 
-Public v2 uses these variables:
+`PARTY_MODE=off|live` is the server-authoritative kill switch. In `off` mode a
+valid WebSocket request still upgrades, receives a fatal `PARTY_DISABLED`
+error, and closes with code 1008 so the browser can distinguish the kill switch
+from a network failure.
 
-- `PUBLIC_DRAWING_MODE=off|presence|live` controls the public layer. The Worker
-  enforces it on admission and on existing sockets; private v1 is unaffected.
-- `PUBLIC_DRAWING_GENERATION` partitions public state. Bump it to abandon all
-  prior public lobbies and pods without touching private rooms.
-- `PUBLIC_GRANT_MS`, `PUBLIC_SEAT_HOLD_MS`, `PUBLIC_AFTERGLOW_MS`, and
-  `PUBLIC_FADE_MS` control one-use matchmaking grants, paused-seat retention,
-  artwork retention, and the final fade window.
+`PARTY_GENERATION` partitions every route into fresh Durable Objects. Bump it
+to abandon active route state. Presence and signals are already ephemeral, so
+no application data needs to be migrated between generations.
 
-The top-level `ALLOWED_ORIGINS` value is development-only so local Next.js and
-Playwright servers work without extra flags. `npm run deploy:realtime` selects
-the checked-in Wrangler `production` environment, whose allowlist contains only
-`https://www.mistakes.party`. Only add another exact HTTPS origin when it
-actually serves the application; a redirect-only apex origin does not need
-WebSocket access.
+Before deploying, run:
 
-Before deploying, run `npm run check:realtime`. Deploy the room service with
-`npm run deploy:realtime`, then set the resulting HTTPS origin as
-`NEXT_PUBLIC_DRAWING_REALTIME_URL` in the website deployment and rebuild it.
+```bash
+npm run check:realtime
+```
 
-For an additive rollout, deploy the v2 Durable Object migration with Public
-mode `off`, verify private v1 and public v2 from the canonical production
-origin, deploy the compatible browser client, and only then set mode to `live`.
-Changing Worker code disconnects WebSockets; both clients reconnect and
-resynchronize from authoritative snapshots.
+Deploy with:
+
+```bash
+npm run deploy:realtime
+```
+
+Deployment replaces the prior drawing Worker. Migration history `v1` and `v2`
+is retained, `v3` creates `PartyRoute`, and `v4` deletes the three obsolete
+Durable Object classes and their stored data. Do not deploy this migration if
+the old stored drawings still need to be retained.
 
 ## WebSocket contract
 
-The shared TypeScript contract and defensive JSON parsers live in
-`app/lib/drawingRealtimeProtocol.ts`.
+The shared strict protocol and browser URL helpers live in
+`app/lib/partyProtocol.ts`.
 
-Connect to:
-
-```text
-/v1/rooms/:roomId?participantId=:publicId&name=:name&route=:pathname
-```
-
-Browser clients authenticate with these two WebSocket subprotocol offers:
+Connect with `mistakes-party-presence-v1` as the sole WebSocket subprotocol:
 
 ```text
-mistakes-party-drawing-v1, mistakes-party-auth.PARTICIPANT_TOKEN
+/v1/party?route=:canonicalPathname&sessionId=:optionalTabSessionId
 ```
 
-The Worker validates the credential from `Sec-WebSocket-Protocol`, but selects
-and returns only the non-secret `mistakes-party-drawing-v1` protocol. This keeps
-the credential out of URLs and ordinary request/access logs. Infrastructure
-must also avoid logging the offered `Sec-WebSocket-Protocol` header because it
-contains the credential.
+The Worker rejects non-canonical paths, encoded traversal, and `/patreon` or
+any nested Patreon route. Query strings and fragments never create separate
+party routes. A server-issued, high-entropy session ID is returned in the
+`welcome` message and kept in tab-scoped `sessionStorage`; it has no privileges
+and is used only to avoid double-counting reconnect overlap.
 
-Room IDs, participant IDs, and participant tokens are high-entropy URL-safe
-values. Each token is scoped by its room Durable Object, stored against the
-public participant ID on first join, and never included in an invite or
-presence event. The browser keeps each room identity in tab-scoped
-`sessionStorage`, never `localStorage`; a newly opened tab gets an independent
-room identity. A room has an additional hard limit of two sockets per
-participant and eight sockets overall. The room rejects connections without an
-allowed `Origin` as a browser cross-origin control; `Origin` is not client
-authentication because a non-browser client can supply it.
-The room remembers at most 32 participant ID/token pairs across its lifetime.
-Known identities can still reconnect at that limit, while new identities must
-wait for the room to expire and be recreated.
+Client messages are exactly one of:
 
-Participant names are normalized on the Worker and validated by the shared
-protocol. They are limited to 40 ASCII letters, numbers, spaces, apostrophes,
-and hyphens, with `Guest` used when normalization produces no valid name.
-
-The server sends a `welcome` event containing the active-route snapshot, then
-uses `presence`, `stroke:start`, `stroke:append`, `stroke:end`,
-`route:snapshot`, `cursor:move`, `strokes:cleared`, and `room:reset` events.
-Browser clients send the corresponding stroke/cursor events plus `route:set`,
-`clear:mine`, `room:reset`, and `ping`.
-
-Append batches must be sent exactly once and in order. Protocol v1 does not add a
-sequence number or deduplicate retried `stroke:append` messages. An identical
-`stroke:start` retry and a repeated `stroke:end` are safe; after `stroke:end` is
-processed, the server rejects any further appends to that stroke.
-
-Capacity and identity rejections are WebSocket-visible: the Worker accepts the
-upgrade, sends a fatal typed `error`, and closes with code 1008. `clear:mine`
-uses the identity bound to the socket and can only remove that participant's
-strokes on the active route. `room:reset` is restricted to the current host.
-
-Room storage is bounded to 2,000 strokes, 20,000 points per stroke, and 200,000
-points total. Incoming messages are schema-validated, limited in size, and
-rate-limited before storage or broadcast.
-
-## Public v2 contract
-
-The browser first opens:
-
-```text
-/v2/public/presence?route=:normalizedPathname
+```json
+{"type":"signal:send","kind":"cheers"}
+{"type":"signal:send","kind":"hi"}
+{"type":"signal:send","kind":"bad_idea"}
+{"type":"signal:send","kind":"i_was_here"}
+{"type":"ping"}
 ```
 
-using the `mistakes-party-drawing-v2` subprotocol. The route lobby issues an
-anonymous, tab-scoped identity and reports browser sessions on that pathname.
-Query strings and hashes never create distinct lobbies. Ambient clients receive
-only the count and sampled live cursor previews—never pod artwork.
+Server messages are `welcome`, `presence`, `signal`, `error`, and `pong`.
+Signals contain a server-generated UUIDv4 and timestamp, are broadcast to every
+open socket on the route including the sender, and are never persisted or
+replayed. Clients remove their visual treatment after a short timeout.
 
-`match:request` asks the lobby for a watcher or drawer assignment. The lobby
-atomically obtains a short-lived, one-use grant from a pod before returning its
-opaque ID. The browser then connects to:
-
-```text
-/v2/public/pods/:opaquePodId?route=:normalizedPathname&sessionId=:id&grant=:grant
-```
-
-and offers both `mistakes-party-drawing-v2` and
-`mistakes-party-public-auth.SESSION_TOKEN` as WebSocket subprotocols. The
-credential is tab-scoped `sessionStorage` data and must not be logged.
-
-Each route is capped at eight pods. Each pod has four drawer seats and 32
-watchers; route presence is capped at 256 sockets. Stroke updates use immutable
-anchor IDs, normalized coordinates, an epoch, an author generation, and ordered
-sequence numbers. SQLite stores stroke metadata and append chunks; cursors and
-presence are never persisted. `clear:mine` advances only that author's
-generation, preventing delayed frames from restoring cleared marks.
-
-When a pod loses its final drawer seat, its marks remain solid until the
-configured fade window, then disappear at the configured afterglow deadline.
-Watchers do not extend retention. A new drawer cancels the countdown.
+Each route is capped at 256 open sockets and each session at two sockets.
+Presence counts unique session IDs, not connections. The Worker also enforces
+an IP handshake limit, per-connection message and signal limits, a one-second
+minimum signal interval, and a route-wide token bucket. Fixed ping/pong frames
+use the Durable Object WebSocket auto-response API, so heartbeats do not wake a
+hibernating object.

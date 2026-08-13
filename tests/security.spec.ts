@@ -17,6 +17,7 @@ test("enforces the nonce CSP without breaking hydration", async ({ page }) => {
 
   expect(nonce).toBeTruthy();
   expect(policy).toContain("script-src-attr 'none'");
+  expect(policy).toContain("style-src-attr 'none'");
   expect(policy).not.toMatch(/script-src [^;]*'unsafe-inline'/);
 
   const scriptNonces = await page.locator("script").evaluateAll((scripts) =>
@@ -52,9 +53,9 @@ test("enforces the nonce CSP without breaking hydration", async ({ page }) => {
     )
     .toEqual({ inline: false, javascriptUrl: false });
 
-  const toggle = page.getByTestId("drawing-toggle");
-  await toggle.click();
-  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  const trigger = page.getByTestId("party-trigger");
+  await trigger.click();
+  await expect(page.getByTestId("party-dialog")).toBeVisible();
 
   await page.evaluate(() => {
     const sameOriginScript = document.createElement("script");

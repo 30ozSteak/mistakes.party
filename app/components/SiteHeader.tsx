@@ -36,20 +36,19 @@ export function SiteHeader({ currentPage, indexLink = false }: SiteHeaderProps) 
   useEffect(() => {
     if (!menuOpen) return;
 
-    const previousOverflow = document.body.style.overflow;
-    const previousRootOverflow = document.documentElement.style.overflow;
+    const root = document.documentElement;
+    const rootWasLocked = root.classList.contains("mobile-nav-open");
     const firstLink = menuRef.current?.querySelector<HTMLAnchorElement>("a");
     const backgroundElements = [
       ...document.querySelectorAll<HTMLElement>(
-        "main, footer, .skip-link, .drawing-toolbar",
+        "main, footer, .skip-link, [data-party-presence]",
       ),
     ];
     const previousInertStates = backgroundElements.map((element) =>
       element.hasAttribute("inert"),
     );
 
-    document.body.style.overflow = "hidden";
-    document.documentElement.style.overflow = "hidden";
+    root.classList.add("mobile-nav-open");
     backgroundElements.forEach((element) => {
       element.inert = true;
     });
@@ -83,8 +82,7 @@ export function SiteHeader({ currentPage, indexLink = false }: SiteHeaderProps) 
 
     document.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.body.style.overflow = previousOverflow;
-      document.documentElement.style.overflow = previousRootOverflow;
+      if (!rootWasLocked) root.classList.remove("mobile-nav-open");
       backgroundElements.forEach((element, index) => {
         element.inert = previousInertStates[index];
       });
@@ -114,11 +112,7 @@ export function SiteHeader({ currentPage, indexLink = false }: SiteHeaderProps) 
   }
 
   return (
-    <header
-      className="site-header"
-      data-drawing-anchor="site-header"
-      data-menu-open={menuOpen}
-    >
+    <header className="site-header" data-menu-open={menuOpen}>
       <Link
         aria-hidden={menuOpen || undefined}
         className="brand"

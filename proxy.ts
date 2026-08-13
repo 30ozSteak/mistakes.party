@@ -1,11 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { DRAWING_REALTIME_URL } from "./app/lib/drawingRealtimeConfig";
+import { PARTY_REALTIME_URL } from "./app/lib/partyRealtimeConfig";
 
 const isDevelopment = process.env.NODE_ENV === "development";
 
-function drawingWebSocketOrigin(): string | null {
+function partyWebSocketOrigin(): string | null {
   try {
-    const url = new URL(DRAWING_REALTIME_URL);
+    const url = new URL(PARTY_REALTIME_URL);
     if (url.protocol === "http:") url.protocol = "ws:";
     if (url.protocol === "https:") url.protocol = "wss:";
     if (url.protocol !== "ws:" && url.protocol !== "wss:") return null;
@@ -17,11 +17,11 @@ function drawingWebSocketOrigin(): string | null {
 
 function contentSecurityPolicy(nonce: string): string {
   const connectSources = ["'self'", "https://api.github.com"];
-  const drawingOrigin = drawingWebSocketOrigin();
-  if (drawingOrigin) connectSources.push(drawingOrigin);
+  const partyOrigin = partyWebSocketOrigin();
+  if (partyOrigin) connectSources.push(partyOrigin);
 
   if (isDevelopment) {
-    // Next development HMR and the local drawing service use loopback sockets.
+    // Next development HMR and the local party service use loopback sockets.
     connectSources.push(
       "http://localhost:*",
       "http://127.0.0.1:*",
@@ -41,9 +41,7 @@ function contentSecurityPolicy(nonce: string): string {
     isDevelopment
       ? "style-src-elem 'self' 'unsafe-inline'"
       : `style-src-elem 'self' 'nonce-${nonce}'`,
-    // React positions drawing cursors and exposes palette colors with style
-    // attributes. Script execution remains nonce-protected independently.
-    "style-src-attr 'unsafe-inline'",
+    "style-src-attr 'none'",
     "img-src 'self' data: blob:",
     "font-src 'self'",
     `connect-src ${connectSources.join(" ")}`,

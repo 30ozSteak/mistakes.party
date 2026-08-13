@@ -43,6 +43,7 @@ function assertSecurityHeaders(headers, html) {
   assert.doesNotMatch(policy, /(?:^|; )script-src [^;]*'unsafe-inline'/);
   assert.doesNotMatch(policy, /(?:^|; )script-src [^;]*'unsafe-eval'/);
   assert.match(policy, /(?:^|; )script-src-attr 'none'(?:;|$)/);
+  assert.match(policy, /(?:^|; )style-src-attr 'none'(?:;|$)/);
   assert.match(policy, /(?:^|; )object-src 'none'(?:;|$)/);
   assert.match(policy, /(?:^|; )base-uri 'none'(?:;|$)/);
   assert.match(policy, /(?:^|; )frame-ancestors 'none'(?:;|$)/);
@@ -77,42 +78,29 @@ function assertSecurityHeaders(headers, html) {
   return nonce;
 }
 
-function assertDrawingPlayground(html, { publicDrawing = true } = {}) {
-  assert.match(html, /data-testid="drawing-playground"/);
-  assert.match(html, /data-testid="drawing-canvas"/);
-  assert.match(html, /data-testid="drawing-toolbar"/);
-  assert.match(html, /data-testid="drawing-toggle"/);
-  if (publicDrawing) {
-    assert.match(html, /data-testid="drawing-session-count"/);
+function assertPartyPresence(html, { available = true } = {}) {
+  if (available) {
+    assert.match(html, /data-testid="party-presence"/);
+    assert.match(html, /data-testid="party-trigger"/);
+    assert.match(html, /data-testid="party-dialog"/);
+    assert.match(html, /data-testid="party-signal-cheers"/);
+    assert.match(html, /data-testid="party-signal-hi"/);
+    assert.match(html, /data-testid="party-signal-bad_idea"/);
+    assert.match(html, /data-testid="party-signal-i_was_here"/);
+    assert.match(html, />X(?:<!-- -->)? HERE</);
   } else {
-    assert.doesNotMatch(html, /data-testid="drawing-session-count"/);
+    assert.doesNotMatch(html, /data-testid="party-presence"/);
   }
-  assert.match(html, /data-testid="drawing-menu-toggle"/);
-  assert.match(html, /data-testid="drawing-companion-menu"/);
-  assert.match(html, /data-testid="drawing-menu-close"/);
-  assert.match(html, /aria-label="Close drawing options"/);
-  if (publicDrawing) {
-    assert.match(html, /data-testid="drawing-scope-public"/);
-  } else {
-    assert.doesNotMatch(html, /data-testid="drawing-scope-public"/);
-    assert.match(html, /data-public-available="false"/);
-  }
-  assert.match(html, /data-testid="drawing-scope-solo"/);
-  assert.match(html, /aria-pressed="false"/);
-  assert.match(html, /aria-label="Highlighter color"/);
-  assert.match(html, /data-testid="drawing-color-acid"/);
-  assert.match(html, /data-testid="drawing-color-pink"/);
-  assert.match(html, /data-testid="drawing-color-cyan"/);
-  assert.match(html, /data-testid="drawing-color-orange"/);
-  assert.match(html, /data-testid="party-start"/);
-  assert.match(html, />\s*START PARTY\s*<\/button>/);
-  assert.match(html, /data-drawing-anchor="page-root"/);
+
+  assert.doesNotMatch(html, /data-testid="drawing-/);
+  assert.doesNotMatch(html, /data-drawing-anchor=/);
+  assert.doesNotMatch(html, /<canvas\b/i);
 }
 
 test("renders the quiet external link portal", async () => {
   const { headers, html } = await readRenderedPage("/");
 
-  assertDrawingPlayground(html);
+  assertPartyPresence(html);
   const nonce = assertSecurityHeaders(headers, html);
   const secondResponse = await readRenderedPage("/");
   const secondNonce = assertSecurityHeaders(
@@ -137,7 +125,7 @@ test("renders the quiet external link portal", async () => {
   assert.match(html, /href="mailto:hello@mistakes\.party">HELLO@MISTAKES\.PARTY<\/a>/);
   assert.doesNotMatch(html, /Open primary navigation|mobile-navigation/);
   assert.doesNotMatch(html, /class="(?:github-feed|medium-post-row|index-row|hero)"/);
-  assert.doesNotMatch(html, /FOUR BAD DOORS|PICK ONE|THE OCCASIONAL USEFUL MISTAKE/i);
+  assert.doesNotMatch(html, /FOUR BAD DOORS|THE OCCASIONAL USEFUL MISTAKE/i);
   assert.doesNotMatch(html, /href="\/(?:work|archive|blogs|code)\//);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
 });
@@ -145,7 +133,7 @@ test("renders the quiet external link portal", async () => {
 test("renders the Patreon door without leaking member-room content", async () => {
   const { headers, html } = await readRenderedPage("/patreon/");
 
-  assertDrawingPlayground(html, { publicDrawing: false });
+  assertPartyPresence(html, { available: false });
   assertSecurityHeaders(headers, html);
   assert.match(html, /<title>Patreon Access — MISTAKES\.PARTY<\/title>/i);
   assert.match(html, /name="robots" content="noindex, nofollow"/i);
@@ -178,7 +166,7 @@ test("renders the Patreon door without leaking member-room content", async () =>
 test("renders the complete Medium feed on the blogs page", async () => {
   const { headers, html } = await readRenderedPage("/blogs/");
 
-  assertDrawingPlayground(html);
+  assertPartyPresence(html);
   assertSecurityHeaders(headers, html);
 
   assert.match(html, /<title>Blogs — MISTAKES\.PARTY<\/title>/i);
@@ -204,7 +192,7 @@ test("renders the complete Medium feed on the blogs page", async () => {
 
 test("renders internal source detail pages with prominent external CTAs", async () => {
   const archive = await readRenderedPage("/archive/applause-button/");
-  assertDrawingPlayground(archive.html);
+  assertPartyPresence(archive.html);
   assertSecurityHeaders(archive.headers, archive.html);
   assert.match(archive.html, /<title>APPLAUSE BUTTON — MISTAKES\.PARTY<\/title>/i);
   assert.match(archive.html, /<h1>APPLAUSE BUTTON<\/h1>/);
@@ -215,7 +203,7 @@ test("renders internal source detail pages with prominent external CTAs", async 
   );
 
   const code = await readRenderedPage("/code/");
-  assertDrawingPlayground(code.html);
+  assertPartyPresence(code.html);
   assertSecurityHeaders(code.headers, code.html);
   assert.match(code.html, /<title>Public Code — MISTAKES\.PARTY<\/title>/i);
   assert.match(code.html, /<h1>ALL REPOS<\/h1>/);
@@ -228,7 +216,7 @@ test("renders internal source detail pages with prominent external CTAs", async 
 test("renders a Medium fixture detail page with its authoritative source CTA", async () => {
   const { headers, html } = await readRenderedPage("/blogs/medium-post-01/");
 
-  assertDrawingPlayground(html);
+  assertPartyPresence(html);
   assertSecurityHeaders(headers, html);
   assert.match(html, /<title>MEDIUM POST 01 — MISTAKES\.PARTY<\/title>/i);
   assert.match(html, /<h1>MEDIUM POST 01<\/h1>/);
@@ -242,7 +230,7 @@ test("renders a Medium fixture detail page with its authoritative source CTA", a
   );
 });
 
-test("ships the custom MXP hero font", async () => {
+test("ships the custom MXP hero font and fixed viewport portal", async () => {
   const details = await stat(
     new URL("public/fonts/kill-the-noise.otf", projectRoot),
   );
@@ -254,8 +242,9 @@ test("ships the custom MXP hero font", async () => {
     "utf8",
   );
   assert.match(styles, /\.portal-home::before\s*\{[^}]*radial-gradient/s);
-  assert.match(styles, /\.portal-link::before\s*\{[^}]*background:\s*var\(--acid\)/s);
-  assert.match(styles, /\.portal-link:focus-visible::before/s);
+  assert.match(styles, /\.portal-home\s*\{[^}]*height:\s*100vh;[^}]*height:\s*100dvh;/s);
+  assert.match(styles, /grid-template-rows:\s*auto minmax\(0, 1fr\) auto/);
+  assert.doesNotMatch(styles, /\.portal-link(?::[^\s,{]+)?::before/);
 });
 
 test("renders every internal project page", async () => {
@@ -268,7 +257,7 @@ test("renders every internal project page", async () => {
   for (const [slug, title] of pages) {
     const { headers, html } = await readRenderedPage(`/work/${slug}/`);
 
-    assertDrawingPlayground(html);
+    assertPartyPresence(html);
     assertSecurityHeaders(headers, html);
 
     assert.match(html, new RegExp(title));
