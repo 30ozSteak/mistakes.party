@@ -43,6 +43,9 @@ export default defineConfig({
         {
           command: `npm run dev -- --hostname 127.0.0.1 --port ${port}`,
           env: {
+            GITHUB_REPOS_ALLOW_LOCALHOST: "1",
+            GITHUB_REPOS_URL:
+              "http://127.0.0.1:9/playwright-offline-github",
             MEDIUM_FEED_URL: "http://127.0.0.1:9/playwright-offline-feed",
             MEDIUM_FEED_ALLOW_LOCALHOST: "1",
             NEXT_DIST_DIR: ".next-playwright",

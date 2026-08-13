@@ -8,24 +8,24 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://mistakes.party"),
   title: "MXP — Mistakes.party",
   description:
-    "Mistakes.party on GitHub, Medium, Patreon, and itch.io.",
+    "An expandable index of public code, recent writing, and games by Mistakes.party.",
   openGraph: {
     type: "website",
     title: "MXP — Mistakes.party",
-    description: "GitHub · Medium · Patreon · itch.io",
+    description: "Code · Writing · Games · Support",
     images: [
       {
         url: "/og.png",
         width: 1200,
         height: 630,
-        alt: "Mistakes.party link portal",
+        alt: "Mistakes.party external index",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
     title: "MXP — Mistakes.party",
-    description: "GitHub · Medium · Patreon · itch.io",
+    description: "Code · Writing · Games · Support",
     creator: "@iaaafm",
     images: ["/og.png"],
   },

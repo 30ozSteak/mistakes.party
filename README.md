@@ -1,7 +1,7 @@
 # MXP / MISTAKES.PARTY
 
-A quiet, mobile-first link portal for GitHub, Medium, Patreon, itch.io, and
-useful mistakes.
+A quiet, mobile-first external index for public GitHub work, recent Medium
+writing, itch.io games, support, and useful mistakes.
 
 ## Local development
 
@@ -109,6 +109,6 @@ retires the old room and canvas Durable Objects; deploying its migration deletes
 their stored state. See [worker/README.md](worker/README.md) for the protocol,
 limits, privacy boundary, and deployment details.
 
-The homepage is a static external-link portal. The preserved blog index uses
-Incremental Static Regeneration to refresh the Medium feed every 15 minutes;
-the deeper code routes keep their guarded GitHub integrations.
+The homepage is a server-rendered external index with native expandable
+sections. Its guarded GitHub and Medium requests refresh their cached source
+data every 15 minutes; the deeper blog and code routes remain available.

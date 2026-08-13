@@ -97,7 +97,7 @@ function assertPartyPresence(html, { available = true } = {}) {
   assert.doesNotMatch(html, /<canvas\b/i);
 }
 
-test("renders the quiet external link portal", async () => {
+test("renders the quiet expandable external index", async () => {
   const { headers, html } = await readRenderedPage("/");
 
   assertPartyPresence(html);
@@ -113,20 +113,39 @@ test("renders the quiet external link portal", async () => {
   assert.match(html, /og\.png/);
   assert.equal((html.match(/<h1[ >]/g) || []).length, 1);
   assert.match(html, /<h1>MISTAKES\.PARTY<\/h1>/);
-  assert.match(html, /<span aria-hidden="true">MXP<\/span>/);
+  assert.match(
+    html,
+    /href="https:\/\/patreon\.com\/steaks">SUPPORT ↗<\/a>/,
+  );
   assert.match(html, /class="skip-link" href="#elsewhere">SKIP TO THE LINKS/);
   assert.match(html, /<nav aria-label="Elsewhere"/);
-  assert.equal((html.match(/class="portal-link"/g) || []).length, 4);
-  assert.match(html, /aria-label="GITHUB"[^>]*href="https:\/\/github\.com\/30ozSteak"/);
-  assert.match(html, /aria-label="MEDIUM"[^>]*href="https:\/\/medium\.com\/@30ozsteak"/);
-  assert.match(html, /aria-label="PATREON"[^>]*href="https:\/\/patreon\.com\/steaks"/);
-  assert.match(html, /aria-label="ITCH\.IO"[^>]*href="https:\/\/steaks\.itch\.io"/);
-  assert.equal((html.match(/class="portal-arrow"/g) || []).length, 4);
-  assert.doesNotMatch(html, /↗|&#x?2197;|&#8599;/i);
+  assert.equal((html.match(/data-portal-section=/g) || []).length, 3);
+  assert.equal((html.match(/name="portal-sections"/g) || []).length, 3);
+  assert.equal((html.match(/class="portal-link"/g) || []).length, 3);
+  assert.equal((html.match(/class="portal-toggle"/g) || []).length, 3);
+  assert.doesNotMatch(html, /class="portal-number"/);
+  assert.doesNotMatch(html, /PUBLIC REPOS/);
+  assert.doesNotMatch(html, /<details[^>]*\sopen(?:\s|>)/i);
+  assert.match(html, /<summary aria-label="GITHUB" class="portal-link">/);
+  assert.match(html, /<summary aria-label="MEDIUM" class="portal-link">/);
+  assert.match(html, /<summary aria-label="ITCH\.IO" class="portal-link">/);
+  assert.equal((html.match(/data-source-item="github"/g) || []).length, 3);
+  assert.match(html, /archive-is-public/);
+  assert.match(html, /fresh-repo/);
+  assert.match(html, /public-fork/);
+  assert.equal((html.match(/data-source-item="medium"/g) || []).length, 6);
+  assert.equal((html.match(/data-source-item="itch"/g) || []).length, 5);
+  assert.match(html, /UNTITLED GAME 01/);
+  assert.match(html, /UNTITLED GAME 05/);
+  assert.match(html, /href="https:\/\/github\.com\/30ozSteak">VIEW GITHUB ↗<\/a>/);
+  assert.match(html, /href="https:\/\/medium\.com\/@30ozsteak">VIEW MEDIUM ↗<\/a>/);
+  assert.match(html, /href="https:\/\/steaks\.itch\.io">VIEW ITCH\.IO ↗<\/a>/);
   assert.match(html, /DENVER/);
   assert.match(html, /href="mailto:hello@mistakes\.party">HELLO@MISTAKES\.PARTY<\/a>/);
   assert.doesNotMatch(html, /Open primary navigation|mobile-navigation/);
   assert.doesNotMatch(html, /class="(?:github-feed|medium-post-row|index-row|hero)"/);
+  assert.doesNotMatch(html, /<summary[^>]*aria-label="PATREON"/i);
+  assert.doesNotMatch(html, /<span aria-hidden="true">MXP<\/span>/);
   assert.doesNotMatch(html, /FOUR BAD DOORS|THE OCCASIONAL USEFUL MISTAKE/i);
   assert.doesNotMatch(html, /href="\/(?:work|archive|blogs|code)\//);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
@@ -232,7 +251,7 @@ test("renders a Medium fixture detail page with its authoritative source CTA", a
   );
 });
 
-test("ships the custom MXP hero font and fixed viewport portal", async () => {
+test("ships the custom display font and scrollable disclosure portal", async () => {
   const details = await stat(
     new URL("public/fonts/kill-the-noise.otf", projectRoot),
   );
@@ -244,11 +263,42 @@ test("ships the custom MXP hero font and fixed viewport portal", async () => {
     "utf8",
   );
   assert.match(styles, /\.portal-home::before\s*\{[^}]*radial-gradient/s);
-  assert.match(styles, /\.portal-home\s*\{[^}]*height:\s*100vh;[^}]*height:\s*100dvh;/s);
-  assert.match(styles, /grid-template-rows:\s*auto minmax\(0, 1fr\) auto/);
+  assert.match(styles, /\.portal-home\s*\{[^}]*min-height:\s*100vh;[^}]*min-height:\s*100dvh;/s);
+  assert.match(styles, /grid-template-rows:\s*auto minmax\(min-content, 1fr\) auto/);
+  assert.match(styles, /\.portal-home\s*\{[^}]*overflow-x:\s*clip;[^}]*overflow-y:\s*visible;/s);
+  assert.doesNotMatch(styles, /\.portal-home\s*\{[^}]*overflow:\s*clip/s);
   assert.doesNotMatch(styles, /\.portal-link(?::[^\s,{]+)?::before/);
-  assert.match(styles, /\.portal-arrow::before\s*\{[^}]*border-top:[^}]*border-right:/s);
-  assert.match(styles, /\.portal-arrow::after\s*\{[^}]*rotate\(-45deg\)/s);
+  assert.match(styles, /\.portal-toggle::before\s*\{[^}]*width:\s*100%/s);
+  assert.match(styles, /\.portal-toggle::after\s*\{[^}]*height:\s*100%/s);
+  assert.match(styles, /\.portal-section\[open\] \.portal-toggle::after/);
+  assert.match(
+    styles,
+    /\.portal-home a,\s*\.portal-home summary\s*\{[^}]*-webkit-tap-highlight-color:\s*transparent/s,
+  );
+  assert.match(
+    styles,
+    /\.portal-home :focus-visible\s*\{[^}]*box-shadow:\s*none/s,
+  );
+  assert.doesNotMatch(
+    styles,
+    /\.portal-link:hover\s*\{[^}]*background:\s*var\(--acid\)/s,
+  );
+  assert.doesNotMatch(
+    styles,
+    /\.portal-index\s*>\s*li\s*>\s*a:hover[^{}]*\{[^}]*background:\s*var\(--acid\)/s,
+  );
+  for (const [, selector, declarations] of styles.matchAll(
+    /([^{}]*(?::hover|:focus-visible|:active|\[open\])[^{}]*)\{([^{}]*)\}/g,
+  )) {
+    if (!/\.portal-(?:masthead|section|link|panel-heading|index|footer)/.test(selector)) {
+      continue;
+    }
+    assert.doesNotMatch(
+      declarations,
+      /(?:background|text-decoration-color|box-shadow)\s*:[^;]*var\(--acid\)/,
+      `portal interaction state must stay acid-free: ${selector.trim()}`,
+    );
+  }
 });
 
 test("renders every internal project page", async () => {

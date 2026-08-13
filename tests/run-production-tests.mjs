@@ -9,6 +9,41 @@ const hostileMediumFeedFixture = mediumFeedFixture.replace(
   "MEDIUM POST 03",
   "</script><script>globalThis.__mediumXssExecuted=1</script>",
 );
+const githubReposFixture = [
+  {
+    id: 101,
+    name: "archive-is-public",
+    html_url: "https://github.com/30ozSteak/archive-is-public",
+    language: "HTML",
+    stargazers_count: 0,
+    updated_at: "2026-06-01T12:00:00Z",
+    fork: false,
+    archived: true,
+    disabled: false,
+  },
+  {
+    id: 102,
+    name: "fresh-repo",
+    html_url: "https://github.com/30ozSteak/fresh-repo",
+    language: "TypeScript",
+    stargazers_count: 7,
+    updated_at: "2026-08-12T12:00:00Z",
+    fork: false,
+    archived: false,
+    disabled: false,
+  },
+  {
+    id: 103,
+    name: "public-fork",
+    html_url: "https://github.com/30ozSteak/public-fork",
+    language: null,
+    stargazers_count: 1,
+    updated_at: "2026-07-15T12:00:00Z",
+    fork: true,
+    archived: false,
+    disabled: false,
+  },
+];
 
 const projectRoot = fileURLToPath(new URL("../", import.meta.url));
 const nextCli = fileURLToPath(
@@ -99,10 +134,16 @@ async function stopProcess(child) {
   ]);
 }
 
-const feedServer = createServer((request, response) => {
+const sourceServer = createServer((request, response) => {
   if (request.url === "/feed") {
     response.writeHead(200, { "content-type": "application/rss+xml" });
     response.end(hostileMediumFeedFixture);
+    return;
+  }
+
+  if (request.url?.startsWith("/github?")) {
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify(githubReposFixture));
     return;
   }
 
@@ -113,12 +154,15 @@ const feedServer = createServer((request, response) => {
 let nextProcess;
 
 try {
-  const feedAddress = await listen(feedServer);
-  const feedUrl = `http://127.0.0.1:${feedAddress.port}/feed`;
+  const sourceAddress = await listen(sourceServer);
+  const feedUrl = `http://127.0.0.1:${sourceAddress.port}/feed`;
+  const githubUrl = `http://127.0.0.1:${sourceAddress.port}/github`;
   const appPort = await findAvailablePort();
   const appUrl = `http://127.0.0.1:${appPort}`;
   const testEnvironment = {
     ...process.env,
+    GITHUB_REPOS_ALLOW_LOCALHOST: "1",
+    GITHUB_REPOS_URL: githubUrl,
     MEDIUM_FEED_ALLOW_LOCALHOST: "1",
     MEDIUM_FEED_URL: feedUrl,
     PATREON_ACCESS_PASSWORD: "production-test-member-password",
@@ -155,5 +199,5 @@ try {
   );
 } finally {
   await stopProcess(nextProcess);
-  if (feedServer.listening) await close(feedServer);
+  if (sourceServer.listening) await close(sourceServer);
 }

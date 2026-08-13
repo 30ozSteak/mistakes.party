@@ -52,7 +52,8 @@ a {
 }
 
 button,
-a {
+a,
+summary {
   -webkit-tap-highlight-color: rgb(223 255 0 / 0.45);
 }
 
@@ -85,15 +86,16 @@ a {
   transform: translateY(0);
 }
 
-/* Quiet, mobile-first link portal */
+/* Quiet, mobile-first index portal */
 .portal-home {
   position: relative;
   isolation: isolate;
   display: grid;
-  height: 100vh;
-  height: 100dvh;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  overflow: clip;
+  min-height: 100vh;
+  min-height: 100dvh;
+  grid-template-rows: auto minmax(min-content, 1fr) auto;
+  overflow-x: clip;
+  overflow-y: visible;
   padding:
     max(1.15rem, env(safe-area-inset-top))
     max(clamp(1rem, 4.5vw, 5rem), env(safe-area-inset-right))
@@ -125,9 +127,19 @@ a {
   z-index: 1;
 }
 
+.portal-home a,
+.portal-home summary {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.portal-home :focus-visible {
+  outline-color: var(--ink);
+  box-shadow: none;
+}
+
 .portal-masthead {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 1.5rem;
   font-family: var(--mono);
@@ -140,6 +152,23 @@ a {
 .portal-masthead h1 {
   margin: 0;
   font: inherit;
+}
+
+.portal-masthead a {
+  display: flex;
+  height: 2.75rem;
+  min-height: 2.75rem;
+  align-items: center;
+  padding: 0.35rem 0.45rem;
+  margin: -0.35rem -0.45rem;
+}
+
+.portal-masthead a:hover,
+.portal-masthead a:focus-visible,
+.portal-masthead a:active {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.2em;
 }
 
 .portal-destinations {
@@ -159,25 +188,23 @@ a {
 .portal-link {
   display: grid;
   min-height: clamp(3rem, 11.5svh, 8.5rem);
-  grid-template-columns: clamp(2.45rem, 9vw, 7rem) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: clamp(0.45rem, 2.2vw, 2rem);
   align-items: center;
   border-top: 1px solid var(--ink);
+  background: transparent;
   color: var(--ink);
+  cursor: pointer;
+  list-style: none;
   touch-action: manipulation;
 }
 
-.portal-destinations li:last-child .portal-link {
-  border-bottom: 1px solid var(--ink);
+.portal-link::-webkit-details-marker {
+  display: none;
 }
 
-.portal-number {
-  align-self: start;
-  padding-top: clamp(0.72rem, 2.2svh, 1.25rem);
-  font-family: var(--mono);
-  font-size: clamp(0.56rem, 2.2vw, 0.72rem);
-  font-weight: 700;
-  letter-spacing: 0.04em;
+.portal-destinations li:last-child .portal-section {
+  border-bottom: 1px solid var(--ink);
 }
 
 .portal-name {
@@ -192,55 +219,181 @@ a {
   text-transform: uppercase;
 }
 
-.portal-arrow {
-  --portal-arrow-stroke: clamp(2px, 0.085em, 5px);
+.portal-toggle {
+  --portal-toggle-stroke: clamp(2px, 0.075em, 5px);
   position: relative;
   display: block;
-  width: 1em;
-  height: 1em;
-  font-size: clamp(1.9rem, 8vw, 5rem);
+  width: 0.82em;
+  height: 0.82em;
+  font-size: clamp(1.9rem, 7vw, 4.5rem);
   transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.portal-arrow::before {
-  position: absolute;
-  top: 0.14em;
-  right: 0.14em;
-  width: 0.55em;
-  height: 0.55em;
-  border-top: var(--portal-arrow-stroke) solid currentColor;
-  border-right: var(--portal-arrow-stroke) solid currentColor;
-  content: "";
-}
-
-.portal-arrow::after {
+.portal-toggle::before,
+.portal-toggle::after {
   position: absolute;
   top: 50%;
-  left: 0.025em;
-  width: 0.95em;
-  height: var(--portal-arrow-stroke);
+  left: 50%;
   background: currentColor;
   content: "";
-  transform: translateY(-50%) rotate(-45deg);
-  transform-origin: center;
+  transform: translate(-50%, -50%);
+  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .portal-link:hover .portal-arrow {
-    transform: translate(0.12em, -0.12em);
-  }
+.portal-toggle::before {
+  width: 100%;
+  height: var(--portal-toggle-stroke);
 }
 
+.portal-toggle::after {
+  width: var(--portal-toggle-stroke);
+  height: 100%;
+}
+
+.portal-section[open] .portal-toggle::after {
+  transform: translate(-50%, -50%) scaleY(0);
+}
+
+.portal-section[open] > .portal-link,
 .portal-link:focus-visible,
 .portal-link:active {
+  background: transparent;
+}
+
+.portal-link:focus-visible {
   outline: 3px solid var(--ink);
   outline-offset: -3px;
   box-shadow: none;
 }
 
-.portal-link:focus-visible .portal-arrow,
-.portal-link:active .portal-arrow {
-  transform: translate(0.12em, -0.12em);
+@media (hover: hover) and (pointer: fine) {
+  .portal-link:hover .portal-toggle {
+    transform: scale(1.12);
+  }
+}
+
+.portal-panel {
+  padding: clamp(1rem, 3vw, 2.5rem) 0 clamp(1.25rem, 4vw, 3.5rem);
+  border-top: 1px solid var(--ink);
+}
+
+.portal-panel-heading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1.25rem;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: clamp(0.8rem, 2vw, 1.35rem);
+  font-family: var(--mono);
+  font-size: clamp(0.58rem, 2.1vw, 0.74rem);
+  font-weight: 900;
+  letter-spacing: 0.035em;
+  line-height: 1.3;
+}
+
+.portal-panel-heading a,
+.portal-footer a {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+
+.portal-panel-heading a {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  padding-inline: 0.4rem;
+  margin-inline: -0.4rem;
+}
+
+.portal-panel-heading a:hover,
+.portal-panel-heading a:focus-visible,
+.portal-panel-heading a:active,
+.portal-footer a:hover,
+.portal-footer a:focus-visible,
+.portal-footer a:active {
+  text-decoration-thickness: 0.35em;
+  text-decoration-color: currentColor;
+}
+
+.portal-index {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.portal-index > li {
+  border-top: 1px solid rgb(9 10 8 / 0.5);
+}
+
+.portal-index > li:last-child {
+  border-bottom: 1px solid rgb(9 10 8 / 0.5);
+}
+
+.portal-index > li > a,
+.portal-index > li > span {
+  display: grid;
+  min-height: 3.4rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem 1.5rem;
+  align-items: center;
+  padding: 0.72rem 0;
+}
+
+.portal-index > li > a:focus-visible,
+.portal-index > li > a:active {
+  background: transparent;
+}
+
+.portal-index > li > a:focus-visible > span:first-child,
+.portal-index > li > a:active > span:first-child {
+  text-decoration: underline;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.12em;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .portal-index > li > a:hover > span:first-child {
+    text-decoration: underline;
+    text-decoration-thickness: 0.08em;
+    text-underline-offset: 0.12em;
+  }
+}
+
+.portal-index > li > a > span:first-child,
+.portal-index > li > span > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: clamp(0.92rem, 2.7vw, 1.45rem);
+  line-height: 1.05;
+}
+
+.portal-index-meta {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: clamp(0.55rem, 1.8vw, 0.68rem);
+  font-weight: 800;
+  letter-spacing: 0.025em;
+  line-height: 1.2;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.portal-index > li > a:focus-visible .portal-index-meta,
+.portal-index > li > a:active .portal-index-meta {
+  color: currentColor;
+}
+
+.portal-empty,
+.portal-loading {
+  padding: 1rem 0;
+  margin: 0;
+  border-top: 1px solid rgb(9 10 8 / 0.5);
+  border-bottom: 1px solid rgb(9 10 8 / 0.5);
+  font-family: var(--mono);
+  font-size: clamp(0.58rem, 2.1vw, 0.74rem);
+  letter-spacing: 0.035em;
+  line-height: 1.35;
 }
 
 .portal-footer {
@@ -254,18 +407,6 @@ a {
   font-weight: 800;
   letter-spacing: 0.025em;
   line-height: 1.35;
-}
-
-.portal-footer a {
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 0.2em;
-}
-
-.portal-footer a:hover,
-.portal-footer a:focus-visible {
-  text-decoration-thickness: 0.3em;
-  text-decoration-color: var(--acid);
 }
 
 @media (min-width: 701px) {
@@ -288,6 +429,19 @@ a {
 @media (max-width: 370px) {
   .portal-name {
     font-size: clamp(2.8rem, 15.5vw, 3.6rem);
+  }
+}
+
+@media (max-width: 600px) {
+  .portal-index > li > a,
+  .portal-index > li > span {
+    min-height: 3.75rem;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.3rem;
+  }
+
+  .portal-index-meta {
+    text-align: left;
   }
 }
 
