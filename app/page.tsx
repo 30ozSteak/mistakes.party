@@ -49,9 +49,7 @@ export default function Home() {
                 >
                   <span className="portal-number">{destination.number}</span>
                   <span className="portal-name">{destination.label}</span>
-                  <span aria-hidden="true" className="portal-arrow">
-                    ↗
-                  </span>
+                  <span aria-hidden="true" className="portal-arrow" />
                 </a>
               </li>
             ))}

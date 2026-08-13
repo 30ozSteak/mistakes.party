@@ -81,11 +81,19 @@ test("the portal fits a small mobile viewport without a block hover treatment", 
   }
 
   const github = page.getByRole("link", { name: "GITHUB", exact: true });
+  const githubArrow = github.locator(".portal-arrow");
+  await expect(githubArrow).toHaveText("");
   expect(
     await github.evaluate(
       (element) => getComputedStyle(element, "::before").content,
     ),
   ).toBe("none");
+  expect(
+    await githubArrow.evaluate(
+      (element) => getComputedStyle(element, "::before").content,
+    ),
+  ).toBe('\"\"');
+  await expect(githubArrow).toHaveCSS("font-family", /^(?!.*Emoji)/);
   const restingBackground = await github.evaluate(
     (element) => getComputedStyle(element).backgroundColor,
   );

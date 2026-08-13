@@ -121,6 +121,8 @@ test("renders the quiet external link portal", async () => {
   assert.match(html, /aria-label="MEDIUM"[^>]*href="https:\/\/medium\.com\/@30ozsteak"/);
   assert.match(html, /aria-label="PATREON"[^>]*href="https:\/\/patreon\.com\/steaks"/);
   assert.match(html, /aria-label="ITCH\.IO"[^>]*href="https:\/\/steaks\.itch\.io"/);
+  assert.equal((html.match(/class="portal-arrow"/g) || []).length, 4);
+  assert.doesNotMatch(html, /↗|&#x?2197;|&#8599;/i);
   assert.match(html, /DENVER/);
   assert.match(html, /href="mailto:hello@mistakes\.party">HELLO@MISTAKES\.PARTY<\/a>/);
   assert.doesNotMatch(html, /Open primary navigation|mobile-navigation/);
@@ -245,6 +247,8 @@ test("ships the custom MXP hero font and fixed viewport portal", async () => {
   assert.match(styles, /\.portal-home\s*\{[^}]*height:\s*100vh;[^}]*height:\s*100dvh;/s);
   assert.match(styles, /grid-template-rows:\s*auto minmax\(0, 1fr\) auto/);
   assert.doesNotMatch(styles, /\.portal-link(?::[^\s,{]+)?::before/);
+  assert.match(styles, /\.portal-arrow::before\s*\{[^}]*border-top:[^}]*border-right:/s);
+  assert.match(styles, /\.portal-arrow::after\s*\{[^}]*rotate\(-45deg\)/s);
 });
 
 test("renders every internal project page", async () => {
