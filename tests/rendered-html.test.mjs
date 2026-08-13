@@ -88,6 +88,8 @@ function assertPartyPresence(html, { available = true } = {}) {
     assert.match(html, /data-testid="party-signal-bad_idea"/);
     assert.match(html, /data-testid="party-signal-i_was_here"/);
     assert.match(html, />X(?:<!-- -->)? HERE</);
+    assert.match(html, /CONNECTING…/);
+    assert.doesNotMatch(html, /RECONNECTING…/);
   } else {
     assert.doesNotMatch(html, /data-testid="party-presence"/);
   }

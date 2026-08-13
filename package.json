@@ -19,7 +19,8 @@
     "test:party:off": "playwright test --config playwright.off.config.ts",
     "test:security": "playwright test tests/security.spec.ts",
     "test:unit": "node --test tests/medium-feed.test.mjs tests/github-feed.test.mjs tests/party-protocol.test.mjs",
-    "lint": "eslint . --ignore-pattern .next --ignore-pattern '.next-playwright-*'"
+    "lint": "eslint . --ignore-pattern .next --ignore-pattern '.next-playwright-*'",
+    "smoke:party:production": "node tests/party-production-smoke.mjs"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",

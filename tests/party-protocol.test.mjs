@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   PARTY_PROTOCOL_VERSION,
@@ -18,6 +19,25 @@ import {
   DEFAULT_PARTY_REALTIME_URL,
   normalizePartyRealtimeUrl,
 } from "../app/lib/partyRealtimeConfig.ts";
+import { getPartyConnectionStatus } from "../app/components/partyConnectionState.ts";
+
+test("distinguishes the first connection from a reconnect", () => {
+  assert.equal(getPartyConnectionStatus("connecting"), "CONNECTING…");
+  assert.equal(getPartyConnectionStatus("reconnecting"), "RECONNECTING…");
+  assert.equal(getPartyConnectionStatus("live"), null);
+});
+
+test("preserves the retired drawing namespace during the party migration", async () => {
+  const [config, workerSource] = await Promise.all([
+    readFile(new URL("../worker/wrangler.jsonc", import.meta.url), "utf8"),
+    readFile(new URL("../worker/src/index.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.doesNotMatch(config, /deleted_classes/);
+  assert.match(config, /"tag": "v2"[\s\S]*"new_sqlite_classes": \["PartyRoute"\]/);
+  assert.match(workerSource, /export class DrawingRoom extends DurableObject/);
+  assert.match(workerSource, /alarm\(\): void \{\s*\/\/ Intentionally leave retired storage untouched\./);
+});
 
 test("defines one credential-free party protocol", () => {
   assert.equal(PARTY_PROTOCOL_VERSION, 1);

@@ -47,10 +47,12 @@ Deploy with:
 npm run deploy:realtime
 ```
 
-Deployment replaces the prior drawing Worker. Migration history `v1` and `v2`
-is retained, `v3` creates `PartyRoute`, and `v4` deletes the three obsolete
-Durable Object classes and their stored data. Do not deploy this migration if
-the old stored drawings still need to be retained.
+Deployment replaces the prior drawing Worker. Migration history `v1` is
+retained and `v2` creates `PartyRoute`. The retired `DrawingRoom` namespace is
+deliberately preserved; it is no longer bound or reachable, but this deployment
+does not delete its stored data. An inert `DrawingRoom` export remains solely
+because Cloudflare requires historical Durable Object namespaces to retain a
+matching class export.
 
 ## WebSocket contract
 

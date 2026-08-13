@@ -23,8 +23,10 @@ import {
 } from "../lib/partyProtocol";
 import { PARTY_REALTIME_URL } from "../lib/partyRealtimeConfig";
 import styles from "./PartyPresence.module.css";
-
-type ConnectionState = "connecting" | "live" | "reconnecting";
+import {
+  getPartyConnectionStatus,
+  type PartyConnectionState,
+} from "./partyConnectionState";
 
 type SignalEvent = {
   id: string;
@@ -91,7 +93,7 @@ export function PartyPresence() {
   );
   const [fatal, setFatal] = useState(false);
   const [connectionState, setConnectionState] =
-    useState<ConnectionState>("connecting");
+    useState<PartyConnectionState>("connecting");
   const [presenceCount, setPresenceCount] = useState<number | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [signals, setSignals] = useState<SignalEvent[]>([]);
@@ -471,6 +473,7 @@ export function PartyPresence() {
       ? "Party presence is connecting. Send a party signal."
       : `${presenceCount} ${presenceCount === 1 ? "visitor" : "visitors"} here. Send a party signal.`;
   const signalsDisabled = connectionState !== "live" || coolingDown;
+  const connectionStatus = getPartyConnectionStatus(connectionState);
 
   return (
     <aside
@@ -533,13 +536,13 @@ export function PartyPresence() {
           <p className={styles.eyebrow}>{shownCount} HERE</p>
           <h2 id="party-dialog-title">SEND A SIGNAL</h2>
           <p className={styles.explanation}>PICK ONE. IT DISAPPEARS.</p>
-          {connectionState !== "live" ? (
+          {connectionStatus ? (
             <p
               aria-live="polite"
               className={styles.connection}
               role="status"
             >
-              RECONNECTING…
+              {connectionStatus}
             </p>
           ) : null}
           <div className={styles.signalGrid}>

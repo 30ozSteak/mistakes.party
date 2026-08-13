@@ -105,8 +105,8 @@ Party presence has two production controls in `worker/wrangler.jsonc`:
 
 Deploy Worker changes before the site client that depends on them, then verify
 `/health`, same-route counts, route isolation, and the off switch. This release
-retires the old room and canvas Durable Objects; deploying its migration deletes
-their stored state. See [worker/README.md](worker/README.md) for the protocol,
+retires the old drawing room but preserves its unbound Durable Object namespace
+and stored state. See [worker/README.md](worker/README.md) for the protocol,
 limits, privacy boundary, and deployment details.
 
 The homepage is a server-rendered external index with native expandable

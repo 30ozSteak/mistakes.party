@@ -31,19 +31,7 @@
     },
     {
       "tag": "v2",
-      "new_sqlite_classes": ["PublicRouteLobby", "PublicDrawingPod"]
-    },
-    {
-      "tag": "v3",
       "new_sqlite_classes": ["PartyRoute"]
-    },
-    {
-      "tag": "v4",
-      "deleted_classes": [
-        "DrawingRoom",
-        "PublicRouteLobby",
-        "PublicDrawingPod"
-      ]
     }
   ],
   "vars": {

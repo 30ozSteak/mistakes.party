@@ -282,6 +282,26 @@ function closeWithError(
   }
 }
 
+/**
+ * Export-only compatibility shell for the retired drawing namespace.
+ *
+ * No binding or request route can reach this class. Cloudflare requires the
+ * export while the historical namespace exists; keeping it here preserves its
+ * stored data without allowing old cleanup alarms to delete it.
+ */
+export class DrawingRoom extends DurableObject {
+  fetch(): Response {
+    return new Response("This drawing room is retired.", {
+      status: 410,
+      headers: { "cache-control": "no-store" },
+    });
+  }
+
+  alarm(): void {
+    // Intentionally leave retired storage untouched.
+  }
+}
+
 export class PartyRoute extends DurableObject<PartyEnv> {
   private routeSignalTokens = ROUTE_SIGNAL_BURST;
   private routeSignalRefilledAt = Date.now();
