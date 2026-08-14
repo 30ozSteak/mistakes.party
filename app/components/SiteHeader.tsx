@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { PartySwitchboard } from "./PartyHouse";
 
 type SiteHeaderProps = {
   currentPage?: "blogs" | "patreon";
@@ -41,7 +42,7 @@ export function SiteHeader({ currentPage, indexLink = false }: SiteHeaderProps) 
     const firstLink = menuRef.current?.querySelector<HTMLAnchorElement>("a");
     const backgroundElements = [
       ...document.querySelectorAll<HTMLElement>(
-        "main, footer, .skip-link, [data-party-presence]",
+        "main, footer, .skip-link, [data-party-house]",
       ),
     ];
     const previousInertStates = backgroundElements.map((element) =>
@@ -123,6 +124,8 @@ export function SiteHeader({ currentPage, indexLink = false }: SiteHeaderProps) 
         <span className="brand-mark" aria-hidden="true" />
         MISTAKES.PARTY
       </Link>
+
+      <PartySwitchboard disabled={currentPage === "patreon"} />
 
       <nav className="site-nav" aria-label="Primary navigation">
         {desktopLinks.map((link) =>

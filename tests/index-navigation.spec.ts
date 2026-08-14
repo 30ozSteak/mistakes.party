@@ -8,9 +8,9 @@ const sections = [
 
 async function waitForHome(page: Page) {
   await page.goto("/");
-  await expect(page.getByTestId("party-presence")).toHaveAttribute(
-    "data-hydrated",
-    "true",
+  await expect(page.getByTestId("party-house")).toHaveAttribute(
+    "data-connection",
+    "live",
   );
 }
 
@@ -126,10 +126,10 @@ test("the glass atmosphere responds without becoming part of the interface", asy
     y: Number.parseFloat(element.style.getPropertyValue("--portal-pointer-y")),
   }));
   expect(pointerPosition.x).toBeGreaterThan(20);
-  expect(pointerPosition.x).toBeLessThanOrEqual(28);
+  expect(pointerPosition.x).toBeLessThanOrEqual(24);
   expect(pointerPosition.y).toBeGreaterThan(12);
-  expect(pointerPosition.y).toBeLessThanOrEqual(18);
-  expect(Math.abs(pointerPosition.turn)).toBeLessThanOrEqual(7.25);
+  expect(pointerPosition.y).toBeLessThanOrEqual(16);
+  expect(Math.abs(pointerPosition.turn)).toBeLessThanOrEqual(6);
 
   const medium = page.locator('[data-portal-section="medium"]');
   await medium.locator("summary").click();
@@ -524,10 +524,10 @@ test("the disclosures stay usable and horizontally contained on small phones", a
   await expect(lastGame).toBeVisible();
   await page.locator(".portal-footer").scrollIntoViewIfNeeded();
 
-  const partyTrigger = page.getByTestId("party-trigger");
+  const partySwitchboard = page.getByTestId("party-switchboard");
   const email = page.getByRole("link", { name: "HELLO@MISTAKES.PARTY" });
   const [partyBox, emailBox] = await Promise.all([
-    partyTrigger.boundingBox(),
+    partySwitchboard.boundingBox(),
     email.boundingBox(),
   ]);
   expect(partyBox).not.toBeNull();
@@ -596,11 +596,11 @@ test("the disclosures stay usable and horizontally contained on small phones", a
     restingBackground,
   );
 
-  await expect(page.getByTestId("party-presence")).toHaveAttribute(
+  await expect(page.getByTestId("party-house")).toHaveAttribute(
     "data-connection",
     "live",
   );
-  await partyTrigger.click();
-  await expect(page.getByTestId("party-dialog")).toBeVisible();
-  await expect(page.getByTestId("party-signal-cheers")).toBeFocused();
+  await page.getByTestId("party-knock").click();
+  await expect(page.getByTestId("party-knock-wave")).toHaveCount(1);
+  await expect(page.getByTestId("party-motion")).toBeVisible();
 });

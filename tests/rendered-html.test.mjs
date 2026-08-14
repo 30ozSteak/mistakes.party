@@ -80,18 +80,19 @@ function assertSecurityHeaders(headers, html) {
 
 function assertPartyPresence(html, { available = true } = {}) {
   if (available) {
-    assert.match(html, /data-testid="party-presence"/);
-    assert.match(html, /data-testid="party-trigger"/);
-    assert.match(html, /data-testid="party-dialog"/);
-    assert.match(html, /data-testid="party-signal-cheers"/);
-    assert.match(html, /data-testid="party-signal-hi"/);
-    assert.match(html, /data-testid="party-signal-bad_idea"/);
-    assert.match(html, /data-testid="party-signal-i_was_here"/);
-    assert.match(html, />X(?:<!-- -->)? HERE</);
-    assert.match(html, /CONNECTING…/);
-    assert.doesNotMatch(html, /RECONNECTING…/);
+    assert.match(html, /data-testid="party-house"/);
+    assert.match(html, /data-testid="party-switchboard"/);
+    assert.match(html, /data-testid="party-status"/);
+    assert.match(html, /OPENING…/);
+    assert.doesNotMatch(
+      html,
+      /data-testid="party-(?:presence|trigger|dialog|signal-)/,
+    );
   } else {
-    assert.doesNotMatch(html, /data-testid="party-presence"/);
+    assert.doesNotMatch(
+      html,
+      /data-testid="party-(?:house|switchboard|presence)"/,
+    );
   }
 
   assert.doesNotMatch(html, /data-testid="drawing-/);
@@ -153,7 +154,7 @@ test("renders the quiet expandable external index", async () => {
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
   assert.match(
     html,
-    /aria-hidden="true" class="portal-atmosphere" data-testid="portal-atmosphere"/,
+    /aria-hidden="true" class="portal-atmosphere"[^>]*data-testid="portal-atmosphere"/,
   );
 });
 

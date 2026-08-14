@@ -35,7 +35,7 @@ export default defineConfig({
     ? undefined
     : [
         {
-          command: `npm run dev:realtime -- --port ${realtimePort} --persist-to ${managedRealtimeStorage} --var ALLOWED_ORIGINS:${managedOrigin} --var PARTY_MODE:live --var PARTY_GENERATION:playwright-v1`,
+          command: `npm run dev:realtime -- --port ${realtimePort} --persist-to ${managedRealtimeStorage} --var ALLOWED_ORIGINS:${managedOrigin} --var PARTY_MODE:live --var PARTY_HOUSE_MODE:live --var PARTY_GENERATION:playwright-v2`,
           url: `${managedRealtimeURL}/health`,
           reuseExistingServer: !process.env.CI,
           timeout: 120_000,

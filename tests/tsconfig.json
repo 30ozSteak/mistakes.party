@@ -4,14 +4,17 @@
     "lib": ["ES2022", "WebWorker"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "noEmit": true,
-    "types": ["@cloudflare/workers-types"]
+    "types": [
+      "@cloudflare/workers-types",
+      "@cloudflare/vitest-pool-workers/types"
+    ]
   },
   "include": [
-    "src/**/*.ts",
+    "./party-worker.test.ts",
+    "../worker/env.d.ts",
+    "../worker/src/**/*.ts",
     "../app/lib/partyProtocol.ts",
-    "../app/lib/partyHouseProtocol.ts",
-    "env.d.ts"
+    "../app/lib/partyHouseProtocol.ts"
   ],
   "exclude": ["../node_modules"]
 }

@@ -1,17 +1,104 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { PartyHouseLight } from "../lib/partyHouseProtocol";
+import { usePartyHouse } from "./PartyHouse";
 
-const POINTER_RANGE_X = 28;
-const POINTER_RANGE_Y = 18;
-const POINTER_TURN = 5;
+const POINTER_RANGE_X = 24;
+const POINTER_RANGE_Y = 16;
+const POINTER_TURN = 6;
+const LIGHT_DEPARTURE_MS = 400;
+
+type VisualLight = PartyHouseLight & { leaving: boolean };
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
+function visualCohort(
+  self: PartyHouseLight | null,
+  lights: PartyHouseLight[],
+): PartyHouseLight[] {
+  const cohort = new Map<string, PartyHouseLight>();
+  if (self) cohort.set(self.id, self);
+  for (const light of lights) {
+    if (!cohort.has(light.id)) cohort.set(light.id, light);
+  }
+  return [...cohort.values()].slice(0, 12);
+}
+
 export function PortalAtmosphere() {
+  const house = usePartyHouse();
   const atmosphereRef = useRef<HTMLDivElement>(null);
+  const visualLightsRef = useRef<VisualLight[]>([]);
+  const departureTimersRef = useRef(new Map<string, number>());
+  const [visualLights, setVisualLights] = useState<VisualLight[]>([]);
+  const desiredLights = useMemo(
+    () =>
+      house.connectionState === "live"
+        ? visualCohort(house.self, house.lights)
+        : [],
+    [house.connectionState, house.lights, house.self],
+  );
+
+  useEffect(() => {
+    const desiredIds = new Set(desiredLights.map(({ id }) => id));
+    const currentById = new Map(
+      visualLightsRef.current.map((light) => [light.id, light]),
+    );
+    const next: VisualLight[] = desiredLights.map((light) => {
+      const timer = departureTimersRef.current.get(light.id);
+      if (timer !== undefined) {
+        window.clearTimeout(timer);
+        departureTimersRef.current.delete(light.id);
+      }
+      return { ...(currentById.get(light.id) ?? light), ...light, leaving: false };
+    });
+
+    for (const light of visualLightsRef.current) {
+      if (desiredIds.has(light.id) || next.length >= 12) continue;
+      const departing = { ...light, leaving: true };
+      next.push(departing);
+      if (!departureTimersRef.current.has(light.id)) {
+        const timer = window.setTimeout(() => {
+          departureTimersRef.current.delete(light.id);
+          visualLightsRef.current = visualLightsRef.current.filter(
+            ({ id }) => id !== light.id,
+          );
+          setVisualLights(visualLightsRef.current);
+        }, LIGHT_DEPARTURE_MS);
+        departureTimersRef.current.set(light.id, timer);
+      }
+    }
+
+    visualLightsRef.current = next;
+    setVisualLights(next);
+  }, [desiredLights]);
+
+  useEffect(
+    () => () => {
+      departureTimersRef.current.forEach((timer) =>
+        window.clearTimeout(timer),
+      );
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const atmosphere = atmosphereRef.current;
+    if (!atmosphere) return;
+    const atmosphereStyle = atmosphere.style;
+    house.afterglow.weights.forEach((weight, color) => {
+      atmosphereStyle.setProperty(
+        `--party-afterglow-${color}`,
+        String(weight / 1_000),
+      );
+    });
+    atmosphereStyle.setProperty(
+      "--party-afterglow-intensity",
+      String(house.afterglow.intensity / 1_000),
+    );
+  }, [house.afterglow]);
 
   useEffect(() => {
     const atmosphere = atmosphereRef.current;
@@ -33,10 +120,7 @@ export function PortalAtmosphere() {
       animationFrame = null;
       atmosphereStyle.setProperty("--portal-pointer-x", `${nextX}px`);
       atmosphereStyle.setProperty("--portal-pointer-y", `${nextY}px`);
-      atmosphereStyle.setProperty(
-        "--portal-pointer-turn",
-        `${nextTurn}deg`,
-      );
+      atmosphereStyle.setProperty("--portal-pointer-turn", `${nextTurn}deg`);
     }
 
     function schedulePosition() {
@@ -75,7 +159,9 @@ export function PortalAtmosphere() {
       nextX = Number((horizontal * POINTER_RANGE_X).toFixed(2));
       nextY = Number((vertical * POINTER_RANGE_Y).toFixed(2));
       nextTurn = Number(
-        ((horizontal - vertical * 0.45) * POINTER_TURN).toFixed(2),
+        (
+          clamp(horizontal - vertical * 0.45, -1, 1) * POINTER_TURN
+        ).toFixed(2),
       );
       schedulePosition();
     }
@@ -119,11 +205,55 @@ export function PortalAtmosphere() {
     <div
       aria-hidden="true"
       className="portal-atmosphere"
+      data-afterglow={JSON.stringify({
+        weights: house.afterglow.weights,
+        intensity: house.afterglow.intensity,
+      })}
+      data-crowd={Math.min(
+        4,
+        Math.max(0, Math.ceil(((house.presenceCount ?? 1) - 12) / 24)),
+      )}
+      data-party-swell={
+        house.swell === 0 ? "idle" : house.swell % 2 === 0 ? "even" : "odd"
+      }
       data-testid="portal-atmosphere"
       ref={atmosphereRef}
     >
       <div className="portal-atmosphere-field" />
+      <div className="portal-house-lights">
+        {visualLights.map((light) => (
+          <i
+            className="portal-house-light"
+            data-color={light.color}
+            data-energy={light.energy}
+            data-leaving={light.leaving ? "true" : "false"}
+            data-seed={light.seed % 12}
+            data-self={house.self?.id === light.id ? "true" : "false"}
+            data-sharing={light.sharing ? "true" : "false"}
+            data-testid="party-light"
+            data-zone={light.sharing ? light.zone : 4}
+            key={light.id}
+          />
+        ))}
+      </div>
+      <div className="portal-house-waves">
+        {house.knocks.map((knock) => (
+          <i
+            className="portal-house-wave"
+            data-color={knock.color}
+            data-self={house.self?.id === knock.lightId ? "true" : "false"}
+            data-testid="party-knock-wave"
+            data-zone={knock.zone}
+            key={knock.eventId}
+          />
+        ))}
+      </div>
       <div className="portal-atmosphere-glass" />
+      <div className="portal-house-pips">
+        {visualLights.map((light) => (
+          <i data-color={light.color} key={light.id} />
+        ))}
+      </div>
     </div>
   );
 }

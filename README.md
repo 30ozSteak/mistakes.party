@@ -51,11 +51,14 @@ still call `hasPatreonAccess()` themselves; hiding a control is not an
 authorization boundary. Anonymous party presence is disabled throughout the
 `/patreon/*` subtree so member pages never expose who is in the member area.
 
-The site has one small, anonymous party surface: a route-local `N HERE` count
-and four short-lived signals (`CHEERS`, `HI`, `BAD IDEA`, and `I WAS HERE`).
-Signals disappear, are not replayed, and have no names, chat, artwork, or
-history. To run the realtime service locally, start both processes with a
-matching public URL:
+The public portfolio is one anonymous shared house. Each active tab appears as
+an abstract light, `KNOCK` sends a short shared refraction, and arrivals plus a
+visitor's first knock contribute to a rolling 24-hour color afterglow. The
+homepage renders the full field; inner pages use a restrained header pulse.
+There are no names, exact cursors, routes, chat, artwork, or permanent history.
+Coarse 3×3 movement unlocks after the first knock, defaults on only for a fine
+pointer, and can be switched off for the rest of the tab session. To run the realtime service locally, start both
+processes with a matching public URL:
 
 ```bash
 npm run dev:realtime -- --port 8787
@@ -68,6 +71,9 @@ NEXT_PUBLIC_PARTY_REALTIME_URL=http://127.0.0.1:8787 npm run dev -- --port 3000
 npm run lint
 npm test
 ```
+
+`npm test` includes the Cloudflare Workers-runtime suite, the production Next.js
+build, and the server-rendered protocol/content tests.
 
 The browser interaction suite uses Playwright:
 
@@ -96,18 +102,25 @@ cutover. `NEXT_PUBLIC_PARTY_REALTIME_URL` is the build-time override for local
 development or another relay. The Worker production origin allowlist must
 contain the exact website origin (`https://www.mistakes.party`).
 
-Party presence has two production controls in `worker/wrangler.jsonc`:
+Living Glass has two v2 production controls in `worker/wrangler.jsonc`:
 
-- `PARTY_MODE=off|live` is the server-authoritative kill switch. `off` rejects
-  new party sockets and causes the client control to disappear.
-- `PARTY_GENERATION` partitions route-local presence. Increment it only when an
-  emergency reset of all active counts is intended.
+- `PARTY_HOUSE_MODE=off|presence|live` is the server-authoritative rollout
+  switch. `presence` keeps the light field read-only; `live` enables `KNOCK`
+  and consented coarse motion; `off` removes the experience. The checked-in
+  production environment starts in `presence` for the Worker-first smoke test;
+  promote it to `live` only after that validation passes and before deploying
+  the site client.
+- `PARTY_GENERATION` partitions the shared house and its 24-hour afterglow.
+  Increment it only when an emergency reset is intended.
+
+The legacy `PARTY_MODE=off|live` control and `/v1/party` protocol remain intact
+as a rollback path while v2 settles.
 
 Deploy Worker changes before the site client that depends on them, then verify
-`/health`, same-route counts, route isolation, and the off switch. This release
-retires the old drawing room but preserves its unbound Durable Object namespace
-and stored state. See [worker/README.md](worker/README.md) for the protocol,
-limits, privacy boundary, and deployment details.
+`/health`, cross-route house counts, a shared knock, rolling afterglow, and all
+three house modes. The retired drawing room and v1 party namespaces remain
+preserved. See [worker/README.md](worker/README.md) for the protocol, limits,
+privacy boundary, and deployment details.
 
 The homepage is a server-rendered external index with native expandable
 sections. Its guarded GitHub and Medium requests refresh their cached source

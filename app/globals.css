@@ -109,6 +109,12 @@ summary {
   --portal-section-x: 0px;
   --portal-section-y: 0px;
   --portal-section-turn: 0deg;
+  --party-afterglow-0: 0;
+  --party-afterglow-1: 0;
+  --party-afterglow-2: 0;
+  --party-afterglow-3: 0;
+  --party-afterglow-intensity: 0;
+  --party-crowd-brightness: 1;
   position: fixed;
   inset: 0;
   z-index: 0;
@@ -135,32 +141,168 @@ summary {
   background:
     radial-gradient(
       ellipse 39% 43% at 32% 62%,
-      rgb(223 255 0 / 0.74) 0%,
+      rgb(223 255 0 / calc(0.62 + var(--party-afterglow-0) * 0.18)) 0%,
       rgb(223 255 0 / 0.52) 30%,
       rgb(223 255 0 / 0.18) 51%,
       transparent 72%
     ),
     radial-gradient(
       ellipse 30% 36% at 66% 56%,
-      rgb(43 222 203 / 0.28) 0%,
+      rgb(43 222 203 / calc(0.2 + var(--party-afterglow-1) * 0.2)) 0%,
       rgb(43 222 203 / 0.12) 43%,
       transparent 72%
     ),
     radial-gradient(
       ellipse 34% 28% at 57% 27%,
-      rgb(255 183 77 / 0.24) 0%,
+      rgb(255 100 89 / calc(0.16 + var(--party-afterglow-2) * 0.2)) 0%,
       rgb(255 183 77 / 0.09) 46%,
       transparent 74%
     ),
     radial-gradient(
       ellipse 26% 31% at 78% 76%,
-      rgb(255 78 156 / 0.16) 0%,
+      rgb(143 91 255 / calc(0.1 + var(--party-afterglow-3) * 0.18)) 0%,
       transparent 72%
     );
   content: "";
-  filter: blur(clamp(2rem, 4vw, 4.5rem)) saturate(1.12);
+  filter: blur(clamp(2rem, 4vw, 4.5rem)) saturate(1.12)
+    brightness(var(--party-crowd-brightness));
   transform: rotate(-7deg) scale(1.04);
   transform-origin: 42% 58%;
+}
+
+.portal-house-lights,
+.portal-house-waves,
+.portal-house-pips {
+  position: absolute;
+  inset: 0;
+}
+
+.portal-house-light {
+  --light-color: rgb(223 255 0 / 0.46);
+  --light-x: 50%;
+  --light-y: 50%;
+  --light-size: clamp(15rem, 42vmax, 46rem);
+  position: absolute;
+  top: var(--light-y);
+  left: var(--light-x);
+  width: var(--light-size);
+  height: var(--light-size);
+  border-radius: 42% 58% 65% 35% / 55% 41% 59% 45%;
+  background: radial-gradient(
+    circle at 43% 42%,
+    var(--light-color) 0 13%,
+    color-mix(in srgb, var(--light-color), transparent 48%) 34%,
+    transparent 68%
+  );
+  filter: blur(clamp(1.4rem, 3.7vw, 4rem));
+  opacity: calc(0.32 + var(--party-afterglow-intensity) * 0.18);
+  transform: translate(-50%, -50%) scale(0.72);
+  transform-origin: center;
+}
+
+.portal-house-light[data-color="1"],
+.portal-house-wave[data-color="1"],
+.portal-house-pips i[data-color="1"] {
+  --light-color: rgb(43 222 203 / 0.44);
+}
+
+.portal-house-light[data-color="2"],
+.portal-house-wave[data-color="2"],
+.portal-house-pips i[data-color="2"] {
+  --light-color: rgb(255 100 89 / 0.4);
+}
+
+.portal-house-light[data-color="3"],
+.portal-house-wave[data-color="3"],
+.portal-house-pips i[data-color="3"] {
+  --light-color: rgb(143 91 255 / 0.38);
+}
+
+.portal-house-light[data-self="true"] {
+  opacity: calc(0.48 + var(--party-afterglow-intensity) * 0.14);
+}
+
+.portal-house-light[data-energy="1"] {
+  animation-duration: 600ms, 13s;
+}
+
+.portal-house-light[data-energy="2"] {
+  animation-duration: 600ms, 8s;
+}
+
+.portal-house-light[data-leaving="true"] {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.45);
+}
+
+.portal-house-light[data-seed="0"] { --light-x: 15%; --light-y: 19%; }
+.portal-house-light[data-seed="1"] { --light-x: 48%; --light-y: 14%; }
+.portal-house-light[data-seed="2"] { --light-x: 82%; --light-y: 21%; }
+.portal-house-light[data-seed="3"] { --light-x: 17%; --light-y: 49%; }
+.portal-house-light[data-seed="4"] { --light-x: 49%; --light-y: 48%; }
+.portal-house-light[data-seed="5"] { --light-x: 81%; --light-y: 48%; }
+.portal-house-light[data-seed="6"] { --light-x: 18%; --light-y: 79%; }
+.portal-house-light[data-seed="7"] { --light-x: 50%; --light-y: 82%; }
+.portal-house-light[data-seed="8"] { --light-x: 83%; --light-y: 78%; }
+.portal-house-light[data-seed="9"] { --light-x: 30%; --light-y: 34%; }
+.portal-house-light[data-seed="10"] { --light-x: 69%; --light-y: 35%; }
+.portal-house-light[data-seed="11"] { --light-x: 67%; --light-y: 69%; }
+
+.portal-house-light[data-sharing="true"][data-zone="0"] { --light-x: 15%; --light-y: 19%; }
+.portal-house-light[data-sharing="true"][data-zone="1"] { --light-x: 48%; --light-y: 14%; }
+.portal-house-light[data-sharing="true"][data-zone="2"] { --light-x: 82%; --light-y: 21%; }
+.portal-house-light[data-sharing="true"][data-zone="3"] { --light-x: 17%; --light-y: 49%; }
+.portal-house-light[data-sharing="true"][data-zone="4"] { --light-x: 49%; --light-y: 48%; }
+.portal-house-light[data-sharing="true"][data-zone="5"] { --light-x: 81%; --light-y: 48%; }
+.portal-house-light[data-sharing="true"][data-zone="6"] { --light-x: 18%; --light-y: 79%; }
+.portal-house-light[data-sharing="true"][data-zone="7"] { --light-x: 50%; --light-y: 82%; }
+.portal-house-light[data-sharing="true"][data-zone="8"] { --light-x: 83%; --light-y: 78%; }
+
+.portal-atmosphere[data-crowd="1"] { --party-crowd-brightness: 1.04; }
+.portal-atmosphere[data-crowd="2"] { --party-crowd-brightness: 1.08; }
+.portal-atmosphere[data-crowd="3"] { --party-crowd-brightness: 1.12; }
+.portal-atmosphere[data-crowd="4"] { --party-crowd-brightness: 1.16; }
+
+.portal-house-wave {
+  --light-color: rgb(223 255 0 / 0.62);
+  --wave-x: 50%;
+  --wave-y: 50%;
+  position: absolute;
+  top: var(--wave-y);
+  left: var(--wave-x);
+  width: min(56vmax, 52rem);
+  aspect-ratio: 1;
+  border: clamp(1rem, 2.5vw, 2rem) solid var(--light-color);
+  border-radius: 43% 57% 48% 52% / 54% 40% 60% 46%;
+  filter: blur(15px);
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.08) rotate(-8deg);
+}
+
+.portal-house-wave[data-zone="0"],
+.portal-house-wave[data-zone="3"],
+.portal-house-wave[data-zone="6"] { --wave-x: 10%; }
+.portal-house-wave[data-zone="2"],
+.portal-house-wave[data-zone="5"],
+.portal-house-wave[data-zone="8"] { --wave-x: 90%; }
+.portal-house-wave[data-zone="0"],
+.portal-house-wave[data-zone="1"],
+.portal-house-wave[data-zone="2"] { --wave-y: 14%; }
+.portal-house-wave[data-zone="6"],
+.portal-house-wave[data-zone="7"],
+.portal-house-wave[data-zone="8"] { --wave-y: 86%; }
+
+.portal-house-pips {
+  display: none;
+}
+
+.portal-house-pips i {
+  --light-color: rgb(223 255 0);
+  width: 0.45rem;
+  height: 0.45rem;
+  border: 1px solid var(--ink);
+  border-radius: 50%;
+  background: var(--light-color);
 }
 
 .portal-atmosphere-glass {
@@ -274,6 +416,7 @@ summary {
 
 .portal-masthead {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 1.5rem;
@@ -341,6 +484,36 @@ summary {
     animation: portal-spectrum-turn 28s ease-in-out infinite alternate;
   }
 
+  .portal-house-light {
+    animation:
+      portal-light-arrive 600ms cubic-bezier(0.16, 1, 0.3, 1) both,
+      portal-light-drift 18s ease-in-out 600ms infinite alternate;
+    transition:
+      top 700ms cubic-bezier(0.16, 1, 0.3, 1),
+      left 700ms cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 400ms ease,
+      transform 400ms ease;
+  }
+
+  .portal-house-light[data-seed="1"],
+  .portal-house-light[data-seed="4"],
+  .portal-house-light[data-seed="7"],
+  .portal-house-light[data-seed="10"] {
+    animation-direction: normal, alternate-reverse;
+  }
+
+  .portal-house-wave {
+    animation: portal-house-knock 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .portal-atmosphere[data-party-swell="odd"] .portal-atmosphere-field {
+    animation: portal-house-swell-odd 520ms ease-out;
+  }
+
+  .portal-atmosphere[data-party-swell="even"] .portal-atmosphere-field {
+    animation: portal-house-swell-even 520ms ease-out;
+  }
+
   .portal-name {
     transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1);
   }
@@ -358,6 +531,29 @@ summary {
       opacity 220ms ease-out,
       content-visibility 420ms allow-discrete;
   }
+}
+
+@keyframes portal-light-arrive {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.25); }
+}
+
+@keyframes portal-light-drift {
+  from { translate: -1.5vw 1vh; rotate: -4deg; }
+  to { translate: 1.75vw -1.4vh; rotate: 5deg; }
+}
+
+@keyframes portal-house-knock {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.08) rotate(-8deg); }
+  15% { opacity: 0.7; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.65) rotate(13deg); }
+}
+
+@keyframes portal-house-swell-odd {
+  50% { filter: brightness(1.16) saturate(1.15); }
+}
+
+@keyframes portal-house-swell-even {
+  50% { filter: brightness(1.16) saturate(1.15); }
 }
 
 @keyframes portal-spectrum-turn {
@@ -602,7 +798,6 @@ summary {
   flex-wrap: wrap;
   gap: 0.35rem 0.7rem;
   align-items: center;
-  padding-right: clamp(6.4rem, 18vw, 9rem);
   font-family: var(--mono);
   font-size: clamp(0.58rem, 2.35vw, 0.72rem);
   font-weight: 800;
@@ -616,9 +811,6 @@ summary {
     margin-left: auto;
   }
 
-  .portal-footer {
-    padding-right: 8.5rem;
-  }
 }
 
 @media (min-width: 901px) {
@@ -699,6 +891,40 @@ summary {
   justify-content: space-between;
   border-bottom: var(--rule) solid var(--ink);
   background: rgb(242 241 233 / 0.97);
+}
+
+@media (min-width: 701px) and (max-width: 1100px) {
+  .site-header {
+    flex-wrap: wrap;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .site-header:has([data-knock-pulse="true"]) {
+    animation: house-header-rule 900ms ease-out;
+  }
+
+  .site-header:has([data-knock-pulse="true"]) .brand-mark {
+    animation: house-brand-pulse 900ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-header:has([data-knock-pulse="true"]) {
+    border-bottom-color: rgb(43 222 203);
+  }
+
+  .site-header:has([data-knock-pulse="true"]) .brand-mark {
+    background: rgb(43 222 203);
+  }
+}
+
+@keyframes house-header-rule {
+  45% { border-bottom-color: rgb(43 222 203); }
+}
+
+@keyframes house-brand-pulse {
+  45% { background: rgb(143 91 255); transform: rotate(135deg) scale(1.3); }
 }
 
 .brand,
@@ -1564,13 +1790,37 @@ summary {
     height: var(--mobile-header);
     min-height: var(--mobile-header);
     flex-direction: row;
+    flex-wrap: wrap;
     align-items: stretch;
     background: var(--paper);
   }
 
+  .site-header:has([data-party-house]) {
+    --mobile-header: 7rem;
+  }
+
+  .portal-house-light {
+    filter: blur(2.25rem);
+  }
+
+  .portal-house-light:nth-child(n + 7) {
+    opacity: 0.2;
+  }
+
+  .portal-atmosphere-glass {
+    -webkit-backdrop-filter: blur(22px) saturate(1.08);
+    backdrop-filter: blur(22px) saturate(1.08);
+  }
+
+  @media (hover: none), (pointer: coarse) {
+    .portal-house-light {
+      animation: portal-light-arrive 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+    }
+  }
+
   .brand {
     min-width: 0;
-    min-height: var(--mobile-header);
+    min-height: 4rem;
     flex: 1;
     padding: 0 var(--gutter);
   }
@@ -1583,9 +1833,9 @@ summary {
     position: relative;
     z-index: 2;
     display: grid;
-    width: var(--mobile-header);
-    min-width: var(--mobile-header);
-    height: 100%;
+    width: 4rem;
+    min-width: 4rem;
+    height: 4rem;
     place-items: center;
     padding: 0;
     border: 0;
@@ -1950,6 +2200,17 @@ summary {
     transform: none;
   }
 
+  .portal-house-light {
+    animation: none;
+    transform: translate(-50%, -50%) scale(0.72);
+  }
+
+  .portal-house-wave {
+    animation: none;
+    opacity: 0.34;
+    transform: translate(-50%, -50%) scale(0.74);
+  }
+
   *,
   *::before,
   *::after {
@@ -1960,9 +2221,27 @@ summary {
 
 @media (prefers-reduced-transparency: reduce) {
   .portal-atmosphere-glass {
-    background-color: rgb(242 241 233 / 0.88);
+    background-color: var(--paper);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
+  }
+
+  .portal-house-lights,
+  .portal-house-waves {
+    display: none;
+  }
+
+  .portal-house-pips {
+    display: flex;
+    top: auto;
+    right: clamp(1rem, 4.5vw, 5rem);
+    bottom: max(1rem, env(safe-area-inset-bottom));
+    left: auto;
+    width: min(9rem, calc(100vw - 2rem));
+    height: auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.3rem;
   }
 }
 

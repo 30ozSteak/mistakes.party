@@ -9,6 +9,13 @@ import {
   parsePartyClientMessageJson,
   type PartyServerMessage,
 } from "../../app/lib/partyProtocol";
+import {
+  PARTY_HOUSE_REALTIME_PATH,
+  PARTY_HOUSE_REALTIME_SUBPROTOCOL,
+} from "../../app/lib/partyHouseProtocol";
+import { partyHouseDisabledUpgrade } from "./partyHouse";
+
+export { PartyHouse } from "./partyHouse";
 
 const MAX_ROUTE_SOCKETS = 256;
 const MAX_SOCKETS_PER_SESSION = 2;
@@ -94,12 +101,16 @@ function corsHeaders(request: Request, env: PartyEnv): HeadersInit {
     : {};
 }
 
-function hasPartySubprotocol(header: string | null): boolean {
+function hasExactSubprotocol(header: string | null, required: string): boolean {
   const protocols = (header ?? "")
     .split(",")
     .map((protocol) => protocol.trim())
     .filter(Boolean);
-  return protocols.length === 1 && protocols[0] === PARTY_REALTIME_SUBPROTOCOL;
+  return protocols.length === 1 && protocols[0] === required;
+}
+
+function hasPartySubprotocol(header: string | null): boolean {
+  return hasExactSubprotocol(header, PARTY_REALTIME_SUBPROTOCOL);
 }
 
 function hasExactPartyQuery(url: URL): boolean {
@@ -141,6 +152,76 @@ export default {
         status: 204,
         headers: corsHeaders(request, env),
       });
+    }
+
+    if (url.pathname === PARTY_HOUSE_REALTIME_PATH) {
+      if (request.method !== "GET") {
+        return jsonResponse(
+          { code: "METHOD_NOT_ALLOWED", message: "The party house requires GET." },
+          { status: 405 },
+          corsHeaders(request, env),
+        );
+      }
+      if (!isAllowedOrigin(request, env)) {
+        return jsonResponse(
+          { code: "FORBIDDEN_ORIGIN", message: "Origin is not allowed." },
+          { status: 403 },
+        );
+      }
+      if (request.headers.get("upgrade")?.toLowerCase() !== "websocket") {
+        return jsonResponse(
+          { code: "UPGRADE_REQUIRED", message: "A WebSocket upgrade is required." },
+          { status: 426, headers: { upgrade: "websocket" } },
+          corsHeaders(request, env),
+        );
+      }
+      if (
+        !hasExactSubprotocol(
+          request.headers.get("sec-websocket-protocol"),
+          PARTY_HOUSE_REALTIME_SUBPROTOCOL,
+        )
+      ) {
+        return jsonResponse(
+          { code: "BAD_REQUEST", message: "The house WebSocket protocol is required." },
+          { status: 400 },
+          corsHeaders(request, env),
+        );
+      }
+      if (url.search !== "") {
+        return jsonResponse(
+          { code: "BAD_REQUEST", message: "The party house URL cannot include a query." },
+          { status: 400 },
+          corsHeaders(request, env),
+        );
+      }
+
+      const clientIp = request.headers.get("cf-connecting-ip") ?? "local";
+      if (env.PARTY_HANDSHAKE_RATE_LIMITER) {
+        try {
+          const outcome = await env.PARTY_HANDSHAKE_RATE_LIMITER.limit({
+            key: `house:${clientIp}`,
+          });
+          if (!outcome.success) {
+            log("party_house_handshake_rate_limited");
+            return jsonResponse(
+              { code: "RATE_LIMITED", message: "Too many house connections." },
+              { status: 429 },
+              corsHeaders(request, env),
+            );
+          }
+        } catch {
+          log("party_house_handshake_rate_limiter_unavailable");
+        }
+      }
+      const configuredHouseMode: string = env.PARTY_HOUSE_MODE;
+      if (
+        configuredHouseMode !== "presence" &&
+        configuredHouseMode !== "live"
+      ) {
+        return partyHouseDisabledUpgrade();
+      }
+      const generation = partyGeneration(env);
+      return env.PARTY_HOUSE.getByName(`party-house:${generation}`).fetch(request);
     }
 
     if (url.pathname !== PARTY_REALTIME_PATH) {

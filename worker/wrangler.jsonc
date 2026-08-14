@@ -21,6 +21,10 @@
       {
         "name": "PARTY_ROUTES",
         "class_name": "PartyRoute"
+      },
+      {
+        "name": "PARTY_HOUSE",
+        "class_name": "PartyHouse"
       }
     ]
   },
@@ -32,11 +36,16 @@
     {
       "tag": "v2",
       "new_sqlite_classes": ["PartyRoute"]
+    },
+    {
+      "tag": "v3",
+      "new_sqlite_classes": ["PartyHouse"]
     }
   ],
   "vars": {
     "ALLOWED_ORIGINS": "http://localhost:3000,http://127.0.0.1:3000,http://localhost:3100,http://127.0.0.1:3100",
     "PARTY_MODE": "live",
+    "PARTY_HOUSE_MODE": "live",
     "PARTY_GENERATION": "v1"
   },
   "env": {
@@ -60,12 +69,17 @@
           {
             "name": "PARTY_ROUTES",
             "class_name": "PartyRoute"
+          },
+          {
+            "name": "PARTY_HOUSE",
+            "class_name": "PartyHouse"
           }
         ]
       },
       "vars": {
         "ALLOWED_ORIGINS": "https://www.mistakes.party",
         "PARTY_MODE": "live",
+        "PARTY_HOUSE_MODE": "presence",
         "PARTY_GENERATION": "v1"
       }
     }

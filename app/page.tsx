@@ -1,5 +1,6 @@
 import { Suspense, type ReactNode } from "react";
 import { PortalAtmosphere } from "./components/PortalAtmosphere";
+import { PartySwitchboard } from "./components/PartyHouse";
 import { getGithubRepos } from "./lib/githubServer";
 import { getMediumPosts, MEDIUM_PROFILE_URL } from "./lib/medium";
 
@@ -135,6 +136,7 @@ export default function Home() {
 
         <header className="portal-masthead">
           <h1>MISTAKES.PARTY</h1>
+          <PartySwitchboard surface="home" />
           <a href={SUPPORT_URL}>SUPPORT ↗</a>
         </header>
 

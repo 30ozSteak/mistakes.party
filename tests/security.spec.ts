@@ -43,6 +43,22 @@ test("enforces the nonce CSP without breaking hydration", async ({ page }) => {
   await page.waitForTimeout(100);
   expect(unexpectedCspViolations).toEqual([]);
 
+  await expect(page.getByTestId("party-house")).toHaveAttribute(
+    "data-connection",
+    "live",
+  );
+  await page.getByTestId("party-knock").click();
+  await expect(page.getByTestId("party-knock-wave")).toHaveCount(1);
+  await expect(page.getByTestId("party-motion")).toBeVisible();
+  await page.mouse.move(1, 1);
+  await page.waitForTimeout(550);
+  await page.mouse.move(900, 500);
+  await expect(
+    page.locator('[data-testid="party-light"][data-self="true"]'),
+  ).toHaveAttribute("data-sharing", "true");
+  await page.waitForTimeout(100);
+  expect(unexpectedCspViolations).toEqual([]);
+
   await page.evaluate(() => {
     const inlineScript = document.createElement("script");
     inlineScript.textContent = "window.__cspInlineScriptExecuted = true";
@@ -63,10 +79,6 @@ test("enforces the nonce CSP without breaking hydration", async ({ page }) => {
       })),
     )
     .toEqual({ inline: false, javascriptUrl: false });
-
-  const trigger = page.getByTestId("party-trigger");
-  await trigger.click();
-  await expect(page.getByTestId("party-dialog")).toBeVisible();
 
   await page.evaluate(() => {
     const sameOriginScript = document.createElement("script");

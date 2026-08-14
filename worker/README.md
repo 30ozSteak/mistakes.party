@@ -1,94 +1,108 @@
 # Party realtime service
 
-The party backend is a Cloudflare Worker with one hibernating Durable Object
-per public pathname. It provides route-local presence counts and four ephemeral
-preset signals. It stores no artwork, messages, names, IP addresses, or signal
-history.
+The Cloudflare Worker coordinates one anonymous, sitewide Living Glass house.
+Its SQLite-backed `PartyHouse` Durable Object uses hibernating WebSockets for
+live lights, knocks, and coarse opt-in movement, while retaining only a rolling
+24-hour aggregate color afterglow. It stores no names, exact cursor positions,
+page routes, raw session IDs, IP addresses, messages, or permanent history.
 
-The Worker keeps its existing deployed service name and hostname so replacing
-the feature does not require a second infrastructure migration.
+The existing `/v1/party` route and `PartyRoute` namespace remain intact as a
+rollback path. The retired `DrawingRoom` namespace is still unbound and
+unreachable, but its inert export and migration history remain so its stored
+data is never deleted as a side effect of this release.
 
 ## Local development
 
 ```bash
 npm run dev:realtime -- --port 8787
-```
-
-The health endpoint is `http://127.0.0.1:8787/health`. Point the website at the
-local Worker when starting Next.js:
-
-```bash
 NEXT_PUBLIC_PARTY_REALTIME_URL=http://127.0.0.1:8787 npm run dev
 ```
 
-`ALLOWED_ORIGINS` is a comma-separated list of exact browser origins allowed to
-open WebSockets. The checked-in development value permits only the local app
-and Playwright ports. Production permits only `https://www.mistakes.party`.
-Origin is a browser cross-origin control, not authentication.
+The health endpoint is `http://127.0.0.1:8787/health`.
+`ALLOWED_ORIGINS` is a comma-separated exact browser-origin allowlist. Origin
+checking limits browser callers; it is not authentication.
 
-`PARTY_MODE=off|live` is the server-authoritative kill switch. In `off` mode a
-valid WebSocket request still upgrades, receives a fatal `PARTY_DISABLED`
-error, and closes with code 1008 so the browser can distinguish the kill switch
-from a network failure.
+The v2 rollout switch is `PARTY_HOUSE_MODE=off|presence|live`:
 
-`PARTY_GENERATION` partitions every route into fresh Durable Objects. Bump it
-to abandon active route state. Presence and signals are already ephemeral, so
-no application data needs to be migrated between generations.
+- `off` rejects the house connection with a fatal `PARTY_DISABLED` error.
+- `presence` exposes the roster and afterglow but rejects knocks and movement.
+- `live` enables the complete interaction.
 
-Before deploying, run:
+`PARTY_GENERATION` names a fresh shared house. Changing it intentionally resets
+live membership and separates the afterglow. The v1-only `PARTY_MODE` remains
+available during rollback.
+
+Before deployment, run:
 
 ```bash
 npm run check:realtime
+npm run test:worker
 ```
 
-Deploy with:
+Migration `v3` creates the SQLite-backed `PartyHouse`; earlier migrations and
+namespaces must not be removed. The checked-in production configuration starts
+v2 in read-only `presence` mode. Use this sequence:
 
-```bash
-npm run deploy:realtime
-```
+1. Deploy with `npm run deploy:realtime`.
+2. Run `PARTY_HOUSE_EXPECTED_MODE=presence npm run smoke:party:production`.
+3. Change the production `PARTY_HOUSE_MODE` value to `live`, deploy again,
+   and run `npm run smoke:party:production`.
+4. Deploy the site client only after both v2 probes and the included v1
+   compatibility probe pass.
 
-Deployment replaces the prior drawing Worker. Migration history `v1` is
-retained and `v2` creates `PartyRoute`. The retired `DrawingRoom` namespace is
-deliberately preserved; it is no longer bound or reachable, but this deployment
-does not delete its stored data. An inert `DrawingRoom` export remains solely
-because Cloudflare requires historical Durable Object namespaces to retain a
-matching class export.
+## Living Glass v2 contract
 
-## WebSocket contract
-
-The shared strict protocol and browser URL helpers live in
-`app/lib/partyProtocol.ts`.
-
-Connect with `mistakes-party-presence-v1` as the sole WebSocket subprotocol:
-
-```text
-/v1/party?route=:canonicalPathname&sessionId=:optionalTabSessionId
-```
-
-The Worker rejects non-canonical paths, encoded traversal, and `/patreon` or
-any nested Patreon route. Query strings and fragments never create separate
-party routes. A server-issued, high-entropy session ID is returned in the
-`welcome` message and kept in tab-scoped `sessionStorage`; it has no privileges
-and is used only to avoid double-counting reconnect overlap.
-
-Client messages are exactly one of:
+Connect to `/v2/house` with `mistakes-party-house-v2` as the sole WebSocket
+subprotocol. The URL accepts no query parameters. The first message supplies a
+tab-scoped reconnect ID inside the socket rather than leaking it into platform
+URL logs:
 
 ```json
-{"type":"signal:send","kind":"cheers"}
-{"type":"signal:send","kind":"hi"}
-{"type":"signal:send","kind":"bad_idea"}
-{"type":"signal:send","kind":"i_was_here"}
-{"type":"ping"}
+{"type":"house:hello","generation":null,"sessionId":null}
 ```
 
-Server messages are `welcome`, `presence`, `signal`, `error`, and `pong`.
-Signals contain a server-generated UUIDv4 and timestamp, are broadcast to every
-open socket on the route including the sender, and are never persisted or
-replayed. Clients remove their visual treatment after a short timeout.
+The other client messages are:
 
-Each route is capped at 256 open sockets and each session at two sockets.
-Presence counts unique session IDs, not connections. The Worker also enforces
-an IP handshake limit, per-connection message and signal limits, a one-second
-minimum signal interval, and a route-wide token bucket. Fixed ping/pong frames
-use the Durable Object WebSocket auto-response API, so heartbeats do not wake a
-hibernating object.
+```json
+{"type":"ping"}
+{"type":"knock:send","requestId":"<uuid>","zone":4}
+{"type":"light:move","zone":4,"energy":1,"sharing":true}
+```
+
+The Worker sends `house:welcome`, `house:snapshot`, `light:move`, `knock`,
+`error`, and `pong`. All message objects use exact keys and stay below 2KB.
+Zones are the integers 0–8 in a 3×3 viewport grid; energy is 0–2. Exact cursor
+coordinates never cross the network. Exact `ping` frames use the Durable Object
+hibernation auto-response path, so routine heartbeats do not wake the object or
+consume its application-message budget.
+
+The house counts distinct reconnect IDs, permits two sockets per session, and
+caps the house at 512 sockets. Clients render at most 12 server-selected lights;
+everyone else still contributes to the exact count and aggregate intensity.
+Public light IDs, palette indices, and animation seeds are deterministic hashes
+distinct from reconnect IDs.
+
+Knocks have a four-second per-session minimum, a twelve-per-minute session
+limit, and a house token bucket. Movement is bounded to two changed, quantized
+updates per second. The browser does not begin sending movement until the
+visitor has knocked and opted in; the server still treats the session ID as an
+untrusted decorative identifier, never authorization.
+
+## Afterglow
+
+`afterglow_sessions` stores only a one-way session hash, palette index, and
+nullable arrival/knock timestamps. A first arrival contributes weight 1 and a
+first accepted knock contributes weight 3. Each contribution decays linearly
+to zero over 24 hours. Alarms refresh the aggregate while sockets are active
+and remove expired timestamps; rows disappear when both timestamps expire.
+
+No roster, movement, route, or knock history is persisted. Any operational logs
+are limited to aggregate throttling and error events; identifiers and raw IPs
+are never logged.
+
+## Legacy v1 contract
+
+`/v1/party?route=:canonicalPathname&sessionId=:optionalTabSessionId` still uses
+the sole `mistakes-party-presence-v1` subprotocol and the strict protocol in
+`app/lib/partyProtocol.ts`. It retains its route-local counts and four ephemeral
+signals unchanged. New site clients use v2 only.

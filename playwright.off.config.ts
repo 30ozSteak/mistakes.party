@@ -22,7 +22,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `npm run dev:realtime -- --port ${realtimePort} --persist-to ${realtimeStorage} --var ALLOWED_ORIGINS:${appUrl} --var PARTY_MODE:off --var PARTY_GENERATION:playwright-off-v1`,
+      command: `npm run dev:realtime -- --port ${realtimePort} --persist-to ${realtimeStorage} --var ALLOWED_ORIGINS:${appUrl} --var PARTY_MODE:off --var PARTY_HOUSE_MODE:off --var PARTY_GENERATION:playwright-off-v2`,
       url: `${realtimeUrl}/health`,
       reuseExistingServer: false,
       timeout: 120_000,

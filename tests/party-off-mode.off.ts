@@ -3,36 +3,36 @@ import { expect, test } from "@playwright/test";
 const realtimePort = Number(process.env.PLAYWRIGHT_OFF_REALTIME_PORT ?? 8789);
 const realtimeUrl = `ws://127.0.0.1:${realtimePort}`;
 
-test("off mode rejects party presence and removes the site control", async ({
+type PolicyClose = {
+  messages: Array<{
+    type?: string;
+    code?: string;
+    message?: string;
+    fatal?: boolean;
+  }>;
+  closeCode: number;
+};
+
+test("house-off mode removes Living Glass and rejects a v2 socket", async ({
   page,
 }) => {
   await page.goto("/");
 
-  await expect(page.getByTestId("party-presence")).toHaveCount(0, {
+  await expect(page.getByTestId("party-house")).toHaveCount(0, {
     timeout: 10_000,
   });
+  await expect(page.getByTestId("party-switchboard")).toHaveCount(0);
+  await expect(page.getByTestId("party-light")).toHaveCount(0);
 
   const result = await page.evaluate(async (baseUrl) => {
-    return new Promise<{
-      messages: Array<{
-        type?: string;
-        code?: string;
-        message?: string;
-        fatal?: boolean;
-      }>;
-      closeCode: number;
-    }>((resolve, reject) => {
-      const url = new URL(`${baseUrl}/v1/party`);
-      url.searchParams.set("route", "/off-mode-test");
-      const socket = new WebSocket(url, "mistakes-party-presence-v1");
-      const messages: Array<{
-        type?: string;
-        code?: string;
-        message?: string;
-        fatal?: boolean;
-      }> = [];
+    return new Promise<PolicyClose>((resolve, reject) => {
+      const socket = new WebSocket(
+        new URL("/v2/house", baseUrl),
+        "mistakes-party-house-v2",
+      );
+      const messages: PolicyClose["messages"] = [];
       const timer = window.setTimeout(
-        () => reject(new Error("Party off-mode socket did not close")),
+        () => reject(new Error("Living Glass off-mode socket did not close")),
         10_000,
       );
 
@@ -44,17 +44,14 @@ test("off mode rejects party presence and removes the site control", async ({
         resolve({ messages, closeCode: event.code });
       });
       socket.addEventListener("error", () => {
-        // A policy close can also dispatch an error. The close event and
-        // structured fatal message are the assertion boundary.
+        // Policy closes may also dispatch an error; the structured message and
+        // close code are the stable assertion boundary.
       });
     });
   }, realtimeUrl);
 
-  expect(result.messages).toContainEqual({
-    type: "error",
-    code: "PARTY_DISABLED",
-    message: "Party presence is disabled.",
-    fatal: true,
-  });
+  expect(result.messages).toEqual([
+    { type: "error", code: "PARTY_DISABLED", fatal: true },
+  ]);
   expect(result.closeCode).toBe(1008);
 });

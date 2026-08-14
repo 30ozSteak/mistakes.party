@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { connection } from "next/server";
 import { Analytics } from "@vercel/analytics/next";
-import { PartyPresence } from "./components/PartyPresence";
+import { PartyHouseProvider } from "./components/PartyHouse";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -57,8 +57,7 @@ export default async function RootLayout({
         />
       </head>
       <body>
-        <PartyPresence />
-        {children}
+        <PartyHouseProvider>{children}</PartyHouseProvider>
         <Analytics mode="production" />
       </body>
     </html>

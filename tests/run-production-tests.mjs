@@ -189,6 +189,7 @@ try {
       "--test",
       "tests/rendered-html.test.mjs",
       "tests/party-protocol.test.mjs",
+      "tests/party-house-protocol.test.mjs",
       "tests/medium-feed.test.mjs",
       "tests/github-feed.test.mjs",
     ],
