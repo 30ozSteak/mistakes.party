@@ -1,9 +1,9 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-const sections = [
-  ["github", "GITHUB"],
-  ["medium", "MEDIUM"],
-  ["itch", "ITCH.IO"],
+const destinations = [
+  ["github", "GITHUB", "https://github.com/30ozSteak"],
+  ["medium", "MEDIUM", "https://medium.com/@30ozsteak"],
+  ["itch", "ITCH.IO", "https://steaks.itch.io"],
 ] as const;
 
 async function waitForHome(page: Page) {
@@ -14,18 +14,7 @@ async function waitForHome(page: Page) {
   );
 }
 
-async function waitForPortalMotion(page: Page) {
-  await page.locator(".portal-destinations").evaluate(async (destinations) => {
-    const animations = destinations.getAnimations({ subtree: true });
-    await Promise.all(
-      animations.map((animation) => animation.finished.catch(() => undefined)),
-    );
-  });
-}
-
-test("the homepage is a three-part expandable external index", async ({
-  page,
-}) => {
+test("the homepage is a three-link external index", async ({ page }) => {
   await waitForHome(page);
 
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
@@ -35,57 +24,31 @@ test("the homepage is a three-part expandable external index", async ({
     page.getByRole("navigation", { name: "Elsewhere" }),
   ).toBeVisible();
   await expect(page.locator("[data-portal-section]")).toHaveCount(3);
-  await expect(page.locator('details[name="portal-sections"]')).toHaveCount(3);
   await expect(page.locator(".portal-link")).toHaveCount(3);
-  await expect(page.locator(".portal-number")).toHaveCount(0);
+  await expect(page.locator(".portal-arrow")).toHaveCount(3);
+
+  for (const [source, label, href] of destinations) {
+    const row = page.locator(`[data-portal-section="${source}"]`);
+    const link = row.getByRole("link", { name: label, exact: true });
+    await expect(link).toHaveAttribute("href", href);
+    await expect(link).toBeVisible();
+  }
+
+  await expect(page.locator("details, summary, .portal-panel")).toHaveCount(0);
   await expect(page.getByText(/PUBLIC REPOS/)).toHaveCount(0);
+  await expect(page.getByText("UNTITLED GAME 01", { exact: true })).toHaveCount(
+    0,
+  );
 
   const support = page.getByRole("link", { name: "SUPPORT ↗", exact: true });
   await expect(support).toHaveAttribute("href", "https://patreon.com/steaks");
-  await expect(page.locator('summary[aria-label="PATREON"]')).toHaveCount(0);
   await expect(page.getByText("MXP", { exact: true })).toHaveCount(0);
-
-  let previouslyOpened: Locator | null = null;
-  for (const [source, label] of sections) {
-    const details = page.locator(`[data-portal-section="${source}"]`);
-
-    await expect(details).not.toHaveAttribute("open", "");
-    await expect(details.locator(".portal-panel")).not.toBeVisible();
-    await details.locator(`summary[aria-label="${label}"]`).click();
-    await expect(details).toHaveAttribute("open", "");
-    await expect(details.locator(".portal-panel")).toBeVisible();
-    if (previouslyOpened) {
-      await expect(previouslyOpened).not.toHaveAttribute("open", "");
-    }
-    await expect(page).toHaveURL(/\/$/);
-    previouslyOpened = details;
-  }
-
-  const github = page.locator('[data-portal-section="github"]');
-  const githubSummary = github.locator("summary");
-  await githubSummary.focus();
-  await page.keyboard.press("Enter");
-  await expect(github).toHaveAttribute("open", "");
-  await expect(
-    page.locator('[data-portal-section="itch"]'),
-  ).not.toHaveAttribute("open", "");
-  await page.keyboard.press("Space");
-  await expect(github).not.toHaveAttribute("open", "");
-
-  const itch = page.locator('[data-portal-section="itch"]');
-  await itch.locator("summary").click();
-  await expect(itch.locator('[data-source-item="itch"]')).toHaveCount(5);
-  await expect(itch.getByText("UNTITLED GAME 01", { exact: true })).toBeVisible();
-  await expect(itch.getByText("UNTITLED GAME 05", { exact: true })).toBeVisible();
-
   await expect(
     page.getByRole("button", { name: "Open primary navigation" }),
   ).toHaveCount(0);
-  await expect(page.getByText("FOUR BAD DOORS")).toHaveCount(0);
-  await expect(page.getByText("PICK ONE. IT DISAPPEARS.")).toBeHidden();
 });
 
-test("the glass atmosphere responds without becoming part of the interface", async ({
+test("the atmosphere responds without becoming part of the interface", async ({
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
@@ -96,7 +59,16 @@ test("the glass atmosphere responds without becoming part of the interface", asy
   const field = atmosphere.locator(".portal-atmosphere-field");
 
   await expect(atmosphere).toHaveAttribute("aria-hidden", "true");
+  await expect(atmosphere).toHaveAttribute("data-crowd", "0");
   await expect(atmosphere).toHaveCSS("pointer-events", "none");
+  await expect(atmosphere.locator(".portal-atmosphere-glass")).toHaveCount(0);
+  expect(
+    await field.evaluate(
+      (element) => getComputedStyle(element, "::before").filter,
+    ),
+  ).toMatch(
+    /saturate\(1\.3\).*brightness\(1\.05\)/,
+  );
   await expect(
     atmosphere.locator("a, button, input, select, textarea, [tabindex]"),
   ).toHaveCount(0);
@@ -131,9 +103,9 @@ test("the glass atmosphere responds without becoming part of the interface", asy
   expect(pointerPosition.y).toBeLessThanOrEqual(16);
   expect(Math.abs(pointerPosition.turn)).toBeLessThanOrEqual(6);
 
-  const medium = page.locator('[data-portal-section="medium"]');
-  await medium.locator("summary").click();
-  await expect(medium).toHaveAttribute("open", "");
+  await page
+    .locator('[data-portal-section="medium"] > .portal-link')
+    .hover();
   await expect
     .poll(() =>
       atmosphere.evaluate((element) =>
@@ -142,7 +114,8 @@ test("the glass atmosphere responds without becoming part of the interface", asy
           .trim(),
       ),
     )
-    .toBe("5deg");
+    .toBe("2.5deg");
+
   await expect
     .poll(() =>
       page.evaluate(() =>
@@ -150,6 +123,14 @@ test("the glass atmosphere responds without becoming part of the interface", asy
       ),
     )
     .toBe(true);
+
+  const light = atmosphere.locator(".portal-house-light").first();
+  await expect(light).toBeAttached();
+  expect(
+    await light.evaluate(
+      (element) => getComputedStyle(element, "::after").borderWidth,
+    ),
+  ).toBe("0px");
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(field).toHaveCSS("transform", "none");
@@ -169,74 +150,7 @@ test("the glass atmosphere responds without becoming part of the interface", asy
   await expect(atmosphere).toHaveCSS("display", "none");
 });
 
-test("the disclosure panels ease open and closed while respecting reduced motion", async ({
-  page,
-}) => {
-  await page.emulateMedia({ reducedMotion: "no-preference" });
-  await waitForHome(page);
-
-  const itch = page.locator('[data-portal-section="itch"]');
-  const motion = await itch.evaluate(async (details) => {
-    const summary = details.querySelector("summary");
-    if (!summary) throw new Error("Disclosure summary is missing");
-
-    const sampleHeight = async () => {
-      const heights: number[] = [];
-      const start = performance.now();
-
-      do {
-        await new Promise<void>((resolve) =>
-          requestAnimationFrame(() => resolve()),
-        );
-        heights.push(details.getBoundingClientRect().height);
-      } while (performance.now() - start < 480);
-
-      return heights;
-    };
-
-    summary.click();
-    const opening = await sampleHeight();
-    summary.click();
-    const closing = await sampleHeight();
-    const panelStyle = getComputedStyle(details, "::details-content");
-
-    return {
-      closing,
-      opening,
-      transitionDuration: panelStyle.transitionDuration,
-      transitionProperty: panelStyle.transitionProperty,
-    };
-  });
-
-  expect(motion.transitionProperty).toContain("grid-template-rows");
-  expect(motion.transitionDuration).toContain("0.42s");
-  expect(motion.opening.at(-1)! - motion.opening[0]).toBeGreaterThan(100);
-  expect(motion.closing[0] - motion.closing.at(-1)!).toBeGreaterThan(100);
-  expect(
-    new Set(motion.opening.map((height) => Math.round(height))).size,
-  ).toBeGreaterThan(5);
-  expect(
-    new Set(motion.closing.map((height) => Math.round(height))).size,
-  ).toBeGreaterThan(5);
-  expect(itch).not.toHaveAttribute("open", "");
-
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  const reducedDuration = await itch.evaluate(
-    (details) =>
-      getComputedStyle(details, "::details-content").transitionDuration,
-  );
-  expect(
-    reducedDuration
-      .split(",")
-      .every((duration) => duration.trim() === "0s"),
-  ).toBe(true);
-
-  await itch.locator("summary").click();
-  await expect(itch).toHaveAttribute("open", "");
-  await expect(itch.locator(".portal-panel")).toBeVisible();
-});
-
-test("the desktop index stays balanced without labels colliding with its rules", async ({
+test("the desktop links stay balanced without labels colliding with arrows", async ({
   page,
 }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -264,41 +178,39 @@ test("the desktop index stays balanced without labels colliding with its rules",
         getComputedStyle(document.documentElement).fontSize,
       );
 
-      const rows = [...destinations.querySelectorAll("summary")].map(
-        (summary) => {
-          const summaryBox = summary.getBoundingClientRect();
-          const name = summary.querySelector(".portal-name")!;
+      const rows = [...destinations.querySelectorAll(".portal-link")].map(
+        (link) => {
+          const linkBox = link.getBoundingClientRect();
+          const name = link.querySelector(".portal-name")!;
           const nameBox = name.getBoundingClientRect();
           const nameStyle = getComputedStyle(name);
-          const toggleBox = summary
-            .querySelector(".portal-toggle")!
+          const arrowBox = link
+            .querySelector(".portal-arrow")!
             .getBoundingClientRect();
           const labelRange = document.createRange();
           labelRange.selectNodeContents(name);
           const labelBox = labelRange.getBoundingClientRect();
 
           return {
-            bottomClearance: summaryBox.bottom - nameBox.bottom,
+            arrowCenter: arrowBox.top + arrowBox.height / 2,
+            arrowLeft: arrowBox.left,
+            arrowRight: arrowBox.right,
+            bottomClearance: linkBox.bottom - nameBox.bottom,
             fontSize: Number.parseFloat(nameStyle.fontSize),
             labelRight: labelBox.right,
             nameBottom: nameBox.bottom,
             nameTop: nameBox.top,
-            rowBottom: summaryBox.bottom,
-            rowHeight: summaryBox.height,
-            rowTop: summaryBox.top,
-            toggleCenter: toggleBox.top + toggleBox.height / 2,
-            toggleLeft: toggleBox.left,
-            toggleRight: toggleBox.right,
-            topClearance: nameBox.top - summaryBox.top,
+            rowBottom: linkBox.bottom,
+            rowHeight: linkBox.height,
+            rowTop: linkBox.top,
+            topClearance: nameBox.top - linkBox.top,
           };
         },
       );
 
       return {
-        contentLeft:
-          homeBox.left + Number.parseFloat(homeStyle.paddingLeft),
-        contentRight:
-          homeBox.right - Number.parseFloat(homeStyle.paddingRight),
+        contentLeft: homeBox.left + Number.parseFloat(homeStyle.paddingLeft),
+        contentRight: homeBox.right - Number.parseFloat(homeStyle.paddingRight),
         destinations: {
           bottom: destinationsBox.bottom,
           left: destinationsBox.left,
@@ -335,15 +247,11 @@ test("the desktop index stays balanced without labels colliding with its rules",
       expect(row.topClearance).toBeGreaterThanOrEqual(10);
       expect(row.bottomClearance).toBeGreaterThanOrEqual(10);
       expect(row.rowHeight).toBeGreaterThanOrEqual(row.fontSize + 16);
-      expect(row.toggleLeft - row.labelRight).toBeGreaterThanOrEqual(24);
-      expect(row.toggleLeft).toBeGreaterThanOrEqual(
-        geometry.destinations.left,
-      );
-      expect(row.toggleRight).toBeLessThanOrEqual(
-        geometry.destinations.right,
-      );
+      expect(row.arrowLeft - row.labelRight).toBeGreaterThanOrEqual(24);
+      expect(row.arrowLeft).toBeGreaterThanOrEqual(geometry.destinations.left);
+      expect(row.arrowRight).toBeLessThanOrEqual(geometry.destinations.right);
       expect(
-        Math.abs(row.toggleCenter - (row.rowTop + row.rowHeight / 2)),
+        Math.abs(row.arrowCenter - (row.rowTop + row.rowHeight / 2)),
       ).toBeLessThan(1.5);
 
       const nextRow = geometry.rows[index + 1];
@@ -357,56 +265,10 @@ test("the desktop index stays balanced without labels colliding with its rules",
     expect(Math.max(...rowHeights) - Math.min(...rowHeights)).toBeLessThan(
       1.5,
     );
-
-    const github = page.locator('[data-portal-section="github"]');
-    await github.locator("summary").click();
-    await expect(github).toHaveAttribute("open", "");
-    await expect(github.locator(".portal-panel")).toBeVisible();
-
-    const expanded = await page
-      .locator(".portal-destinations")
-      .evaluate((destinations) => {
-        const destinationsBox = destinations.getBoundingClientRect();
-        const firstSummaryBox = destinations
-          .querySelector("summary")!
-          .getBoundingClientRect();
-        const panelBox = destinations
-          .querySelector(".portal-panel")!
-          .getBoundingClientRect();
-        const nextSummaryBox = destinations
-          .querySelectorAll("summary")[1]!
-          .getBoundingClientRect();
-
-        return {
-          destinationsLeft: destinationsBox.left,
-          destinationsRight: destinationsBox.right,
-          documentScrollWidth: document.documentElement.scrollWidth,
-          firstSummaryBottom: firstSummaryBox.bottom,
-          nextSummaryTop: nextSummaryBox.top,
-          panelBottom: panelBox.bottom,
-          panelLeft: panelBox.left,
-          panelRight: panelBox.right,
-          panelTop: panelBox.top,
-        };
-      });
-
-    expect(
-      Math.abs(expanded.panelLeft - expanded.destinationsLeft),
-    ).toBeLessThan(1.5);
-    expect(
-      Math.abs(expanded.panelRight - expanded.destinationsRight),
-    ).toBeLessThan(1.5);
-    expect(expanded.panelTop).toBeGreaterThanOrEqual(
-      expanded.firstSummaryBottom - 1.5,
-    );
-    expect(expanded.nextSummaryTop).toBeGreaterThanOrEqual(
-      expanded.panelBottom - 1.5,
-    );
-    expect(expanded.documentScrollWidth).toBeLessThanOrEqual(size.width);
   }
 });
 
-test("the disclosures stay usable and horizontally contained on small phones", async ({
+test("the direct links stay usable and contained on small phones", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 320, height: 568 });
@@ -467,18 +329,18 @@ test("the disclosures stay usable and horizontally contained on small phones", a
       ),
     ).toBeLessThanOrEqual(1);
 
-    for (const [, label] of sections) {
-      const summary = page.locator(`summary[aria-label="${label}"]`);
-      const [summaryBox, nameBox] = await Promise.all([
-        summary.boundingBox(),
-        summary.locator(".portal-name").boundingBox(),
+    for (const [, label] of destinations) {
+      const link = page.getByRole("link", { name: label, exact: true });
+      const [linkBox, nameBox] = await Promise.all([
+        link.boundingBox(),
+        link.locator(".portal-name").boundingBox(),
       ]);
-      expect(summaryBox).not.toBeNull();
+      expect(linkBox).not.toBeNull();
       expect(nameBox).not.toBeNull();
-      expect(summaryBox!.x).toBeGreaterThanOrEqual(0);
-      expect(summaryBox!.x + summaryBox!.width).toBeLessThanOrEqual(size.width);
-      expect(summaryBox!.height).toBeGreaterThanOrEqual(44);
-      expect(Math.abs(nameBox!.x - summaryBox!.x)).toBeLessThanOrEqual(1);
+      expect(linkBox!.x).toBeGreaterThanOrEqual(0);
+      expect(linkBox!.x + linkBox!.width).toBeLessThanOrEqual(size.width);
+      expect(linkBox!.height).toBeGreaterThanOrEqual(44);
+      expect(Math.abs(nameBox!.x - linkBox!.x)).toBeLessThanOrEqual(1);
     }
 
     const supportBox = await page
@@ -489,40 +351,18 @@ test("the disclosures stay usable and horizontally contained on small phones", a
     expect(supportBox!.height).toBeGreaterThanOrEqual(44);
   }
 
-  await page.setViewportSize({ width: 320, height: 568 });
-  let previouslyOpened: Locator | null = null;
-  for (const [source] of sections) {
-    const details = page.locator(`[data-portal-section="${source}"]`);
-    await details.locator("summary").click();
-    if ((await details.getAttribute("open")) === null) {
-      await details.locator("summary").click();
-    }
-    await expect(details).toHaveAttribute("open", "");
-    if (previouslyOpened) {
-      await expect(previouslyOpened).not.toHaveAttribute("open", "");
-    }
-    previouslyOpened = details;
-  }
-
-  await waitForPortalMotion(page);
-
-  const expandedViewport = await page.evaluate(() => ({
-    innerHeight,
-    scrollHeight: document.documentElement.scrollHeight,
-    scrollWidth: document.documentElement.scrollWidth,
-    innerWidth,
-  }));
-  expect(expandedViewport.scrollHeight).toBeGreaterThan(
-    expandedViewport.innerHeight,
+  const githubLink = page.getByRole("link", { name: "GITHUB", exact: true });
+  await page.mouse.move(0, 0);
+  const restingBackground = await githubLink.evaluate(
+    (element) => getComputedStyle(element).backgroundColor,
   );
-  expect(expandedViewport.scrollWidth).toBeLessThanOrEqual(
-    expandedViewport.innerWidth,
-  );
-
-  const lastGame = page.locator('[data-source-item="itch"]').last();
-  await lastGame.scrollIntoViewIfNeeded();
-  await expect(lastGame).toBeVisible();
-  await page.locator(".portal-footer").scrollIntoViewIfNeeded();
+  await expect(githubLink).toHaveCSS("outline-style", "none");
+  await githubLink.hover();
+  await expect(githubLink).toHaveCSS("background-color", restingBackground);
+  await githubLink.focus();
+  await expect(githubLink).toBeFocused();
+  await expect(githubLink).toHaveCSS("outline-style", "solid");
+  await expect(githubLink).toHaveCSS("background-color", restingBackground);
 
   const partySwitchboard = page.getByTestId("party-switchboard");
   const email = page.getByRole("link", { name: "HELLO@MISTAKES.PARTY" });
@@ -539,62 +379,6 @@ test("the disclosures stay usable and horizontally contained on small phones", a
     emailBox!.y >= partyBox!.y + partyBox!.height
   );
   expect(overlaps).toBe(false);
-
-  const githubSummary = page.locator(
-    '[data-portal-section="github"] summary',
-  );
-  await page.mouse.move(0, 0);
-  await githubSummary.evaluate((element) => (element as HTMLElement).blur());
-  const restingBackground = await githubSummary.evaluate(
-    (element) => getComputedStyle(element).backgroundColor,
-  );
-  await expect(githubSummary).toHaveCSS("outline-style", "none");
-  await githubSummary.hover();
-  await expect
-    .poll(() =>
-      githubSummary.evaluate(
-        (element) => getComputedStyle(element).backgroundColor,
-      ),
-    )
-    .toBe(restingBackground);
-  await page.mouse.move(0, 0);
-  for (let attempt = 0; attempt < 8; attempt += 1) {
-    if (
-      await githubSummary.evaluate(
-        (element) => element === document.activeElement,
-      )
-    ) {
-      break;
-    }
-    await page.keyboard.press("Tab");
-  }
-  await expect(githubSummary).toBeFocused();
-  await expect(githubSummary).toHaveCSS("outline-style", "solid");
-  await expect(githubSummary).toHaveCSS(
-    "background-color",
-    restingBackground,
-  );
-  await githubSummary.evaluate((element) => (element as HTMLElement).blur());
-  await page.mouse.move(0, 0);
-  await expect
-    .poll(() =>
-      githubSummary.evaluate(
-        (element) => getComputedStyle(element).backgroundColor,
-      ),
-    )
-    .toBe(restingBackground);
-
-  await githubSummary.click();
-  await expect(
-    page.locator('[data-portal-section="github"]'),
-  ).toHaveAttribute("open", "");
-  await expect(
-    page.locator('[data-portal-section="itch"]'),
-  ).not.toHaveAttribute("open", "");
-  await expect(githubSummary).toHaveCSS(
-    "background-color",
-    restingBackground,
-  );
 
   await expect(page.getByTestId("party-house")).toHaveAttribute(
     "data-connection",

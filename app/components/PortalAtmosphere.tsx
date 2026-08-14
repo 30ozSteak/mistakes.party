@@ -254,7 +254,6 @@ export function PortalAtmosphere() {
       ref={atmosphereRef}
     >
       <div className="portal-atmosphere-field" />
-      <div className="portal-atmosphere-glass" />
       <div className="portal-house-lights">
         {visualLights.map((light) => (
           <i
