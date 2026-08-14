@@ -129,6 +129,28 @@ function log(event: string, details: Record<string, number | string> = {}): void
   console.log(JSON.stringify({ event, ...details }));
 }
 
+type HandshakeLimitResult = "allowed" | "rate-limited" | "unavailable";
+
+async function checkHandshakeLimits(
+  env: PartyEnv,
+  scope: "house" | "party",
+  clientIp: string,
+): Promise<HandshakeLimitResult> {
+  try {
+    // The per-IP bucket limits one source. The shared bucket also bounds
+    // distributed churn before it reaches Durable Objects. Realtime presence
+    // is decorative, so limiter failure must fail closed instead of exposing
+    // an unbounded billable path.
+    for (const key of [`${scope}:ip:${clientIp}`, `${scope}:global`]) {
+      const outcome = await env.PARTY_HANDSHAKE_RATE_LIMITER.limit({ key });
+      if (!outcome.success) return "rate-limited";
+    }
+    return "allowed";
+  } catch {
+    return "unavailable";
+  }
+}
+
 export default {
   async fetch(request: Request, env: PartyEnv): Promise<Response> {
     const url = new URL(request.url);
@@ -196,22 +218,19 @@ export default {
       }
 
       const clientIp = request.headers.get("cf-connecting-ip") ?? "local";
-      if (env.PARTY_HANDSHAKE_RATE_LIMITER) {
-        try {
-          const outcome = await env.PARTY_HANDSHAKE_RATE_LIMITER.limit({
-            key: `house:${clientIp}`,
-          });
-          if (!outcome.success) {
-            log("party_house_handshake_rate_limited");
-            return jsonResponse(
-              { code: "RATE_LIMITED", message: "Too many house connections." },
-              { status: 429 },
-              corsHeaders(request, env),
-            );
-          }
-        } catch {
-          log("party_house_handshake_rate_limiter_unavailable");
-        }
+      const limitResult = await checkHandshakeLimits(env, "house", clientIp);
+      if (limitResult !== "allowed") {
+        log(`party_house_handshake_${limitResult.replace("-", "_")}`);
+        return jsonResponse(
+          limitResult === "rate-limited"
+            ? { code: "RATE_LIMITED", message: "Too many house connections." }
+            : {
+                code: "SERVICE_UNAVAILABLE",
+                message: "Party admission is temporarily unavailable.",
+              },
+          { status: limitResult === "rate-limited" ? 429 : 503 },
+          corsHeaders(request, env),
+        );
       }
       const configuredHouseMode: string = env.PARTY_HOUSE_MODE;
       if (
@@ -285,23 +304,19 @@ export default {
     }
 
     const clientIp = request.headers.get("cf-connecting-ip") ?? "local";
-    if (env.PARTY_HANDSHAKE_RATE_LIMITER) {
-      try {
-        const outcome = await env.PARTY_HANDSHAKE_RATE_LIMITER.limit({
-          key: clientIp,
-        });
-        if (!outcome.success) {
-          log("party_handshake_rate_limited");
-          return jsonResponse(
-            { code: "RATE_LIMITED", message: "Too many party connections." },
-            { status: 429 },
-            corsHeaders(request, env),
-          );
-        }
-      } catch {
-        // The route socket cap remains an amplification bound if the binding fails.
-        log("party_handshake_rate_limiter_unavailable");
-      }
+    const limitResult = await checkHandshakeLimits(env, "party", clientIp);
+    if (limitResult !== "allowed") {
+      log(`party_handshake_${limitResult.replace("-", "_")}`);
+      return jsonResponse(
+        limitResult === "rate-limited"
+          ? { code: "RATE_LIMITED", message: "Too many party connections." }
+          : {
+              code: "SERVICE_UNAVAILABLE",
+              message: "Party admission is temporarily unavailable.",
+            },
+        { status: limitResult === "rate-limited" ? 429 : 503 },
+        corsHeaders(request, env),
+      );
     }
 
     const generation = partyGeneration(env);

@@ -91,8 +91,19 @@ async function fetchGithubRepoDetail(
   if (!isGithubRepoName(repoName)) return { status: "not-found" };
 
   try {
+    // Resolve against the owner's bounded, constant-key repository index
+    // before constructing a detail URL. Otherwise an attacker can generate
+    // unlimited valid-looking slugs and force a new outbound request/cache key
+    // for every one. An unavailable index is different from a confirmed miss.
+    const repos = await fetchGithubRepos();
+    if (repos.length === 0) return { status: "unavailable" };
+    const indexedRepo = repos.find(
+      ({ name }) => name.toLowerCase() === repoName.toLowerCase(),
+    );
+    if (!indexedRepo) return { status: "not-found" };
+
     const response = await fetch(
-      `https://api.github.com/repos/${GITHUB_OWNER}/${encodeURIComponent(repoName)}`,
+      `https://api.github.com/repos/${GITHUB_OWNER}/${encodeURIComponent(indexedRepo.name)}`,
       {
         headers: { Accept: "application/vnd.github+json" },
         next: { revalidate: 900 },

@@ -36,6 +36,10 @@ export const viewport: Viewport = {
   colorScheme: "light",
 };
 
+// All pages are intentionally request-rendered for the per-response CSP nonce.
+// Bound unexpected work rather than inheriting the platform's longer default.
+export const maxDuration = 10;
+
 export default async function RootLayout({
   children,
 }: Readonly<{

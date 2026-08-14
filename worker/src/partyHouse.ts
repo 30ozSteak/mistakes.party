@@ -19,6 +19,7 @@ import {
 } from "../../app/lib/partyHouseProtocol";
 
 const HOUSE_SOCKET_CAP = 512;
+export const PARTY_HOUSE_AFTERGLOW_SESSION_CAP = 2_048;
 const AFTERGLOW_FULL_STRENGTH = 4;
 const HOUSE_SOCKETS_PER_SESSION = 2;
 const HOUSE_COHORT_SIZE = 12;
@@ -261,30 +262,52 @@ export class PartyHouse extends DurableObject<PartyEnv> {
         "SELECT COALESCE(MAX(id), 0) AS version FROM _house_schema_migrations",
       )
       .one().version;
-    if (version >= 1) return;
-
     const now = Date.now();
-    this.ctx.storage.sql.exec(`
-      CREATE TABLE IF NOT EXISTS afterglow_sessions (
-        session_hash TEXT PRIMARY KEY,
-        color INTEGER NOT NULL CHECK (color BETWEEN 0 AND 3),
-        arrival_at INTEGER,
-        knock_at INTEGER
-      );
-      CREATE INDEX IF NOT EXISTS afterglow_arrival_idx
-        ON afterglow_sessions(arrival_at);
-      CREATE INDEX IF NOT EXISTS afterglow_knock_idx
-        ON afterglow_sessions(knock_at);
-      CREATE TABLE IF NOT EXISTS house_limits (
-        id INTEGER PRIMARY KEY CHECK (id = 1),
-        knock_tokens_milli INTEGER NOT NULL,
-        knock_refilled_at INTEGER NOT NULL
-      );
-      INSERT OR IGNORE INTO house_limits
-        (id, knock_tokens_milli, knock_refilled_at)
-        VALUES (1, ${HOUSE_KNOCK_BURST_MILLI}, ${now});
-      INSERT INTO _house_schema_migrations (id, applied_at) VALUES (1, ${now});
-    `);
+    if (version < 1) {
+      this.ctx.storage.sql.exec(`
+        CREATE TABLE IF NOT EXISTS afterglow_sessions (
+          session_hash TEXT PRIMARY KEY,
+          color INTEGER NOT NULL CHECK (color BETWEEN 0 AND 3),
+          arrival_at INTEGER,
+          knock_at INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS afterglow_arrival_idx
+          ON afterglow_sessions(arrival_at);
+        CREATE INDEX IF NOT EXISTS afterglow_knock_idx
+          ON afterglow_sessions(knock_at);
+        CREATE TABLE IF NOT EXISTS house_limits (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          knock_tokens_milli INTEGER NOT NULL,
+          knock_refilled_at INTEGER NOT NULL
+        );
+        INSERT OR IGNORE INTO house_limits
+          (id, knock_tokens_milli, knock_refilled_at)
+          VALUES (1, ${HOUSE_KNOCK_BURST_MILLI}, ${now});
+        INSERT INTO _house_schema_migrations (id, applied_at) VALUES (1, ${now});
+      `);
+    }
+
+    if (version < 2) {
+      // The afterglow is decorative. Keep the newest bounded set and enforce
+      // the cap in SQLite so no code path can create unbounded storage or
+      // increasingly expensive scans during connection churn.
+      this.ctx.storage.sql.exec(`
+        DELETE FROM afterglow_sessions
+        WHERE session_hash NOT IN (
+          SELECT session_hash
+          FROM afterglow_sessions
+          ORDER BY MAX(COALESCE(arrival_at, 0), COALESCE(knock_at, 0)) DESC
+          LIMIT ${PARTY_HOUSE_AFTERGLOW_SESSION_CAP}
+        );
+        CREATE TRIGGER IF NOT EXISTS afterglow_sessions_cap
+        BEFORE INSERT ON afterglow_sessions
+        WHEN (SELECT COUNT(*) FROM afterglow_sessions) >= ${PARTY_HOUSE_AFTERGLOW_SESSION_CAP}
+        BEGIN
+          SELECT RAISE(IGNORE);
+        END;
+        INSERT INTO _house_schema_migrations (id, applied_at) VALUES (2, ${now});
+      `);
+    }
   }
 
   private allSockets(except?: WebSocket): WebSocket[] {
@@ -501,20 +524,24 @@ export class PartyHouse extends DurableObject<PartyEnv> {
   }
 
   private earliestAfterglowExpiry(now: number): number | null {
-    let earliest: number | null = null;
-    const rows = this.ctx.storage.sql
-      .exec<{ arrival_at: number | null; knock_at: number | null }>(
-        "SELECT arrival_at, knock_at FROM afterglow_sessions",
+    const earliestArrival = this.ctx.storage.sql
+      .exec<{ value: number | null }>(
+        "SELECT MIN(arrival_at) AS value FROM afterglow_sessions WHERE arrival_at IS NOT NULL",
       )
-      .toArray();
-    for (const row of rows) {
-      for (const timestamp of [row.arrival_at, row.knock_at]) {
-        if (timestamp === null) continue;
-        const expiry = Math.max(now + 1, timestamp + PARTY_HOUSE_AFTERGLOW_WINDOW_MS);
-        earliest = earliest === null ? expiry : Math.min(earliest, expiry);
-      }
-    }
-    return earliest;
+      .one().value;
+    const earliestKnock = this.ctx.storage.sql
+      .exec<{ value: number | null }>(
+        "SELECT MIN(knock_at) AS value FROM afterglow_sessions WHERE knock_at IS NOT NULL",
+      )
+      .one().value;
+    const timestamps = [earliestArrival, earliestKnock].filter(
+      (value): value is number => value !== null,
+    );
+    if (timestamps.length === 0) return null;
+    return Math.max(
+      now + 1,
+      Math.min(...timestamps) + PARTY_HOUSE_AFTERGLOW_WINDOW_MS,
+    );
   }
 
   private async scheduleNextAlarm(now: number): Promise<void> {
@@ -652,7 +679,6 @@ export class PartyHouse extends DurableObject<PartyEnv> {
       invalidCount: 0,
     } satisfies HouseSocketAttachment);
     this.ctx.acceptWebSocket(server);
-    this.recomputeAfterglow(now);
     await this.scheduleNextAlarm(now);
 
     return new Response(null, {

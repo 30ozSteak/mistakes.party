@@ -36,6 +36,14 @@ const nextConfig: NextConfig = {
   env: {
     NEXT_PUBLIC_PARTY_REALTIME_URL: partyRealtimeUrl,
   },
+  experimental: {
+    // The only Server Action accepts two short text fields. Keeping the raw
+    // multipart body small prevents oversized requests from consuming a full
+    // function invocation before application validation can run.
+    serverActions: {
+      bodySizeLimit: "32kb",
+    },
+  },
   poweredByHeader: false,
   trailingSlash: true,
   async headers() {

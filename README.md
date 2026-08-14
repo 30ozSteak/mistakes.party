@@ -34,6 +34,25 @@ minute). Vercel documents Server Action targeting in its
 The application rejects short credentials, but a durable edge limit is still
 needed to prevent distributed online guessing.
 
+### Cost safeguards
+
+The checked-in application bounds server work in several layers:
+
+- request-rendered Next.js routes declare a ten-second maximum duration;
+- Server Action bodies are capped at 32KB;
+- repository detail requests must first match the bounded GitHub owner index,
+  so arbitrary slugs cannot create arbitrary outbound fetch keys;
+- realtime admission uses both per-IP and global limits before Durable Objects;
+- Worker invocations have a 100ms CPU ceiling, and the rolling afterglow stores
+  at most 2,048 anonymous sessions.
+
+Account-level controls are still required. On Vercel Pro, configure
+[Spend Management](https://vercel.com/docs/spend-management) with **Pause
+production deployments** enabled; a notification-only budget is not a hard
+stop. Keep the Server Action Firewall rule above in place. On Cloudflare Paid,
+configure a low usage budget alert and monitor Worker and Durable Object usage;
+Cloudflare budget alerts notify but do not automatically stop usage.
+
 Use the server-derived flag or wrapper for individual features:
 
 ```tsx

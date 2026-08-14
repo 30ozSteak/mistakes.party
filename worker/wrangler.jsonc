@@ -11,7 +11,7 @@
       "name": "PARTY_HANDSHAKE_RATE_LIMITER",
       "namespace_id": "73190412",
       "simple": {
-        "limit": 120,
+        "limit": 60,
         "period": 60
       }
     }
@@ -54,12 +54,15 @@
       "observability": {
         "enabled": true
       },
+      "limits": {
+        "cpu_ms": 100
+      },
       "ratelimits": [
         {
           "name": "PARTY_HANDSHAKE_RATE_LIMITER",
           "namespace_id": "73190412",
           "simple": {
-            "limit": 120,
+            "limit": 60,
             "period": 60
           }
         }

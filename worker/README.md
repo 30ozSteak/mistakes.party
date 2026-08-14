@@ -88,13 +88,22 @@ updates per second. The browser does not begin sending movement until the
 visitor has knocked and opted in; the server still treats the session ID as an
 untrusted decorative identifier, never authorization.
 
+Before either realtime route reaches a Durable Object, the Worker consumes a
+per-IP and a shared global admission bucket. The checked-in limit permits 60
+handshakes per minute for each bucket. Limiter errors fail closed because this
+decorative feature should become unavailable rather than expose an unbounded
+stateful path. Worker and Durable Object events also have a 100ms CPU ceiling.
+
 ## Afterglow
 
 `afterglow_sessions` stores only a one-way session hash, palette index, and
 nullable arrival/knock timestamps. A first arrival contributes weight 1 and a
 first accepted knock contributes weight 3. Each contribution decays linearly
 to zero over 24 hours. Alarms refresh the aggregate while sockets are active
-and remove expired timestamps; rows disappear when both timestamps expire.
+and remove expired timestamps; rows disappear when both timestamps expire. A
+SQLite trigger hard-caps the table at 2,048 sessions, preserving bounded scans
+under distributed connection churn. Once full, live presence continues but
+new sessions do not affect the afterglow until expired rows are removed.
 
 No roster, movement, route, or knock history is persisted. Any operational logs
 are limited to aggregate throttling and error events; identifiers and raw IPs

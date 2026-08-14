@@ -19,6 +19,7 @@ import {
   type PartyHouseServerMessage,
 } from "../app/lib/partyHouseProtocol";
 import worker, { PartyHouse } from "../worker/src/index";
+import { PARTY_HOUSE_AFTERGLOW_SESSION_CAP } from "../worker/src/partyHouse";
 
 const ORIGIN = "http://localhost:3000";
 const HOUSE_URL = `${ORIGIN}/v2/house`;
@@ -120,6 +121,16 @@ function uuid(index: number): string {
   return `00000000-0000-4000-8000-${index.toString().padStart(12, "0")}`;
 }
 
+function withRateLimiter(limit: RateLimit["limit"]): GeneratedPartyEnv {
+  const testEnv = Object.create(env) as GeneratedPartyEnv;
+  Object.defineProperty(testEnv, "PARTY_HANDSHAKE_RATE_LIMITER", {
+    configurable: true,
+    enumerable: true,
+    value: { limit } satisfies RateLimit,
+  });
+  return testEnv;
+}
+
 afterEach(async () => {
   for (const socket of openSockets) {
     try {
@@ -133,6 +144,30 @@ afterEach(async () => {
 });
 
 describe("Living Glass Worker endpoint", () => {
+  it("uses per-IP and global admission buckets and fails closed", async () => {
+    const keys: string[] = [];
+    const admitted = withRateLimiter(async ({ key }) => {
+      keys.push(key);
+      return { success: true };
+    });
+    const response = await worker.fetch(houseRequest(), admitted);
+    expect(response.status).toBe(101);
+    expect(keys).toEqual(["house:ip:local", "house:global"]);
+    const socket = response.webSocket;
+    if (!socket) throw new Error("Expected a WebSocket upgrade");
+    socket.accept();
+    openSockets.add(socket);
+
+    const unavailable = withRateLimiter(async () => {
+      throw new Error("Limiter unavailable");
+    });
+    const rejected = await worker.fetch(houseRequest(), unavailable);
+    expect(rejected.status).toBe(503);
+    await expect(rejected.json()).resolves.toMatchObject({
+      code: "SERVICE_UNAVAILABLE",
+    });
+  });
+
   it("requires the v2 path, exact subprotocol, no query, and a hello first", async () => {
     const noUpgrade = await worker.fetch(
       new Request(HOUSE_URL, { headers: { origin: ORIGIN } }),
@@ -494,4 +529,52 @@ describe("Living Glass Worker endpoint", () => {
     expect(reconnectWelcome.presenceCount).toBe(1);
     expect(reconnectWelcome.afterglow.intensity).toBe(0);
   });
+
+  it(
+    "hard-caps persisted afterglow sessions",
+    async () => {
+      const house = await openHouse();
+      const welcome = await hello(house);
+      const stub = env.PARTY_HOUSE.getByName(
+        `party-house:${welcome.generation}`,
+      );
+
+      await runInDurableObject(stub, async (_instance: PartyHouse, state) => {
+        const now = Date.now();
+        const requestedRows = PARTY_HOUSE_AFTERGLOW_SESSION_CAP + 32;
+        const batchSize = 256;
+        for (let offset = 0; offset < requestedRows; offset += batchSize) {
+          const rows = Math.min(batchSize, requestedRows - offset);
+          state.storage.sql.exec(
+            `WITH RECURSIVE seq(value) AS (
+               VALUES(0)
+               UNION ALL
+               SELECT value + 1 FROM seq WHERE value < ?
+             )
+             INSERT OR IGNORE INTO afterglow_sessions
+               (session_hash, color, arrival_at, knock_at)
+             SELECT 'cost-cap-' || (? + value), value % 4, ?, NULL FROM seq`,
+            rows - 1,
+            offset,
+            now,
+          );
+        }
+
+        const count = state.storage.sql
+          .exec<{ count: number }>(
+            "SELECT COUNT(*) AS count FROM afterglow_sessions",
+          )
+          .one().count;
+        expect(count).toBe(PARTY_HOUSE_AFTERGLOW_SESSION_CAP);
+        expect(
+          state.storage.sql
+            .exec<{ version: number }>(
+              "SELECT MAX(id) AS version FROM _house_schema_migrations",
+            )
+            .one().version,
+        ).toBe(2);
+      });
+    },
+    30_000,
+  );
 });

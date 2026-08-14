@@ -236,6 +236,15 @@ test("renders internal source detail pages with prominent external CTAs", async 
   );
 });
 
+test("rejects unindexed GitHub detail slugs without a detail fetch", async () => {
+  const response = await fetch(
+    new URL("/code/attacker-generated-repository-name/", testBaseUrl),
+    { headers: { accept: "text/html" } },
+  );
+
+  assert.equal(response.status, 404);
+});
+
 test("renders a Medium fixture detail page with its authoritative source CTA", async () => {
   const { headers, html } = await readRenderedPage("/blogs/medium-post-01/");
 
