@@ -40,8 +40,9 @@ test("the homepage is a three-link external index", async ({ page }) => {
     0,
   );
 
-  const support = page.getByRole("link", { name: "SUPPORT ↗", exact: true });
-  await expect(support).toHaveAttribute("href", "https://patreon.com/steaks");
+  await expect(
+    page.getByRole("link", { name: "SUPPORT ↗", exact: true }),
+  ).toHaveCount(0);
   await expect(page.getByText("MXP", { exact: true })).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Open primary navigation" }),
@@ -128,9 +129,9 @@ test("the atmosphere responds without becoming part of the interface", async ({
   await expect(light).toBeAttached();
   expect(
     await light.evaluate(
-      (element) => getComputedStyle(element, "::after").borderWidth,
+      (element) => getComputedStyle(element, "::after").content,
     ),
-  ).toBe("0px");
+  ).toBe("none");
 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect(field).toHaveCSS("transform", "none");
@@ -342,13 +343,6 @@ test("the direct links stay usable and contained on small phones", async ({
       expect(linkBox!.height).toBeGreaterThanOrEqual(44);
       expect(Math.abs(nameBox!.x - linkBox!.x)).toBeLessThanOrEqual(1);
     }
-
-    const supportBox = await page
-      .getByRole("link", { name: "SUPPORT ↗", exact: true })
-      .boundingBox();
-    expect(supportBox).not.toBeNull();
-    expect(supportBox!.width).toBeGreaterThanOrEqual(44);
-    expect(supportBox!.height).toBeGreaterThanOrEqual(44);
   }
 
   const githubLink = page.getByRole("link", { name: "GITHUB", exact: true });

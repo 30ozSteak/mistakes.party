@@ -116,10 +116,7 @@ test("renders the quiet external link index", async () => {
   assert.match(html, /og\.png/);
   assert.equal((html.match(/<h1[ >]/g) || []).length, 1);
   assert.match(html, /<h1>MISTAKES\.PARTY<\/h1>/);
-  assert.match(
-    html,
-    /href="https:\/\/patreon\.com\/steaks">SUPPORT ↗<\/a>/,
-  );
+  assert.doesNotMatch(html, /patreon\.com\/steaks|SUPPORT ↗/);
   assert.match(html, /class="skip-link" href="#elsewhere">SKIP TO THE LINKS/);
   assert.match(html, /<nav aria-label="Elsewhere"/);
   assert.equal((html.match(/data-portal-section=/g) || []).length, 3);

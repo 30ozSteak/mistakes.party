@@ -68,17 +68,16 @@ test("counts distinct tabs in one sitewide house across public routes", async ({
 
     const visualState = await atmosphere.evaluate((element) => {
       const style = getComputedStyle(element);
-      const cores = [...element.querySelectorAll('[data-testid="party-light"]')]
-        .map((light) => getComputedStyle(light, "::after"))
-        .map((core) => ({
-          backgroundColor: core.backgroundColor,
-          width: Number.parseFloat(core.width),
+      const lights = [...element.querySelectorAll('[data-testid="party-light"]')]
+        .map((light) => ({
+          field: getComputedStyle(light, "::before").backgroundImage,
+          core: getComputedStyle(light, "::after").content,
         }));
       return {
         activeColors: [0, 1, 2, 3].map((color) =>
           Number.parseFloat(style.getPropertyValue(`--party-color-${color}`)),
         ),
-        cores,
+        lights,
         presenceStrength: Number.parseFloat(
           style.getPropertyValue("--party-presence-strength"),
         ),
@@ -86,10 +85,10 @@ test("counts distinct tabs in one sitewide house across public routes", async ({
     });
     expect(visualState.presenceStrength).toBeGreaterThan(0.6);
     expect(visualState.activeColors.some((weight) => weight > 0.25)).toBe(true);
-    expect(visualState.cores).toHaveLength(3);
-    for (const core of visualState.cores) {
-      expect(core.width).toBeGreaterThanOrEqual(13);
-      expect(core.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+    expect(visualState.lights).toHaveLength(3);
+    for (const light of visualState.lights) {
+      expect(light.field).toContain("radial-gradient");
+      expect(light.core).toBe("none");
     }
 
     const homeSession = await readSession(home.page);

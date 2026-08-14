@@ -4,7 +4,6 @@ import { MEDIUM_PROFILE_URL } from "./lib/medium";
 
 const GITHUB_PROFILE_URL = "https://github.com/30ozSteak";
 const ITCH_PROFILE_URL = "https://steaks.itch.io";
-const SUPPORT_URL = "https://patreon.com/steaks";
 
 const destinations = [
   { href: GITHUB_PROFILE_URL, label: "GITHUB", source: "github" },
@@ -25,7 +24,6 @@ export default function Home() {
         <header className="portal-masthead">
           <h1>MISTAKES.PARTY</h1>
           <PartySwitchboard surface="home" />
-          <a href={SUPPORT_URL}>SUPPORT ↗</a>
         </header>
 
         <nav
