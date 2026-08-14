@@ -8,11 +8,27 @@ const POINTER_RANGE_X = 24;
 const POINTER_RANGE_Y = 16;
 const POINTER_TURN = 6;
 const LIGHT_DEPARTURE_MS = 400;
+const PARTY_COLOR_COUNT = 4;
 
 type VisualLight = PartyHouseLight & { leaving: boolean };
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function activeColorWeights(lights: PartyHouseLight[]): number[] {
+  const weights = Array<number>(PARTY_COLOR_COUNT).fill(0);
+  if (lights.length === 0) return weights;
+  for (const light of lights) weights[light.color] += 1 / lights.length;
+  return weights;
+}
+
+function crowdLevel(presenceCount: number | null): number {
+  if (presenceCount === null || presenceCount <= 1) return 0;
+  if (presenceCount === 2) return 1;
+  if (presenceCount <= 4) return 2;
+  if (presenceCount <= 8) return 3;
+  return 4;
 }
 
 function visualCohort(
@@ -39,6 +55,15 @@ export function PortalAtmosphere() {
         ? visualCohort(house.self, house.lights)
         : [],
     [house.connectionState, house.lights, house.self],
+  );
+  const activeWeights = useMemo(
+    () => activeColorWeights(desiredLights),
+    [desiredLights],
+  );
+  const presenceStrength = clamp(
+    ((house.presenceCount ?? 1) - 1) / 3,
+    0,
+    1,
   );
 
   useEffect(() => {
@@ -88,17 +113,29 @@ export function PortalAtmosphere() {
     const atmosphere = atmosphereRef.current;
     if (!atmosphere) return;
     const atmosphereStyle = atmosphere.style;
+    const afterglowIntensity = house.afterglow.intensity / 1_000;
     house.afterglow.weights.forEach((weight, color) => {
       atmosphereStyle.setProperty(
-        `--party-afterglow-${color}`,
-        String(weight / 1_000),
+        `--party-color-${color}`,
+        String(
+          clamp(
+            activeWeights[color] * 0.82 +
+              (weight / 1_000) * afterglowIntensity * 0.42,
+            0,
+            1,
+          ),
+        ),
       );
     });
     atmosphereStyle.setProperty(
       "--party-afterglow-intensity",
-      String(house.afterglow.intensity / 1_000),
+      String(afterglowIntensity),
     );
-  }, [house.afterglow]);
+    atmosphereStyle.setProperty(
+      "--party-presence-strength",
+      String(presenceStrength),
+    );
+  }, [activeWeights, house.afterglow, presenceStrength]);
 
   useEffect(() => {
     const atmosphere = atmosphereRef.current;
@@ -209,10 +246,7 @@ export function PortalAtmosphere() {
         weights: house.afterglow.weights,
         intensity: house.afterglow.intensity,
       })}
-      data-crowd={Math.min(
-        4,
-        Math.max(0, Math.ceil(((house.presenceCount ?? 1) - 12) / 24)),
-      )}
+      data-crowd={crowdLevel(house.presenceCount)}
       data-party-swell={
         house.swell === 0 ? "idle" : house.swell % 2 === 0 ? "even" : "odd"
       }
@@ -220,6 +254,7 @@ export function PortalAtmosphere() {
       ref={atmosphereRef}
     >
       <div className="portal-atmosphere-field" />
+      <div className="portal-atmosphere-glass" />
       <div className="portal-house-lights">
         {visualLights.map((light) => (
           <i
@@ -248,7 +283,6 @@ export function PortalAtmosphere() {
           />
         ))}
       </div>
-      <div className="portal-atmosphere-glass" />
       <div className="portal-house-pips">
         {visualLights.map((light) => (
           <i data-color={light.color} key={light.id} />

@@ -19,6 +19,7 @@ import {
 } from "../../app/lib/partyHouseProtocol";
 
 const HOUSE_SOCKET_CAP = 512;
+const AFTERGLOW_FULL_STRENGTH = 4;
 const HOUSE_SOCKETS_PER_SESSION = 2;
 const HOUSE_COHORT_SIZE = 12;
 const HELLO_TIMEOUT_MS = 10_000;
@@ -402,7 +403,10 @@ export class PartyHouse extends DurableObject<PartyEnv> {
     }
     const afterglow: PartyHouseAfterglow = {
       weights: normalizeWeights(rawWeights),
-      intensity: Math.min(1_000, Math.round((total / 12) * 1_000)),
+      intensity: Math.min(
+        1_000,
+        Math.round((total / AFTERGLOW_FULL_STRENGTH) * 1_000),
+      ),
       asOf: now,
       windowMs: PARTY_HOUSE_AFTERGLOW_WINDOW_MS,
     };

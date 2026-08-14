@@ -275,7 +275,7 @@ test("ships the custom display font and viewport-contained disclosure portal", a
   );
   assert.match(
     styles,
-    /\.portal-atmosphere-glass\s*\{[^}]*backdrop-filter:\s*blur\(30px\)/s,
+    /\.portal-atmosphere-glass\s*\{[^}]*backdrop-filter:\s*blur\(22px\)/s,
   );
   assert.match(
     styles,

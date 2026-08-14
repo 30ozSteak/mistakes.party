@@ -180,12 +180,14 @@ describe("Living Glass Worker endpoint", () => {
         zone: 4,
       },
     });
+    expect(firstWelcome.afterglow.intensity).toBeGreaterThanOrEqual(240);
     expect(firstWelcome.sessionId).not.toBe(firstWelcome.self.id);
 
     const duplicate = await openHouse();
     const duplicateWelcome = await hello(duplicate, firstWelcome);
     expect(duplicateWelcome.presenceCount).toBe(1);
     expect(duplicateWelcome.self).toEqual(firstWelcome.self);
+    expect(duplicateWelcome.afterglow.intensity).toBeGreaterThanOrEqual(240);
 
     const third = await openHouse();
     send(third, {

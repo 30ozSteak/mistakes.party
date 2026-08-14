@@ -109,11 +109,12 @@ summary {
   --portal-section-x: 0px;
   --portal-section-y: 0px;
   --portal-section-turn: 0deg;
-  --party-afterglow-0: 0;
-  --party-afterglow-1: 0;
-  --party-afterglow-2: 0;
-  --party-afterglow-3: 0;
   --party-afterglow-intensity: 0;
+  --party-color-0: 0;
+  --party-color-1: 0;
+  --party-color-2: 0;
+  --party-color-3: 0;
+  --party-presence-strength: 0;
   --party-crowd-brightness: 1;
   position: fixed;
   inset: 0;
@@ -141,26 +142,26 @@ summary {
   background:
     radial-gradient(
       ellipse 39% 43% at 32% 62%,
-      rgb(223 255 0 / calc(0.62 + var(--party-afterglow-0) * 0.18)) 0%,
-      rgb(223 255 0 / 0.52) 30%,
-      rgb(223 255 0 / 0.18) 51%,
+      rgb(223 255 0 / calc(0.24 + var(--party-color-0) * 0.5)) 0%,
+      rgb(223 255 0 / calc(0.18 + var(--party-color-0) * 0.3)) 30%,
+      rgb(223 255 0 / calc(0.08 + var(--party-color-0) * 0.12)) 51%,
       transparent 72%
     ),
     radial-gradient(
       ellipse 30% 36% at 66% 56%,
-      rgb(43 222 203 / calc(0.2 + var(--party-afterglow-1) * 0.2)) 0%,
-      rgb(43 222 203 / 0.12) 43%,
+      rgb(43 222 203 / calc(0.06 + var(--party-color-1) * 0.56)) 0%,
+      rgb(43 222 203 / calc(0.04 + var(--party-color-1) * 0.28)) 43%,
       transparent 72%
     ),
     radial-gradient(
       ellipse 34% 28% at 57% 27%,
-      rgb(255 100 89 / calc(0.16 + var(--party-afterglow-2) * 0.2)) 0%,
-      rgb(255 183 77 / 0.09) 46%,
+      rgb(255 100 89 / calc(0.05 + var(--party-color-2) * 0.58)) 0%,
+      rgb(255 183 77 / calc(0.03 + var(--party-color-2) * 0.25)) 46%,
       transparent 74%
     ),
     radial-gradient(
       ellipse 26% 31% at 78% 76%,
-      rgb(143 91 255 / calc(0.1 + var(--party-afterglow-3) * 0.18)) 0%,
+      rgb(143 91 255 / calc(0.04 + var(--party-color-3) * 0.58)) 0%,
       transparent 72%
     );
   content: "";
@@ -179,6 +180,7 @@ summary {
 
 .portal-house-light {
   --light-color: rgb(223 255 0 / 0.46);
+  --light-core-color: rgb(223 255 0);
   --light-x: 50%;
   --light-y: 50%;
   --light-size: clamp(15rem, 42vmax, 46rem);
@@ -188,38 +190,72 @@ summary {
   width: var(--light-size);
   height: var(--light-size);
   border-radius: 42% 58% 65% 35% / 55% 41% 59% 45%;
+  opacity: calc(
+    0.4 + var(--party-presence-strength) * 0.22 +
+      var(--party-afterglow-intensity) * 0.12
+  );
+  transform: translate(-50%, -50%) scale(0.78);
+  transform-origin: center;
+}
+
+.portal-house-light::before {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
   background: radial-gradient(
     circle at 43% 42%,
-    var(--light-color) 0 13%,
-    color-mix(in srgb, var(--light-color), transparent 48%) 34%,
-    transparent 68%
+    var(--light-color) 0 16%,
+    color-mix(in srgb, var(--light-color), transparent 40%) 38%,
+    transparent 70%
   );
-  filter: blur(clamp(1.4rem, 3.7vw, 4rem));
-  opacity: calc(0.32 + var(--party-afterglow-intensity) * 0.18);
-  transform: translate(-50%, -50%) scale(0.72);
-  transform-origin: center;
+  content: "";
+  filter: blur(clamp(1rem, 2.8vw, 3rem));
+}
+
+.portal-house-light::after {
+  position: absolute;
+  top: 42%;
+  left: 43%;
+  width: clamp(0.85rem, 1.35vw, 1.35rem);
+  aspect-ratio: 1;
+  border: 1px solid rgb(9 10 8 / 0.7);
+  border-radius: 50%;
+  background: var(--light-core-color);
+  box-shadow:
+    0 0 0 clamp(0.28rem, 0.5vw, 0.5rem)
+      color-mix(in srgb, var(--light-core-color), transparent 76%),
+    0 0 clamp(1.4rem, 3vw, 3rem) clamp(0.4rem, 1vw, 1rem)
+      color-mix(in srgb, var(--light-core-color), transparent 42%);
+  content: "";
+  transform: translate(-50%, -50%);
 }
 
 .portal-house-light[data-color="1"],
 .portal-house-wave[data-color="1"],
 .portal-house-pips i[data-color="1"] {
   --light-color: rgb(43 222 203 / 0.44);
+  --light-core-color: rgb(43 222 203);
 }
 
 .portal-house-light[data-color="2"],
 .portal-house-wave[data-color="2"],
 .portal-house-pips i[data-color="2"] {
   --light-color: rgb(255 100 89 / 0.4);
+  --light-core-color: rgb(255 100 89);
 }
 
 .portal-house-light[data-color="3"],
 .portal-house-wave[data-color="3"],
 .portal-house-pips i[data-color="3"] {
   --light-color: rgb(143 91 255 / 0.38);
+  --light-core-color: rgb(143 91 255);
 }
 
 .portal-house-light[data-self="true"] {
-  opacity: calc(0.48 + var(--party-afterglow-intensity) * 0.14);
+  opacity: calc(
+    0.56 + var(--party-presence-strength) * 0.18 +
+      var(--party-afterglow-intensity) * 0.1
+  );
 }
 
 .portal-house-light[data-energy="1"] {
@@ -258,10 +294,10 @@ summary {
 .portal-house-light[data-sharing="true"][data-zone="7"] { --light-x: 50%; --light-y: 82%; }
 .portal-house-light[data-sharing="true"][data-zone="8"] { --light-x: 83%; --light-y: 78%; }
 
-.portal-atmosphere[data-crowd="1"] { --party-crowd-brightness: 1.04; }
-.portal-atmosphere[data-crowd="2"] { --party-crowd-brightness: 1.08; }
-.portal-atmosphere[data-crowd="3"] { --party-crowd-brightness: 1.12; }
-.portal-atmosphere[data-crowd="4"] { --party-crowd-brightness: 1.16; }
+.portal-atmosphere[data-crowd="1"] { --party-crowd-brightness: 1.08; }
+.portal-atmosphere[data-crowd="2"] { --party-crowd-brightness: 1.14; }
+.portal-atmosphere[data-crowd="3"] { --party-crowd-brightness: 1.2; }
+.portal-atmosphere[data-crowd="4"] { --party-crowd-brightness: 1.26; }
 
 .portal-house-wave {
   --light-color: rgb(223 255 0 / 0.62);
@@ -308,7 +344,7 @@ summary {
 .portal-atmosphere-glass {
   position: absolute;
   inset: 0;
-  background-color: rgb(242 241 233 / 0.53);
+  background-color: rgb(242 241 233 / 0.42);
   background-image:
     linear-gradient(
       118deg,
@@ -321,8 +357,8 @@ summary {
       transparent 68%,
       rgb(255 255 255 / 0.11) 100%
     );
-  -webkit-backdrop-filter: blur(30px) saturate(1.1);
-  backdrop-filter: blur(30px) saturate(1.1);
+  -webkit-backdrop-filter: blur(22px) saturate(1.14);
+  backdrop-filter: blur(22px) saturate(1.14);
 }
 
 .portal-atmosphere-glass::after {
@@ -486,8 +522,8 @@ summary {
 
   .portal-house-light {
     animation:
-      portal-light-arrive 600ms cubic-bezier(0.16, 1, 0.3, 1) both,
-      portal-light-drift 18s ease-in-out 600ms infinite alternate;
+      portal-light-arrive 900ms cubic-bezier(0.16, 1, 0.3, 1) both,
+      portal-light-drift 18s ease-in-out 900ms infinite alternate;
     transition:
       top 700ms cubic-bezier(0.16, 1, 0.3, 1),
       left 700ms cubic-bezier(0.16, 1, 0.3, 1),
@@ -507,11 +543,11 @@ summary {
   }
 
   .portal-atmosphere[data-party-swell="odd"] .portal-atmosphere-field {
-    animation: portal-house-swell-odd 520ms ease-out;
+    animation: portal-house-swell-odd 820ms ease-out;
   }
 
   .portal-atmosphere[data-party-swell="even"] .portal-atmosphere-field {
-    animation: portal-house-swell-even 520ms ease-out;
+    animation: portal-house-swell-even 820ms ease-out;
   }
 
   .portal-name {
@@ -534,7 +570,8 @@ summary {
 }
 
 @keyframes portal-light-arrive {
-  from { opacity: 0; transform: translate(-50%, -50%) scale(0.25); }
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.12); }
+  58% { transform: translate(-50%, -50%) scale(1.08); }
 }
 
 @keyframes portal-light-drift {
@@ -549,11 +586,11 @@ summary {
 }
 
 @keyframes portal-house-swell-odd {
-  50% { filter: brightness(1.16) saturate(1.15); }
+  45% { filter: brightness(1.3) saturate(1.38); }
 }
 
 @keyframes portal-house-swell-even {
-  50% { filter: brightness(1.16) saturate(1.15); }
+  45% { filter: brightness(1.3) saturate(1.38); }
 }
 
 @keyframes portal-spectrum-turn {
@@ -1799,7 +1836,7 @@ summary {
     --mobile-header: 7rem;
   }
 
-  .portal-house-light {
+  .portal-house-light::before {
     filter: blur(2.25rem);
   }
 
@@ -2202,7 +2239,7 @@ summary {
 
   .portal-house-light {
     animation: none;
-    transform: translate(-50%, -50%) scale(0.72);
+    transform: translate(-50%, -50%) scale(0.78);
   }
 
   .portal-house-wave {

@@ -431,6 +431,7 @@ export function PartyHouseProvider({ children }: { children: ReactNode }) {
           const previousCount = presenceCountRef.current;
           if (previousCount !== null && message.presenceCount > previousCount) {
             announcePeerEvent("Another light joined the house.");
+            setSwell((value) => value + 1);
           } else if (
             previousCount !== null &&
             message.presenceCount < previousCount

@@ -61,6 +61,37 @@ test("counts distinct tabs in one sitewide house across public routes", async ({
     await expectPresence(project.page, 3);
     await expectPresence(writing.page, 3);
 
+    const atmosphere = home.page.getByTestId("portal-atmosphere");
+    await expect(atmosphere).toHaveAttribute("data-crowd", "2");
+    await expect(atmosphere).toHaveAttribute("data-party-swell", /^(?:odd|even)$/);
+    await expect(home.page.getByTestId("party-light")).toHaveCount(3);
+
+    const visualState = await atmosphere.evaluate((element) => {
+      const style = getComputedStyle(element);
+      const cores = [...element.querySelectorAll('[data-testid="party-light"]')]
+        .map((light) => getComputedStyle(light, "::after"))
+        .map((core) => ({
+          backgroundColor: core.backgroundColor,
+          width: Number.parseFloat(core.width),
+        }));
+      return {
+        activeColors: [0, 1, 2, 3].map((color) =>
+          Number.parseFloat(style.getPropertyValue(`--party-color-${color}`)),
+        ),
+        cores,
+        presenceStrength: Number.parseFloat(
+          style.getPropertyValue("--party-presence-strength"),
+        ),
+      };
+    });
+    expect(visualState.presenceStrength).toBeGreaterThan(0.6);
+    expect(visualState.activeColors.some((weight) => weight > 0.25)).toBe(true);
+    expect(visualState.cores).toHaveLength(3);
+    for (const core of visualState.cores) {
+      expect(core.width).toBeGreaterThanOrEqual(13);
+      expect(core.backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+    }
+
     const homeSession = await readSession(home.page);
     expect(homeSession).toMatchObject({
       generation: expect.any(String),
@@ -72,6 +103,8 @@ test("counts distinct tabs in one sitewide house across public routes", async ({
     await project.context.close();
     await expectPresence(home.page, 2);
     await expectPresence(writing.page, 2);
+    await expect(atmosphere).toHaveAttribute("data-crowd", "1");
+    await expect(home.page.getByTestId("party-light")).toHaveCount(2);
 
     await home.page.reload();
     await expectPresence(home.page, 2);
