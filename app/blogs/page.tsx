@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ArrowIcon } from "../components/ArrowIcon";
 import { MediumPostList } from "../components/MediumPostList";
 import { SiteHeader } from "../components/SiteHeader";
 import { getMediumPosts, MEDIUM_PROFILE_URL } from "../lib/medium";
@@ -25,7 +26,7 @@ export default async function BlogsPage() {
         <header className="blogs-hero">
           <h1>BLOGS</h1>
           <a className="blogs-source mono-label" href={MEDIUM_PROFILE_URL}>
-            READ ON MEDIUM ↗
+            READ ON MEDIUM <ArrowIcon />
           </a>
         </header>
 
@@ -36,7 +37,9 @@ export default async function BlogsPage() {
 
       <footer className="site-footer">
         <span>MISTAKES.PARTY © 2026</span>
-        <Link href="/">BACK TO THE INDEX ↑</Link>
+        <Link href="/">
+          BACK TO THE INDEX <ArrowIcon direction="up" />
+        </Link>
       </footer>
     </>
   );

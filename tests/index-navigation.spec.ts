@@ -26,6 +26,9 @@ test("the homepage is a three-link external index", async ({ page }) => {
   await expect(page.locator("[data-portal-section]")).toHaveCount(3);
   await expect(page.locator(".portal-link")).toHaveCount(3);
   await expect(page.locator(".portal-arrow")).toHaveCount(3);
+  await expect(
+    page.locator('.portal-arrow svg[data-arrow-direction="up-right"]'),
+  ).toHaveCount(3);
 
   for (const [source, label, href] of destinations) {
     const row = page.locator(`[data-portal-section="${source}"]`);
@@ -41,7 +44,7 @@ test("the homepage is a three-link external index", async ({ page }) => {
   );
 
   await expect(
-    page.getByRole("link", { name: "SUPPORT ↗", exact: true }),
+    page.getByRole("link", { name: "SUPPORT", exact: true }),
   ).toHaveCount(0);
   await expect(page.getByText("MXP", { exact: true })).toHaveCount(0);
   await expect(

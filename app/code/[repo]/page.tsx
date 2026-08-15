@@ -84,7 +84,7 @@ export default async function CodeDetailPage({ params }: CodeDetailPageProps) {
       note="The repository is the authoritative record for this project: inspect the implementation, browse its history, or take it somewhere new."
       noteTitle="ABOUT THE SOURCE"
       sourceHref={sourceHref}
-      sourceLabel="VIEW ON GITHUB ↗"
+      sourceLabel="VIEW ON GITHUB"
       title={title}
     />
   );

@@ -520,12 +520,26 @@ a {
   text-transform: uppercase;
 }
 
+.arrow-icon {
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  flex: 0 0 auto;
+  vertical-align: -0.05em;
+}
+
 .portal-arrow {
   display: block;
   font-size: clamp(1.9rem, 7vw, 4.5rem);
   font-weight: 400;
   line-height: 1;
   transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.portal-arrow .arrow-icon {
+  display: block;
+  width: 1em;
+  height: 1em;
 }
 
 .portal-link:focus-visible,

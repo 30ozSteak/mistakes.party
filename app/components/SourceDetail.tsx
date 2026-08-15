@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowIcon } from "./ArrowIcon";
 import { SiteHeader } from "./SiteHeader";
 
 type SourceDetailFact = {
@@ -22,7 +23,7 @@ type SourceDetailProps = {
 
 export function SourceDetail({
   backHref = "/",
-  backLabel = "BACK TO THE INDEX ↑",
+  backLabel = "BACK TO THE INDEX",
   description,
   facts,
   kicker,
@@ -83,14 +84,18 @@ export function SourceDetail({
             02 / KEEP GOING
           </p>
           <div>
-            <a href={sourceHref}>{sourceLabel}</a>
+            <a href={sourceHref}>
+              {sourceLabel} <ArrowIcon />
+            </a>
           </div>
         </section>
       </main>
 
       <footer className="site-footer">
         <span>MISTAKES.PARTY © 2026</span>
-        <Link href={backHref}>{backLabel}</Link>
+        <Link href={backHref}>
+          {backLabel} <ArrowIcon direction="up" />
+        </Link>
       </footer>
     </>
   );

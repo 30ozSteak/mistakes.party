@@ -99,7 +99,7 @@ export const archiveLinks = [
     description: "Smaller ideas, utility fragments, tests, and code that never needed a full repository.",
     href: "https://gist.github.com/30ozSteak",
     sourceProvider: "GITHUB",
-    sourceLabel: "VIEW ON GITHUB ↗",
+    sourceLabel: "VIEW ON GITHUB",
   },
   {
     slug: "ezrig",
@@ -109,7 +109,7 @@ export const archiveLinks = [
     description: "A rigging project fork kept in the public working set.",
     href: "https://github.com/30ozSteak/Ezrig",
     sourceProvider: "GITHUB",
-    sourceLabel: "VIEW ON GITHUB ↗",
+    sourceLabel: "VIEW ON GITHUB",
   },
   {
     slug: "applause-button",
@@ -119,7 +119,7 @@ export const archiveLinks = [
     description: "A small web-interaction fork saved for reference and reuse.",
     href: "https://github.com/30ozSteak/applause-button",
     sourceProvider: "GITHUB",
-    sourceLabel: "VIEW ON GITHUB ↗",
+    sourceLabel: "VIEW ON GITHUB",
   },
   {
     slug: "teller",
@@ -129,7 +129,7 @@ export const archiveLinks = [
     description: "A tooling fork from the wider public code archive.",
     href: "https://github.com/30ozSteak/teller",
     sourceProvider: "GITHUB",
-    sourceLabel: "VIEW ON GITHUB ↗",
+    sourceLabel: "VIEW ON GITHUB",
   },
   {
     slug: "interviews",
@@ -139,7 +139,7 @@ export const archiveLinks = [
     description: "A practical reference collection for interviews and preparation.",
     href: "https://github.com/30ozSteak/interviews",
     sourceProvider: "GITHUB",
-    sourceLabel: "VIEW ON GITHUB ↗",
+    sourceLabel: "VIEW ON GITHUB",
   },
   {
     slug: "dispatches",
@@ -149,7 +149,7 @@ export const archiveLinks = [
     description: "Short updates, works in progress, links, and the occasional mistake.",
     href: "https://x.com/iaaafm",
     sourceProvider: "X",
-    sourceLabel: "VIEW ON X ↗",
+    sourceLabel: "VIEW ON X",
   },
   {
     slug: "start-a-conversation",
@@ -159,7 +159,7 @@ export const archiveLinks = [
     description: "For collaborations, useful problems, and mistakes worth making.",
     href: "mailto:hello@mistakes.party",
     sourceProvider: "EMAIL",
-    sourceLabel: "SEND AN EMAIL ↗",
+    sourceLabel: "SEND AN EMAIL",
   },
 ] as const satisfies readonly ArchiveLink[];
 

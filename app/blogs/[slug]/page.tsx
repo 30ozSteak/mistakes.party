@@ -61,7 +61,7 @@ export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
   return (
     <SourceDetail
       backHref="/blogs"
-      backLabel="BACK TO BLOGS ↑"
+      backLabel="BACK TO BLOGS"
       description="A dispatch from Mistakes.party, preserved here as a quick introduction before continuing to the original post."
       facts={[
         { label: "PUBLISHED", value: formatDate(post.publishedAt) },
@@ -74,7 +74,7 @@ export default async function BlogDetailPage({ params }: BlogDetailPageProps) {
       note="This page keeps the post discoverable inside the portfolio. The complete article, responses, and latest version live at the original source."
       noteTitle="ABOUT THIS POST"
       sourceHref={post.url}
-      sourceLabel="READ ON MEDIUM ↗"
+      sourceLabel="READ ON MEDIUM"
       title={post.title}
     />
   );

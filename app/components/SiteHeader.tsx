@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { ArrowIcon } from "./ArrowIcon";
 import { PartySwitchboard } from "./PartyHouse";
 
 type SiteHeaderProps = {
@@ -10,6 +11,7 @@ type SiteHeaderProps = {
 };
 
 type NavigationLink = {
+  arrow?: "left" | "up-right";
   href: string;
   label: string;
   next?: boolean;
@@ -21,16 +23,16 @@ export function SiteHeader({ currentPage, indexLink = false }: SiteHeaderProps) 
   const toggleRef = useRef<HTMLButtonElement>(null);
   const desktopLinks: NavigationLink[] = indexLink
     ? [
-        { href: "/", label: "← INDEX", next: true },
+        { arrow: "left", href: "/", label: "INDEX", next: true },
         { href: "/blogs", label: "BLOGS", next: true },
         { href: "/patreon/room", label: "MEMBERS", next: true },
-        { href: "https://github.com/30ozSteak", label: "GITHUB ↗" },
+        { arrow: "up-right", href: "https://github.com/30ozSteak", label: "GITHUB" },
       ]
     : [
-        { href: "/", label: "← INDEX", next: true },
+        { arrow: "left", href: "/", label: "INDEX", next: true },
         { href: "/blogs", label: "BLOGS", next: true },
         { href: "/patreon/room", label: "MEMBERS", next: true },
-        { href: "https://github.com/30ozSteak", label: "GITHUB ↗" },
+        { arrow: "up-right", href: "https://github.com/30ozSteak", label: "GITHUB" },
       ];
   const mobileLinks: NavigationLink[] = desktopLinks;
 
@@ -141,15 +143,23 @@ export function SiteHeader({ currentPage, indexLink = false }: SiteHeaderProps) 
               href={link.href}
               key={link.href}
             >
+              {link.arrow === "left" ? (
+                <>
+                  <ArrowIcon direction="left" />{" "}
+                </>
+              ) : null}
               {link.label}
             </Link>
           ) : (
             <a href={link.href} key={link.href}>
-              {link.label}
+              {link.label}{" "}
+              {link.arrow ? <ArrowIcon direction={link.arrow} /> : null}
             </a>
           ),
         )}
-        <a href="mailto:hello@mistakes.party">CONTACT ↗</a>
+        <a href="mailto:hello@mistakes.party">
+          CONTACT <ArrowIcon />
+        </a>
       </nav>
 
       <button
@@ -192,16 +202,22 @@ export function SiteHeader({ currentPage, indexLink = false }: SiteHeaderProps) 
               key={link.href}
               onClick={closeMenuForLink}
             >
+              {link.arrow === "left" ? (
+                <>
+                  <ArrowIcon direction="left" />{" "}
+                </>
+              ) : null}
               {link.label}
             </Link>
           ) : (
             <a href={link.href} key={link.href} onClick={closeMenuForLink}>
-              {link.label}
+              {link.label}{" "}
+              {link.arrow ? <ArrowIcon direction={link.arrow} /> : null}
             </a>
           ),
         )}
         <a href="mailto:hello@mistakes.party" onClick={closeMenuForLink}>
-          CONTACT <span aria-hidden="true">↗</span>
+          CONTACT <ArrowIcon />
         </a>
       </nav>
     </header>

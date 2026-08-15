@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ArrowIcon } from "../components/ArrowIcon";
 import { PatreonOnly } from "../components/PatreonOnly";
 import { PatreonUnlockForm } from "../components/PatreonUnlockForm";
 import { SiteHeader } from "../components/SiteHeader";
@@ -35,7 +36,9 @@ function LockedDoor({ returnTo }: { returnTo: string }) {
         <PatreonUnlockForm returnTo={returnTo} />
         <div className="patreon-join">
           <span>NEED THE PASSWORD?</span>
-          <a href="https://patreon.com/steaks">JOIN ON PATREON ↗</a>
+          <a href="https://patreon.com/steaks">
+            JOIN ON PATREON <ArrowIcon />
+          </a>
         </div>
       </section>
     </div>
@@ -56,11 +59,13 @@ function OpenDoor({ returnTo }: { returnTo: string }) {
           01 / DOOR UNLOCKED
         </p>
         <Link className="patreon-enter-link" href={returnTo}>
-          ENTER THE PATRON ROOM →
+          ENTER THE PATRON ROOM <ArrowIcon direction="right" />
         </Link>
         <div className="patreon-join">
           <span>BACK THE NEXT MISTAKE</span>
-          <a href="https://patreon.com/steaks">VISIT PATREON ↗</a>
+          <a href="https://patreon.com/steaks">
+            VISIT PATREON <ArrowIcon />
+          </a>
         </div>
       </section>
     </div>
@@ -94,7 +99,9 @@ export default async function PatreonPage({ searchParams }: PatreonPageProps) {
 
       <footer className="site-footer">
         <span>MISTAKES.PARTY © 2026</span>
-        <Link href="/">BACK TO THE INDEX ↑</Link>
+        <Link href="/">
+          BACK TO THE INDEX <ArrowIcon direction="up" />
+        </Link>
       </footer>
     </>
   );

@@ -1,5 +1,6 @@
 import { PortalAtmosphere } from "./components/PortalAtmosphere";
 import { PartySwitchboard } from "./components/PartyHouse";
+import { ArrowIcon } from "./components/ArrowIcon";
 import { MEDIUM_PROFILE_URL } from "./lib/medium";
 
 const GITHUB_PROFILE_URL = "https://github.com/30ozSteak";
@@ -37,7 +38,7 @@ export default function Home() {
                 <a aria-label={label} className="portal-link" href={href}>
                   <span className="portal-name">{label}</span>
                   <span aria-hidden="true" className="portal-arrow">
-                    ↗
+                    <ArrowIcon />
                   </span>
                 </a>
               </li>

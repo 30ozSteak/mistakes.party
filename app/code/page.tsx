@@ -26,7 +26,7 @@ export default function CodePage() {
       note="This index highlights a small, changing selection. GitHub holds the complete working archive, including projects that are unfinished, narrowly useful, or preserved simply because the attempt mattered."
       noteTitle="THE WORKING ARCHIVE"
       sourceHref={GITHUB_REPOSITORIES_URL}
-      sourceLabel="BROWSE GITHUB ↗"
+      sourceLabel="BROWSE GITHUB"
       title="ALL REPOS"
     />
   );

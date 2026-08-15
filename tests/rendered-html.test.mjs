@@ -116,12 +116,17 @@ test("renders the quiet external link index", async () => {
   assert.match(html, /og\.png/);
   assert.equal((html.match(/<h1[ >]/g) || []).length, 1);
   assert.match(html, /<h1>MISTAKES\.PARTY<\/h1>/);
-  assert.doesNotMatch(html, /patreon\.com\/steaks|SUPPORT ↗/);
+  assert.doesNotMatch(html, /patreon\.com\/steaks|SUPPORT/);
   assert.match(html, /class="skip-link" href="#elsewhere">SKIP TO THE LINKS/);
   assert.match(html, /<nav aria-label="Elsewhere"/);
   assert.equal((html.match(/data-portal-section=/g) || []).length, 3);
   assert.equal((html.match(/class="portal-link"/g) || []).length, 3);
   assert.equal((html.match(/class="portal-arrow"/g) || []).length, 3);
+  assert.equal(
+    (html.match(/data-arrow-direction="up-right"/g) || []).length,
+    3,
+  );
+  assert.doesNotMatch(html, /[↗→←↑]/);
   assert.doesNotMatch(html, /class="portal-number"/);
   assert.doesNotMatch(html, /PUBLIC REPOS/);
   assert.doesNotMatch(html, /<details|<summary|class="portal-panel"/i);
@@ -166,7 +171,7 @@ test("renders the Patreon door without leaking member-room content", async () =>
   assert.match(html, /ENTER THE ROOM/);
   assert.match(
     html,
-    /href="https:\/\/patreon\.com\/steaks">JOIN ON PATREON ↗<\/a>/,
+    /href="https:\/\/patreon\.com\/steaks">JOIN ON PATREON <svg/,
   );
   assert.doesNotMatch(
     html,
@@ -207,9 +212,9 @@ test("renders the complete Medium feed on the blogs page", async () => {
     /&lt;\/script&gt;&lt;script&gt;globalThis\.__mediumXssExecuted=1&lt;\/script&gt;/,
   );
   assert.match(html, /aria-current="page" href="\/blogs\/">BLOGS<\/a>/);
-  assert.match(html, /READ ON MEDIUM ↗/);
+  assert.match(html, /READ ON MEDIUM <svg/);
   assert.doesNotMatch(html, /class="index-action"/);
-  assert.doesNotMatch(html, />\s*(?:SOURCE|OPEN|READ)\s*(?:↗|→)?\s*</i);
+  assert.doesNotMatch(html, />\s*(?:SOURCE|OPEN|READ)\s*</i);
   assert.doesNotMatch(html, /content:encoded|post\.clientViewed/i);
 });
 
@@ -222,7 +227,7 @@ test("renders internal source detail pages with prominent external CTAs", async 
   assert.match(archive.html, /FOLLOW THE SOURCE/);
   assert.match(
     archive.html,
-    /href="https:\/\/github\.com\/30ozSteak\/applause-button">VIEW ON GITHUB ↗<\/a>/,
+    /href="https:\/\/github\.com\/30ozSteak\/applause-button">VIEW ON GITHUB(?:<!-- -->)? <svg/,
   );
 
   const code = await readRenderedPage("/code/");
@@ -232,7 +237,7 @@ test("renders internal source detail pages with prominent external CTAs", async 
   assert.match(code.html, /<h1>ALL REPOS<\/h1>/);
   assert.match(
     code.html,
-    /href="https:\/\/github\.com\/30ozSteak\?tab=repositories">BROWSE GITHUB ↗<\/a>/,
+    /href="https:\/\/github\.com\/30ozSteak\?tab=repositories">BROWSE GITHUB(?:<!-- -->)? <svg/,
   );
 });
 
@@ -254,7 +259,7 @@ test("renders a Medium fixture detail page with its authoritative source CTA", a
   assert.match(html, /<h1>MEDIUM POST 01<\/h1>/);
   assert.match(
     html,
-    /href="https:\/\/medium\.com\/@30ozsteak\/medium-post-01">READ ON MEDIUM ↗<\/a>/,
+    /href="https:\/\/medium\.com\/@30ozsteak\/medium-post-01">READ ON MEDIUM(?:<!-- -->)? <svg/,
   );
   assert.doesNotMatch(
     html,
@@ -342,12 +347,15 @@ test("renders every internal project page", async () => {
     assert.match(html, /MISTAKES\.PARTY © 2026/);
     assert.match(html, /href="\/blogs\/">BLOGS<\/a>/);
     assert.match(html, /href="\/patreon\/room\/">MEMBERS<\/a>/);
-    assert.match(html, /href="https:\/\/github\.com\/30ozSteak">GITHUB ↗<\/a>/);
+    assert.match(
+      html,
+      /href="https:\/\/github\.com\/30ozSteak">GITHUB(?:<!-- -->)? <svg/,
+    );
     assert.match(html, /CONTEXT/);
     assert.match(html, /THE MOVE/);
     assert.match(html, /OUTCOME/);
     assert.match(html, /NEXT/);
-    assert.match(html, /VIEW ON GITHUB ↗/);
-    assert.doesNotMatch(html, />SOURCE ↗<\/a>/);
+    assert.match(html, /VIEW ON GITHUB <svg/);
+    assert.doesNotMatch(html, />SOURCE\s*<svg/);
   }
 });

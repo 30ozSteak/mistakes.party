@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArrowIcon } from "../../components/ArrowIcon";
 import { SiteHeader } from "../../components/SiteHeader";
 import { getProject, projects } from "../../data";
 
@@ -98,9 +99,13 @@ export default async function WorkPage({ params }: WorkPageProps) {
           </p>
           <div>
             {distinctLaunch ? (
-              <a href={distinctLaunch}>LAUNCH PROJECT ↗</a>
+              <a href={distinctLaunch}>
+                LAUNCH PROJECT <ArrowIcon />
+              </a>
             ) : null}
-            <a href={project.source}>VIEW ON GITHUB ↗</a>
+            <a href={project.source}>
+              VIEW ON GITHUB <ArrowIcon />
+            </a>
           </div>
         </section>
 
@@ -110,13 +115,15 @@ export default async function WorkPage({ params }: WorkPageProps) {
         >
           <span className="mono-label">NEXT / {nextProject.kind}</span>
           <strong>{nextProject.title}</strong>
-          <span aria-hidden="true">→</span>
+          <ArrowIcon direction="right" />
         </Link>
       </main>
 
       <footer className="site-footer">
         <span>MISTAKES.PARTY © 2026</span>
-        <Link href="/">BACK TO THE INDEX ↑</Link>
+        <Link href="/">
+          BACK TO THE INDEX <ArrowIcon direction="up" />
+        </Link>
       </footer>
     </>
   );

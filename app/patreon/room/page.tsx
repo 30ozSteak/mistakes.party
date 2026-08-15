@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ArrowIcon } from "../../components/ArrowIcon";
 import { SiteHeader } from "../../components/SiteHeader";
 import { requirePatreonAccess } from "../../lib/patreonAccess";
 import { lockPatreonAccess } from "../actions";
@@ -53,7 +54,9 @@ export default async function PatreonRoomPage() {
         </section>
 
         <section className="patreon-room-actions" aria-label="Member actions">
-          <a href="https://patreon.com/steaks">VISIT PATREON ↗</a>
+          <a href="https://patreon.com/steaks">
+            VISIT PATREON <ArrowIcon />
+          </a>
           <form action={lockPatreonAccess}>
             <button type="submit">LOCK THIS BROWSER</button>
           </form>
@@ -62,7 +65,9 @@ export default async function PatreonRoomPage() {
 
       <footer className="site-footer">
         <span>MISTAKES.PARTY © 2026</span>
-        <Link href="/">BACK TO THE INDEX ↑</Link>
+        <Link href="/">
+          BACK TO THE INDEX <ArrowIcon direction="up" />
+        </Link>
       </footer>
     </>
   );

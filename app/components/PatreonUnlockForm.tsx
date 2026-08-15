@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { unlockPatreonAccess } from "../patreon/actions";
+import { ArrowIcon } from "./ArrowIcon";
 
 type PatreonUnlockFormProps = {
   returnTo: string;
@@ -43,7 +44,13 @@ export function PatreonUnlockForm({ returnTo }: PatreonUnlockFormProps) {
         </p>
       ) : null}
       <button disabled={pending} type="submit">
-        {pending ? "CHECKING…" : "ENTER THE ROOM →"}
+        {pending ? (
+          "CHECKING…"
+        ) : (
+          <>
+            ENTER THE ROOM <ArrowIcon direction="right" />
+          </>
+        )}
       </button>
     </form>
   );
