@@ -89,10 +89,22 @@ visitor has knocked and opted in; the server still treats the session ID as an
 untrusted decorative identifier, never authorization.
 
 Before either realtime route reaches a Durable Object, the Worker consumes a
-per-IP and a shared global admission bucket. The checked-in limit permits 60
+per-IP and a shared per-location admission bucket. Cloudflare's Rate Limiting
+binding is local and eventually consistent, so these are fast first-layer
+limits rather than global accounting. The checked-in limit permits 60
 handshakes per minute for each bucket. Limiter errors fail closed because this
 decorative feature should become unavailable rather than expose an unbounded
-stateful path. Worker and Durable Object events also have a 100ms CPU ceiling.
+stateful path.
+
+The sitewide v2 `PartyHouse` adds a persisted, globally coordinated admission
+bucket inside the single Durable Object: a burst of 30 connections and 60
+admissions per minute after that. Eviction cannot reset it, and rejected
+connections perform no SQLite I/O. The house also shares one in-memory event
+budget across every socket: a burst of 120 non-heartbeat frames and 60 per
+second after that. Exact heartbeat frames remain on the hibernation
+auto-response path. The in-memory event bucket resets after idle hibernation,
+which is safe because there is no sustained event load while the object is
+idle. Worker and Durable Object events also have a 100ms CPU ceiling.
 
 ## Afterglow
 

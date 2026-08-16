@@ -137,11 +137,11 @@ async function checkHandshakeLimits(
   clientIp: string,
 ): Promise<HandshakeLimitResult> {
   try {
-    // The per-IP bucket limits one source. The shared bucket also bounds
-    // distributed churn before it reaches Durable Objects. Realtime presence
-    // is decorative, so limiter failure must fail closed instead of exposing
-    // an unbounded billable path.
-    for (const key of [`${scope}:ip:${clientIp}`, `${scope}:global`]) {
+    // The per-IP bucket limits one source. Cloudflare's counters are local to
+    // each edge location, so the shared location bucket is only a fast first
+    // layer; PartyHouse adds the globally coordinated v2 admission ceiling.
+    // Realtime presence is decorative, so limiter failure must fail closed.
+    for (const key of [`${scope}:ip:${clientIp}`, `${scope}:location`]) {
       const outcome = await env.PARTY_HANDSHAKE_RATE_LIMITER.limit({ key });
       if (!outcome.success) return "rate-limited";
     }

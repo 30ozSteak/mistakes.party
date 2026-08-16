@@ -20,6 +20,10 @@ import {
 
 const HOUSE_SOCKET_CAP = 512;
 export const PARTY_HOUSE_AFTERGLOW_SESSION_CAP = 2_048;
+export const PARTY_HOUSE_GLOBAL_ADMISSION_BURST = 30;
+export const PARTY_HOUSE_GLOBAL_ADMISSIONS_PER_MINUTE = 60;
+export const PARTY_HOUSE_GLOBAL_EVENT_BURST = 120;
+export const PARTY_HOUSE_GLOBAL_EVENTS_PER_SECOND = 60;
 const AFTERGLOW_FULL_STRENGTH = 4;
 const HOUSE_SOCKETS_PER_SESSION = 2;
 const HOUSE_COHORT_SIZE = 12;
@@ -34,6 +38,13 @@ const KNOCK_WINDOW_MS = 60_000;
 const MAX_KNOCKS_PER_WINDOW = 12;
 const HOUSE_KNOCK_BURST_MILLI = 8_000;
 const HOUSE_KNOCK_REFILL_MILLI_PER_MS = 4;
+const HOUSE_ADMISSION_BURST_MILLI =
+  PARTY_HOUSE_GLOBAL_ADMISSION_BURST * 1_000;
+const HOUSE_ADMISSION_REFILL_MILLI_PER_MS =
+  (PARTY_HOUSE_GLOBAL_ADMISSIONS_PER_MINUTE * 1_000) / 60_000;
+const HOUSE_EVENT_BURST_MILLI = PARTY_HOUSE_GLOBAL_EVENT_BURST * 1_000;
+const HOUSE_EVENT_REFILL_MILLI_PER_MS =
+  (PARTY_HOUSE_GLOBAL_EVENTS_PER_SECOND * 1_000) / 1_000;
 const AFTERGLOW_ACTIVE_REFRESH_MS = 15 * 60_000;
 const HOUSE_PING_FRAME = JSON.stringify({ type: "ping" });
 const HOUSE_PONG_FRAME = JSON.stringify({ type: "pong" });
@@ -79,6 +90,12 @@ interface HouseLimitRow {
   [key: string]: SqlStorageValue;
   knock_tokens_milli: number;
   knock_refilled_at: number;
+}
+
+interface HouseAdmissionLimitRow {
+  [key: string]: SqlStorageValue;
+  tokens_milli: number;
+  refilled_at: number;
 }
 
 function houseMode(env: PartyEnv): HouseMode {
@@ -242,6 +259,11 @@ export function partyHouseDisabledUpgrade(): Response {
 }
 
 export class PartyHouse extends DurableObject<PartyEnv> {
+  private admissionTokensMilli = 0;
+  private admissionRefilledAt = 0;
+  private eventTokensMilli = HOUSE_EVENT_BURST_MILLI;
+  private eventRefilledAt = Date.now();
+
   constructor(ctx: DurableObjectState, env: PartyEnv) {
     super(ctx, env);
     this.ctx.setWebSocketAutoResponse(
@@ -308,6 +330,31 @@ export class PartyHouse extends DurableObject<PartyEnv> {
         INSERT INTO _house_schema_migrations (id, applied_at) VALUES (2, ${now});
       `);
     }
+
+    if (version < 3) {
+      // Unlike the edge Rate Limiting binding, this bucket is coordinated by
+      // the single house Durable Object and therefore applies across every
+      // Cloudflare location. Persist it so eviction cannot reset admission.
+      this.ctx.storage.sql.exec(`
+        CREATE TABLE IF NOT EXISTS house_admission_limit (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          tokens_milli INTEGER NOT NULL,
+          refilled_at INTEGER NOT NULL
+        );
+        INSERT OR IGNORE INTO house_admission_limit
+          (id, tokens_milli, refilled_at)
+          VALUES (1, ${HOUSE_ADMISSION_BURST_MILLI}, ${now});
+        INSERT INTO _house_schema_migrations (id, applied_at) VALUES (3, ${now});
+      `);
+    }
+
+    const admission = this.ctx.storage.sql
+      .exec<HouseAdmissionLimitRow>(
+        "SELECT tokens_milli, refilled_at FROM house_admission_limit WHERE id = 1",
+      )
+      .one();
+    this.admissionTokensMilli = admission.tokens_milli;
+    this.admissionRefilledAt = admission.refilled_at;
   }
 
   private allSockets(except?: WebSocket): WebSocket[] {
@@ -523,6 +570,47 @@ export class PartyHouse extends DurableObject<PartyEnv> {
     return accepted;
   }
 
+  private consumeHouseAdmission(now: number): boolean {
+    const tokens = Math.min(
+      HOUSE_ADMISSION_BURST_MILLI,
+      this.admissionTokensMilli +
+        Math.max(0, now - this.admissionRefilledAt) *
+          HOUSE_ADMISSION_REFILL_MILLI_PER_MS,
+    );
+    if (tokens < 1_000) {
+      // Avoid turning rejected attack traffic into a SQLite I/O amplifier.
+      // On eviction, the persisted state derives the same refill from time.
+      this.admissionTokensMilli = tokens;
+      this.admissionRefilledAt = now;
+      return false;
+    }
+    const remaining = tokens - 1_000;
+    this.ctx.storage.sql.exec(
+      "UPDATE house_admission_limit SET tokens_milli = ?, refilled_at = ? WHERE id = 1",
+      remaining,
+      now,
+    );
+    this.admissionTokensMilli = remaining;
+    this.admissionRefilledAt = now;
+    return true;
+  }
+
+  private consumeHouseEvent(now: number): boolean {
+    const tokens = Math.min(
+      HOUSE_EVENT_BURST_MILLI,
+      this.eventTokensMilli +
+        Math.max(0, now - this.eventRefilledAt) *
+          HOUSE_EVENT_REFILL_MILLI_PER_MS,
+    );
+    this.eventRefilledAt = now;
+    if (tokens < 1_000) {
+      this.eventTokensMilli = tokens;
+      return false;
+    }
+    this.eventTokensMilli = tokens - 1_000;
+    return true;
+  }
+
   private earliestAfterglowExpiry(now: number): number | null {
     const earliestArrival = this.ctx.storage.sql
       .exec<{ value: number | null }>(
@@ -625,10 +713,10 @@ export class PartyHouse extends DurableObject<PartyEnv> {
 
   async fetch(): Promise<Response> {
     const now = Date.now();
-    const pair = new WebSocketPair();
-    const [client, server] = Object.values(pair) as [WebSocket, WebSocket];
 
     if (houseMode(this.env) === "off") {
+      const pair = new WebSocketPair();
+      const [client, server] = Object.values(pair) as [WebSocket, WebSocket];
       server.serializeAttachment({
         version: 2,
         initialized: false,
@@ -649,24 +737,27 @@ export class PartyHouse extends DurableObject<PartyEnv> {
     }
 
     if (this.allSockets().length >= HOUSE_SOCKET_CAP) {
-      server.serializeAttachment({
-        version: 2,
-        initialized: false,
-        connectedAt: now,
-        helloDeadlineAt: now,
-        messageWindowStartedAt: now,
-        messageCount: 0,
-        invalidWindowStartedAt: now,
-        invalidCount: 0,
-      } satisfies HouseSocketAttachment);
-      this.ctx.acceptWebSocket(server);
-      closeHouse(server, "HOUSE_FULL", true);
-      return new Response(null, {
-        status: 101,
-        webSocket: client,
-        headers: { "sec-websocket-protocol": PARTY_HOUSE_REALTIME_SUBPROTOCOL },
+      return new Response("Party house is full.", {
+        status: 429,
+        headers: {
+          "cache-control": "no-store",
+          "retry-after": "30",
+        },
       });
     }
+
+    if (!this.consumeHouseAdmission(now)) {
+      return new Response("Party house admission is busy.", {
+        status: 429,
+        headers: {
+          "cache-control": "no-store",
+          "retry-after": "1",
+        },
+      });
+    }
+
+    const pair = new WebSocketPair();
+    const [client, server] = Object.values(pair) as [WebSocket, WebSocket];
 
     server.serializeAttachment({
       version: 2,
@@ -861,6 +952,13 @@ export class PartyHouse extends DurableObject<PartyEnv> {
     const now = Date.now();
     if (!current.initialized && current.helloDeadlineAt <= now) {
       closeHouse(socket, "HELLO_TIMEOUT", true);
+      return;
+    }
+    // Exact heartbeat frames are handled by setWebSocketAutoResponse and do
+    // not enter this handler. Every other frame shares one house-wide budget,
+    // so hundreds of sockets cannot multiply their individual allowances.
+    if (!this.consumeHouseEvent(now)) {
+      closeHouse(socket, "RATE_LIMITED", true);
       return;
     }
     const message = parsePartyHouseClientMessageJson(data);

@@ -42,7 +42,10 @@ The checked-in application bounds server work in several layers:
 - Server Action bodies are capped at 32KB;
 - repository detail requests must first match the bounded GitHub owner index,
   so arbitrary slugs cannot create arbitrary outbound fetch keys;
-- realtime admission uses both per-IP and global limits before Durable Objects;
+- realtime admission uses fast per-IP/per-location edge limits plus a durable,
+  globally coordinated house budget of 60 admissions per minute;
+- all active house sockets share a 60-event/second application budget, so
+  per-socket allowances cannot multiply into unbounded Durable Object work;
 - Worker invocations have a 100ms CPU ceiling, and the rolling afterglow stores
   at most 2,048 anonymous sessions.
 

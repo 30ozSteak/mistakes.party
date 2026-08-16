@@ -19,7 +19,10 @@ import {
   type PartyHouseServerMessage,
 } from "../app/lib/partyHouseProtocol";
 import worker, { PartyHouse } from "../worker/src/index";
-import { PARTY_HOUSE_AFTERGLOW_SESSION_CAP } from "../worker/src/partyHouse";
+import {
+  PARTY_HOUSE_AFTERGLOW_SESSION_CAP,
+  PARTY_HOUSE_GLOBAL_ADMISSION_BURST,
+} from "../worker/src/partyHouse";
 
 const ORIGIN = "http://localhost:3000";
 const HOUSE_URL = `${ORIGIN}/v2/house`;
@@ -144,7 +147,7 @@ afterEach(async () => {
 });
 
 describe("Living Glass Worker endpoint", () => {
-  it("uses per-IP and global admission buckets and fails closed", async () => {
+  it("uses per-IP and per-location admission buckets and fails closed", async () => {
     const keys: string[] = [];
     const admitted = withRateLimiter(async ({ key }) => {
       keys.push(key);
@@ -152,7 +155,7 @@ describe("Living Glass Worker endpoint", () => {
     });
     const response = await worker.fetch(houseRequest(), admitted);
     expect(response.status).toBe(101);
-    expect(keys).toEqual(["house:ip:local", "house:global"]);
+    expect(keys).toEqual(["house:ip:local", "house:location"]);
     const socket = response.webSocket;
     if (!socket) throw new Error("Expected a WebSocket upgrade");
     socket.accept();
@@ -166,6 +169,52 @@ describe("Living Glass Worker endpoint", () => {
     await expect(rejected.json()).resolves.toMatchObject({
       code: "SERVICE_UNAVAILABLE",
     });
+  });
+
+  it("enforces global house admission across Durable Object eviction", async () => {
+    const stub = env.PARTY_HOUSE.getByName(
+      `party-house:${env.PARTY_GENERATION}`,
+    );
+    await runInDurableObject(stub, async (instance: PartyHouse, state) => {
+      const tokensMilli = PARTY_HOUSE_GLOBAL_ADMISSION_BURST * 1_000;
+      const refilledAt = Date.now() + 60_000;
+      state.storage.sql.exec(
+        "UPDATE house_admission_limit SET tokens_milli = ?, refilled_at = ? WHERE id = 1",
+        tokensMilli,
+        refilledAt,
+      );
+      Reflect.set(instance, "admissionTokensMilli", tokensMilli);
+      Reflect.set(instance, "admissionRefilledAt", refilledAt);
+      expect(
+        state.storage.sql
+          .exec<{ version: number }>(
+            "SELECT MAX(id) AS version FROM _house_schema_migrations",
+          )
+          .one().version,
+      ).toBe(3);
+    });
+
+    for (let index = 0; index < PARTY_HOUSE_GLOBAL_ADMISSION_BURST; index += 1) {
+      const response = await stub.fetch(houseRequest());
+      expect(response.status).toBe(101);
+      const socket = response.webSocket;
+      if (!socket) throw new Error("Expected a WebSocket upgrade");
+      socket.accept();
+      openSockets.add(socket);
+    }
+
+    const rejected = await stub.fetch(houseRequest());
+    expect(rejected.status).toBe(429);
+    expect(rejected.headers.get("retry-after")).toBe("1");
+    expect(rejected.webSocket).toBeNull();
+    await expect(rejected.text()).resolves.toBe(
+      "Party house admission is busy.",
+    );
+
+    await evictDurableObject(stub);
+    const afterEviction = await stub.fetch(houseRequest());
+    expect(afterEviction.status).toBe(429);
+    expect(afterEviction.headers.get("retry-after")).toBe("1");
   });
 
   it("requires the v2 path, exact subprotocol, no query, and a hello first", async () => {
@@ -421,6 +470,47 @@ describe("Living Glass Worker endpoint", () => {
     });
   });
 
+  it("shares one application-event budget across every house socket", async () => {
+    const first = await openHouse();
+    const second = await openHouse();
+    const welcome = await hello(first);
+    await hello(second);
+    const stub = env.PARTY_HOUSE.getByName(
+      `party-house:${welcome.generation}`,
+    );
+
+    await runInDurableObject(stub, async (instance: PartyHouse) => {
+      Reflect.set(instance, "eventTokensMilli", 1_000);
+      Reflect.set(instance, "eventRefilledAt", Date.now() + 60_000);
+    });
+    send(first, {
+      type: "light:move",
+      zone: 4,
+      energy: 0,
+      sharing: false,
+    });
+    await expect
+      .poll(() =>
+        runInDurableObject(stub, async (instance: PartyHouse) =>
+          Reflect.get(instance, "eventTokensMilli"),
+        ),
+      )
+      .toBe(0);
+
+    send(second, {
+      type: "light:move",
+      zone: 4,
+      energy: 0,
+      sharing: false,
+    });
+    await expect(second.waitFor("error")).resolves.toEqual({
+      type: "error",
+      code: "RATE_LIMITED",
+      fatal: true,
+    });
+    expect(first.messages.some(({ type }) => type === "error")).toBe(false);
+  });
+
   it("admits presence-only sessions but disables moves and KNOCK", async () => {
     const house = await openHouse();
     const stub = env.PARTY_HOUSE.getByName(
@@ -462,12 +552,25 @@ describe("Living Glass Worker endpoint", () => {
   });
 
   it(
-    "rejects the five-hundred-thirteenth concurrent socket",
+    "rejects a socket once the hard house capacity is full",
     async () => {
       const stub = env.PARTY_HOUSE.getByName(
         `party-house:${env.PARTY_GENERATION}`,
       );
       for (let index = 0; index < 512; index += 1) {
+        if (index % PARTY_HOUSE_GLOBAL_ADMISSION_BURST === 0) {
+          await runInDurableObject(stub, async (instance: PartyHouse, state) => {
+            const tokensMilli = PARTY_HOUSE_GLOBAL_ADMISSION_BURST * 1_000;
+            const refilledAt = Date.now() + 60_000;
+            state.storage.sql.exec(
+              "UPDATE house_admission_limit SET tokens_milli = ?, refilled_at = ? WHERE id = 1",
+              tokensMilli,
+              refilledAt,
+            );
+            Reflect.set(instance, "admissionTokensMilli", tokensMilli);
+            Reflect.set(instance, "admissionRefilledAt", refilledAt);
+          });
+        }
         const response = await stub.fetch(houseRequest());
         expect(response.status).toBe(101);
         const socket = response.webSocket;
@@ -477,23 +580,10 @@ describe("Living Glass Worker endpoint", () => {
       }
 
       const response = await stub.fetch(houseRequest());
-      expect(response.status).toBe(101);
-      const socket = response.webSocket;
-      if (!socket) throw new Error("Expected a WebSocket upgrade");
-      socket.accept();
-      openSockets.add(socket);
-      const messages: PartyHouseServerMessage[] = [];
-      socket.addEventListener("message", (event) => {
-        const message = parsePartyHouseServerMessageJson(event.data);
-        if (message) messages.push(message);
-      });
-      await expect(
-        waitForMessage(socket, messages, "error"),
-      ).resolves.toEqual({
-        type: "error",
-        code: "HOUSE_FULL",
-        fatal: true,
-      });
+      expect(response.status).toBe(429);
+      expect(response.webSocket).toBeNull();
+      expect(response.headers.get("retry-after")).toBe("30");
+      await expect(response.text()).resolves.toBe("Party house is full.");
     },
     30_000,
   );
@@ -572,7 +662,7 @@ describe("Living Glass Worker endpoint", () => {
               "SELECT MAX(id) AS version FROM _house_schema_migrations",
             )
             .one().version,
-        ).toBe(2);
+        ).toBe(3);
       });
     },
     30_000,
