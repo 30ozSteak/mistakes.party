@@ -71,10 +71,11 @@ The other client messages are:
 
 The Worker sends `house:welcome`, `house:snapshot`, `light:move`, `knock`,
 `error`, and `pong`. All message objects use exact keys and stay below 2KB.
-Zones are the integers 0–8 in a 3×3 viewport grid; energy is 0–2. Exact cursor
-coordinates never cross the network. Exact `ping` frames use the Durable Object
-hibernation auto-response path, so routine heartbeats do not wake the object or
-consume its application-message budget.
+Zones are the integers 0–8 in a 3×3 abstract field; energy is 0–2. The current
+site client uses three fixed zones for the broad code, writing, and games rooms.
+It does not send exact routes or cursor coordinates. Exact `ping` frames use the
+Durable Object hibernation auto-response path, so routine heartbeats do not wake
+the object or consume its application-message budget.
 
 The house counts distinct reconnect IDs, permits two sockets per session, and
 caps the house at 512 sockets. Clients render at most 12 server-selected lights;
@@ -83,10 +84,11 @@ Public light IDs, palette indices, and animation seeds are deterministic hashes
 distinct from reconnect IDs.
 
 Knocks have a four-second per-session minimum, a twelve-per-minute session
-limit, and a house token bucket. Movement is bounded to two changed, quantized
-updates per second. The browser does not begin sending movement until the
-visitor has knocked and opted in; the server still treats the session ID as an
-untrusted decorative identifier, never authorization.
+limit, and a house token bucket. Room changes are bounded to two changed,
+quantized updates per second. The browser does not begin sharing a room until
+the visitor has knocked, and the visitor can switch `MY LIGHT` off; the server
+still treats the session ID as an untrusted decorative identifier, never
+authorization.
 
 Before either realtime route reaches a Durable Object, the Worker consumes a
 per-IP and a shared per-location admission bucket. Cloudflare's Rate Limiting

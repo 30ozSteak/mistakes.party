@@ -1,16 +1,113 @@
+import { Suspense } from "react";
 import { PortalAtmosphere } from "./components/PortalAtmosphere";
+import {
+  PortalDirectory,
+  type PortalDestination,
+} from "./components/PortalDirectory";
 import { PartySwitchboard } from "./components/PartyHouse";
-import { ArrowIcon } from "./components/ArrowIcon";
-import { MEDIUM_PROFILE_URL } from "./lib/medium";
+import { getGithubRepos } from "./lib/githubServer";
+import {
+  addMediumPostSlugs,
+  getMediumPosts,
+  MEDIUM_PROFILE_URL,
+} from "./lib/medium";
 
 const GITHUB_PROFILE_URL = "https://github.com/30ozSteak";
-const ITCH_PROFILE_URL = "https://steaks.itch.io";
 
-const destinations = [
-  { href: GITHUB_PROFILE_URL, label: "GITHUB", source: "github" },
-  { href: MEDIUM_PROFILE_URL, label: "MEDIUM", source: "medium" },
-  { href: ITCH_PROFILE_URL, label: "ITCH.IO", source: "itch" },
-] as const;
+const dateFormatter = new Intl.DateTimeFormat("en", {
+  month: "short",
+  timeZone: "UTC",
+  year: "numeric",
+});
+
+function formatDate(value: string): string {
+  return dateFormatter.format(new Date(value)).toUpperCase();
+}
+
+const fallbackDestinations: PortalDestination[] = [
+  {
+    href: GITHUB_PROFILE_URL,
+    label: "GITHUB",
+    preview: {
+      label: "ALL REPOS",
+      meta: "PUBLIC CODE / WORKING ARCHIVE",
+    },
+    previewLabel: "RECENT REPOSITORIES",
+    room: "code",
+    source: "github",
+  },
+  {
+    href: MEDIUM_PROFILE_URL,
+    label: "MEDIUM",
+    preview: {
+      label: "RECENT WRITING",
+      meta: "NOTES / DISPATCHES",
+    },
+    previewLabel: "RECENT POSTS",
+    room: "writing",
+    source: "medium",
+  },
+];
+
+function PreviewItem({
+  preview,
+}: {
+  preview: PortalDestination["preview"];
+}) {
+  return (
+    <div className="portal-preview-item">
+      <strong>{preview.label}</strong>
+      <span>{preview.meta}</span>
+    </div>
+  );
+}
+
+async function RecentGithubPreviews() {
+  const repos = await getGithubRepos();
+  const recentRepos = repos
+    .filter((repo) => !repo.archived && !repo.disabled)
+    .slice(0, 3);
+
+  if (recentRepos.length === 0) {
+    return <PreviewItem preview={fallbackDestinations[0].preview} />;
+  }
+
+  return (
+    <ol className="portal-preview-list">
+      {recentRepos.map((repo) => (
+        <li key={repo.id}>
+          <div className="portal-preview-item">
+            <strong>{repo.name}</strong>
+            <span>
+              {repo.language ?? "CODE"} · UPDATED {formatDate(repo.updated_at)}
+            </span>
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+async function RecentMediumPreviews() {
+  const recentPosts = addMediumPostSlugs(await getMediumPosts()).slice(0, 3);
+
+  if (recentPosts.length === 0) {
+    return <PreviewItem preview={fallbackDestinations[1].preview} />;
+  }
+
+  return (
+    <ol className="portal-preview-list">
+      {recentPosts.map((post) => (
+        <li key={post.id}>
+          <div className="portal-preview-item">
+            <strong>{post.title}</strong>
+            <span>PUBLISHED {formatDate(post.publishedAt)}</span>
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
 
 export default function Home() {
   return (
@@ -27,24 +124,27 @@ export default function Home() {
           <PartySwitchboard surface="home" />
         </header>
 
-        <nav
-          aria-label="Elsewhere"
-          className="portal-destinations"
-          id="elsewhere"
-        >
-          <ol>
-            {destinations.map(({ href, label, source }) => (
-              <li data-portal-section={source} key={source}>
-                <a aria-label={label} className="portal-link" href={href}>
-                  <span className="portal-name">{label}</span>
-                  <span aria-hidden="true" className="portal-arrow">
-                    <ArrowIcon />
-                  </span>
-                </a>
-              </li>
-            ))}
-          </ol>
-        </nav>
+        <PortalDirectory
+          destinations={fallbackDestinations}
+          previews={[
+            <Suspense
+              fallback={
+                <PreviewItem preview={fallbackDestinations[0].preview} />
+              }
+              key="github"
+            >
+              <RecentGithubPreviews />
+            </Suspense>,
+            <Suspense
+              fallback={
+                <PreviewItem preview={fallbackDestinations[1].preview} />
+              }
+              key="medium"
+            >
+              <RecentMediumPreviews />
+            </Suspense>,
+          ]}
+        />
 
         <footer className="portal-footer">
           <span>DENVER</span>

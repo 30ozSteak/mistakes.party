@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { MediumPost } from "../lib/medium";
 import { addMediumPostSlugs } from "../lib/medium";
 
@@ -36,11 +35,11 @@ export function MediumPostList({
   return (
     <div className="index-list">
       {routedPosts.map((post) => (
-        <Link
+        <a
           aria-label={post.title}
           className="index-row medium-post-row"
           data-medium-post
-          href={`/blogs/${post.slug}`}
+          href={post.url}
           key={post.id}
         >
           <div className="index-main">
@@ -50,7 +49,7 @@ export function MediumPostList({
             MEDIUM ·{" "}
             <time dateTime={post.publishedAt}>{formatDate(post.publishedAt)}</time>
           </span>
-        </Link>
+        </a>
       ))}
     </div>
   );

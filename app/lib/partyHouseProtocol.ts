@@ -10,6 +10,14 @@ export type PartyHouseZone = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 export type PartyHouseEnergy = 0 | 1 | 2;
 export type PartyHouseColor = 0 | 1 | 2 | 3;
 export type PartyHouseMode = "presence" | "live";
+export type PartyHouseRoom = "lobby" | "code" | "writing" | "games";
+
+export const PARTY_HOUSE_ROOM_ZONES = {
+  lobby: 4,
+  code: 1,
+  writing: 3,
+  games: 7,
+} as const satisfies Record<PartyHouseRoom, PartyHouseZone>;
 
 export type PartyHouseLight = {
   id: string;
@@ -19,6 +27,16 @@ export type PartyHouseLight = {
   energy: PartyHouseEnergy;
   sharing: boolean;
 };
+
+export function partyHouseRoomForLight(
+  light: Pick<PartyHouseLight, "sharing" | "zone">,
+): PartyHouseRoom {
+  if (!light.sharing) return "lobby";
+  if (light.zone === PARTY_HOUSE_ROOM_ZONES.code) return "code";
+  if (light.zone === PARTY_HOUSE_ROOM_ZONES.writing) return "writing";
+  if (light.zone === PARTY_HOUSE_ROOM_ZONES.games) return "games";
+  return "lobby";
+}
 
 export type PartyHouseAfterglow = {
   weights: [number, number, number, number];

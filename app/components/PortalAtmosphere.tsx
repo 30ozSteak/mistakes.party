@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { PartyHouseLight } from "../lib/partyHouseProtocol";
+import {
+  partyHouseRoomForLight,
+  type PartyHouseLight,
+} from "../lib/partyHouseProtocol";
 import { usePartyHouse } from "./PartyHouse";
 
 const POINTER_RANGE_X = 24;
@@ -261,24 +264,13 @@ export function PortalAtmosphere() {
             data-color={light.color}
             data-energy={light.energy}
             data-leaving={light.leaving ? "true" : "false"}
+            data-room={partyHouseRoomForLight(light)}
             data-seed={light.seed % 12}
             data-self={house.self?.id === light.id ? "true" : "false"}
             data-sharing={light.sharing ? "true" : "false"}
             data-testid="party-light"
             data-zone={light.sharing ? light.zone : 4}
             key={light.id}
-          />
-        ))}
-      </div>
-      <div className="portal-house-waves">
-        {house.knocks.map((knock) => (
-          <i
-            className="portal-house-wave"
-            data-color={knock.color}
-            data-self={house.self?.id === knock.lightId ? "true" : "false"}
-            data-testid="party-knock-wave"
-            data-zone={knock.zone}
-            key={knock.eventId}
           />
         ))}
       </div>

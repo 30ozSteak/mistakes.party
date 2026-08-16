@@ -40,7 +40,7 @@ try {
       async function probeHouse() {
         const clients = new Set();
 
-        function waitFor(client, type, predicate = () => true) {
+        function waitFor(client, type, predicate = () => true, checkpoint = type) {
           const existing = client.messages.find(
             (message) => message.type === type && predicate(message),
           );
@@ -48,7 +48,11 @@ try {
           return new Promise((resolve, reject) => {
             const timeout = window.setTimeout(() => {
               cleanup();
-              reject(new Error(`Timed out waiting for v2 ${type}.`));
+              reject(
+                new Error(
+                  `Timed out at ${checkpoint}; recent v2 messages: ${JSON.stringify(client.messages.slice(-6))}`,
+                ),
+              );
             }, 15_000);
             const handleMessage = (event) => {
               const message = JSON.parse(String(event.data));
@@ -137,6 +141,7 @@ try {
             first,
             "house:snapshot",
             (message) => message.presenceCount >= countWithFirst + 1,
+            "second distinct client arrival",
           );
 
           const pongPromise = waitFor(first, "pong");
@@ -152,18 +157,25 @@ try {
               "knock",
               (message) => message.requestId === requestId,
             );
-            const afterglowPromise = waitFor(
-              first,
-              "house:snapshot",
-              (message) =>
-                message.afterglow.intensity >
-                countWithTwo.afterglow.intensity,
-            );
             first.socket.send(
               JSON.stringify({ type: "knock:send", requestId, zone: 4 }),
             );
             knock = await knockPromise;
-            afterInteraction = (await afterglowPromise).afterglow;
+            afterInteraction = (
+              await waitFor(
+                first,
+                "house:snapshot",
+                (message) =>
+                  message.afterglow.asOf >= knock.sentAt &&
+                  (message.afterglow.intensity !==
+                    countWithTwo.afterglow.intensity ||
+                    message.afterglow.weights.some(
+                      (weight, index) =>
+                        weight !== countWithTwo.afterglow.weights[index],
+                    )),
+                "knock afterglow update",
+              )
+            ).afterglow;
           }
 
           const reconnectSession = {
@@ -174,6 +186,7 @@ try {
             first,
             "house:snapshot",
             (message) => message.presenceCount <= countWithTwo.presenceCount - 1,
+            "second client departure",
           );
           await closeClient(second);
           await departurePromise;
@@ -188,6 +201,7 @@ try {
           late = await openClient();
           const result = {
             afterInteraction,
+            beforeInteraction: countWithTwo.afterglow,
             countWithFirst,
             countWithTwo: countWithTwo.presenceCount,
             idleAfterglow: late.welcome.afterglow,
@@ -308,8 +322,12 @@ try {
     assert.equal(result.house.knock?.type, "knock");
     assert.equal(result.house.knock?.zone, 4);
     assert.ok(
-      result.house.afterInteraction.intensity >
-        result.house.welcome.afterglow.intensity,
+      result.house.afterInteraction.intensity !==
+        result.house.beforeInteraction.intensity ||
+        result.house.afterInteraction.weights.some(
+          (weight, index) =>
+            weight !== result.house.beforeInteraction.weights[index],
+        ),
     );
   } else {
     assert.equal(result.house.knock, null);

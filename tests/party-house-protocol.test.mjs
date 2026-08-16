@@ -4,10 +4,12 @@ import {
   PARTY_HOUSE_PROTOCOL_VERSION,
   PARTY_HOUSE_REALTIME_PATH,
   PARTY_HOUSE_REALTIME_SUBPROTOCOL,
+  PARTY_HOUSE_ROOM_ZONES,
   PARTY_HOUSE_SESSION_STORAGE_KEY,
   isPartyHouseRequestId,
   parsePartyHouseClientMessageJson,
   parsePartyHouseServerMessageJson,
+  partyHouseRoomForLight,
   partyHouseRealtimeWebSocketProtocols,
   partyHouseRealtimeWebSocketUrl,
 } from "../app/lib/partyHouseProtocol.ts";
@@ -56,6 +58,35 @@ test("builds one credential-free, query-free house URL", () => {
   assert.equal(url.pathname, PARTY_HOUSE_REALTIME_PATH);
   assert.equal(url.search, "");
   assert.equal(url.hash, "");
+});
+
+test("maps broad content rooms onto the existing anonymous zone contract", () => {
+  assert.deepEqual(PARTY_HOUSE_ROOM_ZONES, {
+    lobby: 4,
+    code: 1,
+    writing: 3,
+    games: 7,
+  });
+  assert.equal(
+    partyHouseRoomForLight({ sharing: true, zone: PARTY_HOUSE_ROOM_ZONES.code }),
+    "code",
+  );
+  assert.equal(
+    partyHouseRoomForLight({
+      sharing: true,
+      zone: PARTY_HOUSE_ROOM_ZONES.writing,
+    }),
+    "writing",
+  );
+  assert.equal(
+    partyHouseRoomForLight({ sharing: true, zone: PARTY_HOUSE_ROOM_ZONES.games }),
+    "games",
+  );
+  assert.equal(
+    partyHouseRoomForLight({ sharing: false, zone: PARTY_HOUSE_ROOM_ZONES.code }),
+    "lobby",
+  );
+  assert.equal(partyHouseRoomForLight({ sharing: true, zone: 8 }), "lobby");
 });
 
 test("accepts only exact, bounded Living Glass client messages", () => {

@@ -47,43 +47,7 @@
   background: var(--ink);
 }
 
-.action,
-.motion {
-  min-height: 2.75rem;
-  padding: 0 0.15rem;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  font: inherit;
-  letter-spacing: inherit;
-  text-decoration: underline;
-  text-decoration-thickness: 1.5px;
-  text-underline-offset: 0.22em;
-}
-
-.action:hover,
-.action:focus-visible,
-.motion:hover,
-.motion:focus-visible {
-  text-decoration-thickness: 3px;
-}
-
-.action:active,
-.motion:active {
-  transform: translateY(1px);
-}
-
-.motion {
-  opacity: 0.66;
-}
-
-.motion[aria-pressed="true"] {
-  opacity: 1;
-}
-
-.switchboard[data-knock-pulse="true"] .statusLight {
+.switchboard[data-balloon-pulse="true"] .statusLight {
   transform: scale(1.65);
 }
 
@@ -100,7 +64,7 @@
 @media (max-width: 700px) {
   .switchboard {
     min-height: 3rem;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: 0.7rem;
     font-size: 0.65rem;
   }
@@ -108,24 +72,19 @@
   .switchboard[data-party-surface="home"] {
     width: 100%;
     order: 3;
-    border-top: var(--rule) solid var(--ink);
+    padding-top: 0.8rem;
+    border-top: 1px solid var(--ink);
   }
 
-  .status {
+  .switchboard[data-party-surface="home"] .status {
+    min-height: 1.75rem;
     margin-right: auto;
   }
 
-  .action,
-  .motion {
-    min-width: 44px;
-    min-height: 44px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .statusLight,
-  .action,
-  .motion {
+  .statusLight {
     animation: none !important;
     transform: none !important;
     transition: none !important;

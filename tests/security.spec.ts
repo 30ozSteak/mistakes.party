@@ -47,12 +47,13 @@ test("enforces the nonce CSP without breaking hydration", async ({ page }) => {
     "data-connection",
     "live",
   );
-  await page.getByTestId("party-knock").click();
-  await expect(page.getByTestId("party-knock-wave")).toHaveCount(1);
+  await page.getByTestId("party-balloon-trigger").click();
+  await expect(page.getByTestId("party-balloon")).toHaveCount(1);
+  await page.getByTestId("party-balloon-trigger").click();
+  await expect(page.getByTestId("party-balloon-dialog")).toBeVisible();
   await expect(page.getByTestId("party-motion")).toBeVisible();
-  await page.mouse.move(1, 1);
-  await page.waitForTimeout(550);
-  await page.mouse.move(900, 500);
+  await page.getByRole("button", { name: "Close balloon guestbook" }).click();
+  await page.getByRole("button", { name: /^GITHUB/ }).hover();
   await expect(
     page.locator('[data-testid="party-light"][data-self="true"]'),
   ).toHaveAttribute("data-sharing", "true");

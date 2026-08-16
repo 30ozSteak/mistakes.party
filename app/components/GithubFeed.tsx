@@ -108,10 +108,10 @@ export function GithubFeed() {
       ) : repos.length > 0 ? (
         <div className="index-list">
           {repos.map((repo) => (
-            <Link
+            <a
               aria-label={repo.name}
               className="index-row"
-              href={`/code/${encodeURIComponent(repo.name)}`}
+              href={repo.html_url}
               key={repo.id}
             >
               <div className="index-main">
@@ -130,7 +130,7 @@ export function GithubFeed() {
                   <span>PUBLIC</span>
                 )}
               </span>
-            </Link>
+            </a>
           ))}
         </div>
       ) : null}

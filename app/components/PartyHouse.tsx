@@ -10,21 +10,23 @@ import {
   useMemo,
   useRef,
   useState,
-  type MouseEvent as ReactMouseEvent,
   type ReactNode,
 } from "react";
 import {
   PARTY_HOUSE_AFTERGLOW_WINDOW_MS,
+  PARTY_HOUSE_ROOM_ZONES,
   PARTY_HOUSE_SESSION_STORAGE_KEY,
   isPartyHouseGeneration,
   isPartyHouseSessionId,
   parsePartyHouseServerMessageJson,
+  partyHouseRoomForLight,
   partyHouseRealtimeWebSocketProtocols,
   partyHouseRealtimeWebSocketUrl,
   type PartyHouseAfterglow,
   type PartyHouseEnergy,
   type PartyHouseLight,
   type PartyHouseMode,
+  type PartyHouseRoom,
   type PartyHouseServerMessage,
   type PartyHouseZone,
 } from "../lib/partyHouseProtocol";
@@ -34,11 +36,12 @@ import styles from "./PartyHouse.module.css";
 const HEARTBEAT_MS = 25_000;
 const HELLO_TIMEOUT_MS = 10_000;
 const HIDDEN_RELEASE_MS = 30_000;
-const KNOCK_COOLDOWN_MS = 4_000;
-const KNOCK_LIFETIME_MS = 900;
+const BALLOON_ACK_TIMEOUT_MS = 8_000;
+const BALLOON_CONFIRMATION_MS = 2_600;
+const BALLOON_LIFETIME_MS = 4_200;
+const MAX_VISIBLE_BALLOONS = 4;
 const PEER_ANNOUNCEMENT_INTERVAL_MS = 5_000;
 const MOTION_INTERVAL_MS = 500;
-const MOTION_IDLE_MS = 900;
 const RECONNECT_DELAYS_MS = [500, 1_000, 2_000, 4_000, 8_000, 15_000];
 
 const EMPTY_AFTERGLOW: PartyHouseAfterglow = {
@@ -56,7 +59,9 @@ type PartyHouseConnectionState =
   | "full"
   | "off";
 
-export type PartyHouseKnock = Extract<
+// The v2 Worker retains the legacy `knock` wire name for compatibility. The
+// client presents those anonymous events as guestbook balloons.
+export type PartyHouseBalloon = Extract<
   PartyHouseServerMessage,
   { type: "knock" }
 >;
@@ -64,7 +69,7 @@ export type PartyHouseKnock = Extract<
 type StoredPartyHouseSession = {
   generation: string;
   sessionId: string;
-  hasKnocked: boolean;
+  hasLeftBalloon: boolean;
   motionPreference: "on" | "off" | null;
 };
 
@@ -73,21 +78,23 @@ type PartyHouseContextValue = {
   configured: boolean;
   connectionState: PartyHouseConnectionState;
   eligible: boolean;
-  feedback: string | null;
+  balloonAvailable: boolean;
+  balloonConfirmed: boolean;
+  balloonPending: boolean;
+  balloons: PartyHouseBalloon[];
+  hasLeftBalloon: boolean;
   hydrated: boolean;
-  knock: (fromCenter?: boolean) => void;
-  knockAvailable: boolean;
-  knocks: PartyHouseKnock[];
+  leaveBalloon: () => void;
   lights: PartyHouseLight[];
   mode: PartyHouseMode | null;
-  motionCapable: boolean;
   motionEnabled: boolean;
-  motionUnlocked: boolean;
   presenceCount: number | null;
+  room: PartyHouseRoom;
+  roomCounts: Record<Exclude<PartyHouseRoom, "lobby">, number>;
   self: PartyHouseLight | null;
+  setRoom: (room: PartyHouseRoom) => void;
   setMotionEnabled: (enabled: boolean) => void;
   swell: number;
-  systemReducedMotion: boolean;
 };
 
 const PartyHouseContext = createContext<PartyHouseContextValue | null>(null);
@@ -112,17 +119,24 @@ function readStoredSession(): StoredPartyHouseSession | null {
     if (
       !isPartyHouseGeneration(record.generation) ||
       !isPartyHouseSessionId(record.sessionId) ||
-      typeof record.hasKnocked !== "boolean" ||
       (record.motionPreference !== null &&
         record.motionPreference !== "on" &&
         record.motionPreference !== "off")
     ) {
       return null;
     }
+    const hasLeftBalloon =
+      typeof record.hasLeftBalloon === "boolean"
+        ? record.hasLeftBalloon
+        : typeof record.hasKnocked === "boolean"
+          ? record.hasKnocked
+          : null;
+    if (hasLeftBalloon === null) return null;
+
     return {
       generation: record.generation,
       sessionId: record.sessionId,
-      hasKnocked: record.hasKnocked,
+      hasLeftBalloon,
       motionPreference: record.motionPreference,
     };
   } catch {
@@ -162,18 +176,6 @@ function isSocketOpen(socket: WebSocket | null): socket is WebSocket {
   return socket !== null && socket.readyState === WebSocket.OPEN;
 }
 
-function pointerZone(clientX: number, clientY: number): PartyHouseZone {
-  const column = Math.min(
-    2,
-    Math.max(0, Math.floor((clientX / Math.max(window.innerWidth, 1)) * 3)),
-  );
-  const row = Math.min(
-    2,
-    Math.max(0, Math.floor((clientY / Math.max(window.innerHeight, 1)) * 3)),
-  );
-  return (row * 3 + column) as PartyHouseZone;
-}
-
 export function PartyHouseProvider({ children }: { children: ReactNode }) {
   const configured = PARTY_REALTIME_URL.length > 0;
   const [hydrated, setHydrated] = useState(false);
@@ -186,30 +188,29 @@ export function PartyHouseProvider({ children }: { children: ReactNode }) {
   const [lights, setLights] = useState<PartyHouseLight[]>([]);
   const [afterglow, setAfterglow] =
     useState<PartyHouseAfterglow>(EMPTY_AFTERGLOW);
-  const [knocks, setKnocks] = useState<PartyHouseKnock[]>([]);
+  const [balloons, setBalloons] = useState<PartyHouseBalloon[]>([]);
   const [swell, setSwell] = useState(0);
-  const [feedback, setFeedback] = useState<string | null>(null);
+  const [balloonConfirmed, setBalloonConfirmed] = useState(false);
+  const [balloonPending, setBalloonPending] = useState(false);
+  const [hasLeftBalloon, setHasLeftBalloon] = useState(false);
   const [announcement, setAnnouncement] = useState<{
     id: number;
     text: string;
   } | null>(null);
-  const [motionUnlocked, setMotionUnlocked] = useState(false);
   const [motionEnabled, setMotionEnabledState] = useState(false);
-  const [motionCapable, setMotionCapable] = useState(false);
-  const [systemReducedMotion, setSystemReducedMotion] = useState(false);
-  const [knockAvailable, setKnockAvailable] = useState(true);
+  const [room, setRoomState] = useState<PartyHouseRoom>("lobby");
 
   const socketRef = useRef<WebSocket | null>(null);
   const modeRef = useRef<PartyHouseMode | null>(null);
   const selfRef = useRef<PartyHouseLight | null>(null);
   const storedSessionRef = useRef<StoredPartyHouseSession | null>(null);
-  const pendingKnocksRef = useRef(new Set<string>());
-  const pendingKnockTimersRef = useRef(new Set<number>());
-  const knockTimersRef = useRef(new Set<number>());
-  const visibleKnocksRef = useRef<PartyHouseKnock[]>([]);
-  const feedbackTimerRef = useRef<number | null>(null);
-  const knockCooldownTimerRef = useRef<number | null>(null);
-  const lastKnockSentAtRef = useRef(0);
+  const balloonPendingRef = useRef(false);
+  const hasLeftBalloonRef = useRef(false);
+  const pendingBalloonTimersRef = useRef(new Map<string, number>());
+  const balloonTimersRef = useRef(new Set<number>());
+  const visibleBalloonsRef = useRef<PartyHouseBalloon[]>([]);
+  const confirmationTimerRef = useRef<number | null>(null);
+  const roomMotionTimerRef = useRef<number | null>(null);
   const peerAnnouncementTimerRef = useRef<number | null>(null);
   const queuedPeerAnnouncementRef = useRef("Someone changed the house.");
   const lastPeerAnnouncementRef = useRef(0);
@@ -217,18 +218,34 @@ export function PartyHouseProvider({ children }: { children: ReactNode }) {
   const presenceCountRef = useRef<number | null>(null);
 
   const clearHouseData = useCallback(() => {
+    balloonTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    balloonTimersRef.current.clear();
+    pendingBalloonTimersRef.current.forEach((timer) => {
+      window.clearTimeout(timer);
+    });
+    pendingBalloonTimersRef.current.clear();
+    if (confirmationTimerRef.current !== null) {
+      window.clearTimeout(confirmationTimerRef.current);
+      confirmationTimerRef.current = null;
+    }
+    if (roomMotionTimerRef.current !== null) {
+      window.clearTimeout(roomMotionTimerRef.current);
+      roomMotionTimerRef.current = null;
+    }
     modeRef.current = null;
     selfRef.current = null;
     presenceCountRef.current = null;
-    visibleKnocksRef.current = [];
+    visibleBalloonsRef.current = [];
+    balloonPendingRef.current = false;
     setMode(null);
     setSelf(null);
     setLights([]);
-    setKnocks([]);
+    setBalloons([]);
+    setBalloonPending(false);
     setPresenceCount(null);
     setAfterglow(EMPTY_AFTERGLOW);
     setSwell(0);
-    setFeedback(null);
+    setBalloonConfirmed(false);
   }, []);
   const clearHouseView = useCallback(() => {
     clearHouseData();
@@ -236,13 +253,9 @@ export function PartyHouseProvider({ children }: { children: ReactNode }) {
   }, [clearHouseData]);
   const motionEnabledRef = useRef(false);
   const motionUnlockedRef = useRef(false);
-  const reducedMotionRef = useRef(false);
-  const finePointerRef = useRef(false);
-  const lastZoneRef = useRef<PartyHouseZone>(4);
-  const lastPointerRef = useRef({ x: 0, y: 0, at: 0 });
+  const roomRef = useRef<PartyHouseRoom>("lobby");
   const lastMotionSentRef = useRef({ key: "", at: 0 });
   const motionWasSharedRef = useRef(false);
-  const idleMotionTimerRef = useRef<number | null>(null);
   const announcementTimerRef = useRef<number | null>(null);
 
   const handlePathname = useCallback((pathname: string) => {
@@ -263,8 +276,6 @@ export function PartyHouseProvider({ children }: { children: ReactNode }) {
         sharing &&
         (!motionUnlockedRef.current ||
           !motionEnabledRef.current ||
-          !finePointerRef.current ||
-          reducedMotionRef.current ||
           document.visibilityState !== "visible")
       ) {
         return;
@@ -287,20 +298,45 @@ export function PartyHouseProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const clearIdleMotionTimer = useCallback(() => {
-    if (idleMotionTimerRef.current !== null) {
-      window.clearTimeout(idleMotionTimerRef.current);
-      idleMotionTimerRef.current = null;
-    }
-  }, []);
-
   const disableOutgoingMotion = useCallback(() => {
-    clearIdleMotionTimer();
+    if (roomMotionTimerRef.current !== null) {
+      window.clearTimeout(roomMotionTimerRef.current);
+      roomMotionTimerRef.current = null;
+    }
     if (!motionUnlockedRef.current || !motionWasSharedRef.current) return;
-    sendMotion(4, 0, false, true);
+    sendMotion(PARTY_HOUSE_ROOM_ZONES.lobby, 0, false, true);
     lastMotionSentRef.current = { key: "", at: 0 };
     motionWasSharedRef.current = false;
-  }, [clearIdleMotionTimer, sendMotion]);
+  }, [sendMotion]);
+
+  const setRoom = useCallback(
+    (nextRoom: PartyHouseRoom) => {
+      roomRef.current = nextRoom;
+      setRoomState(nextRoom);
+      if (
+        !motionUnlockedRef.current ||
+        !motionEnabledRef.current ||
+        document.visibilityState !== "visible"
+      ) {
+        return;
+      }
+      const sharing = nextRoom !== "lobby";
+      sendMotion(PARTY_HOUSE_ROOM_ZONES[nextRoom], 0, sharing);
+      if (roomMotionTimerRef.current !== null) {
+        window.clearTimeout(roomMotionTimerRef.current);
+      }
+      roomMotionTimerRef.current = window.setTimeout(() => {
+        roomMotionTimerRef.current = null;
+        const latestRoom = roomRef.current;
+        sendMotion(
+          PARTY_HOUSE_ROOM_ZONES[latestRoom],
+          0,
+          latestRoom !== "lobby",
+        );
+      }, MOTION_INTERVAL_MS + 20);
+    },
+    [sendMotion],
+  );
 
   const announceImmediately = useCallback((text: string) => {
     announcementIdRef.current += 1;
@@ -328,40 +364,42 @@ export function PartyHouseProvider({ children }: { children: ReactNode }) {
       }
       if (!enabled) {
         disableOutgoingMotion();
-      } else if (
-        motionUnlockedRef.current &&
-        finePointerRef.current &&
-        !reducedMotionRef.current &&
-        document.visibilityState === "visible"
-      ) {
-        sendMotion(lastZoneRef.current, 0, true, true);
+      } else if (motionUnlockedRef.current && document.visibilityState === "visible") {
+        const activeRoom = roomRef.current;
+        sendMotion(
+          PARTY_HOUSE_ROOM_ZONES[activeRoom],
+          0,
+          activeRoom !== "lobby",
+          true,
+        );
       }
     },
     [disableOutgoingMotion, sendMotion],
   );
 
-  const addKnock = useCallback((knock: PartyHouseKnock) => {
+  const addBalloon = useCallback((balloon: PartyHouseBalloon) => {
     if (
-      visibleKnocksRef.current.some(
-        ({ eventId }) => eventId === knock.eventId,
+      visibleBalloonsRef.current.some(
+        ({ eventId }) => eventId === balloon.eventId,
       )
     ) {
       return;
     }
-    if (visibleKnocksRef.current.length >= 3) {
+    if (visibleBalloonsRef.current.length >= MAX_VISIBLE_BALLOONS) {
       setSwell((value) => value + 1);
-      return;
+      if (selfRef.current?.id !== balloon.lightId) return;
+      visibleBalloonsRef.current = visibleBalloonsRef.current.slice(1);
     }
-    visibleKnocksRef.current = [...visibleKnocksRef.current, knock];
-    setKnocks(visibleKnocksRef.current);
+    visibleBalloonsRef.current = [...visibleBalloonsRef.current, balloon];
+    setBalloons(visibleBalloonsRef.current);
     const timer = window.setTimeout(() => {
-      visibleKnocksRef.current = visibleKnocksRef.current.filter(
-        ({ eventId }) => eventId !== knock.eventId,
+      visibleBalloonsRef.current = visibleBalloonsRef.current.filter(
+        ({ eventId }) => eventId !== balloon.eventId,
       );
-      setKnocks(visibleKnocksRef.current);
-      knockTimersRef.current.delete(timer);
-    }, KNOCK_LIFETIME_MS);
-    knockTimersRef.current.add(timer);
+      setBalloons(visibleBalloonsRef.current);
+      balloonTimersRef.current.delete(timer);
+    }, BALLOON_LIFETIME_MS);
+    balloonTimersRef.current.add(timer);
   }, []);
 
   const announcePeerEvent = useCallback((text: string) => {
@@ -404,26 +442,33 @@ export function PartyHouseProvider({ children }: { children: ReactNode }) {
           const next: StoredPartyHouseSession = {
             generation: message.generation,
             sessionId: message.sessionId,
-            hasKnocked: continuing ? previous.hasKnocked : false,
+            hasLeftBalloon: continuing ? previous.hasLeftBalloon : false,
             motionPreference: continuing ? previous.motionPreference : null,
           };
           storedSessionRef.current = next;
           writeStoredSession(next);
-          motionUnlockedRef.current = next.hasKnocked;
+          hasLeftBalloonRef.current = next.hasLeftBalloon;
+          setHasLeftBalloon(next.hasLeftBalloon);
+          motionUnlockedRef.current = next.hasLeftBalloon;
           motionEnabledRef.current =
-            next.hasKnocked && next.motionPreference === "on";
+            next.hasLeftBalloon && next.motionPreference === "on";
           motionWasSharedRef.current = message.self.sharing;
-          setMotionUnlocked(next.hasKnocked);
           setMotionEnabledState(motionEnabledRef.current);
           const effectiveSharing =
             motionUnlockedRef.current &&
             motionEnabledRef.current &&
-            finePointerRef.current &&
-            !reducedMotionRef.current &&
+            roomRef.current !== "lobby" &&
             document.visibilityState === "visible";
           if (message.self.sharing && !effectiveSharing) {
-            sendMotion(4, 0, false, true);
+            sendMotion(PARTY_HOUSE_ROOM_ZONES.lobby, 0, false, true);
             motionWasSharedRef.current = false;
+          } else if (effectiveSharing) {
+            sendMotion(
+              PARTY_HOUSE_ROOM_ZONES[roomRef.current],
+              0,
+              true,
+              true,
+            );
           }
           return;
         }
@@ -469,41 +514,54 @@ export function PartyHouseProvider({ children }: { children: ReactNode }) {
           );
           return;
         case "knock": {
-          addKnock(message);
+          addBalloon(message);
           const isSelf =
             selfRef.current?.id === message.lightId &&
-            pendingKnocksRef.current.delete(message.requestId);
+            pendingBalloonTimersRef.current.has(message.requestId);
           if (isSelf) {
-            announceImmediately("The house heard you. You changed the light.");
-            setFeedback("YOU CHANGED THE LIGHT");
-            if (feedbackTimerRef.current !== null) {
-              window.clearTimeout(feedbackTimerRef.current);
+            const pendingTimer = pendingBalloonTimersRef.current.get(
+              message.requestId,
+            );
+            if (pendingTimer !== undefined) window.clearTimeout(pendingTimer);
+            pendingBalloonTimersRef.current.delete(message.requestId);
+            balloonPendingRef.current = false;
+            hasLeftBalloonRef.current = true;
+            setBalloonPending(false);
+            setHasLeftBalloon(true);
+            announceImmediately(
+              "Balloon left. Its anonymous color lingers for 24 hours.",
+            );
+            setBalloonConfirmed(true);
+            if (confirmationTimerRef.current !== null) {
+              window.clearTimeout(confirmationTimerRef.current);
             }
-            feedbackTimerRef.current = window.setTimeout(() => {
-              feedbackTimerRef.current = null;
-              setFeedback(null);
-            }, 1_800);
+            confirmationTimerRef.current = window.setTimeout(() => {
+              confirmationTimerRef.current = null;
+              setBalloonConfirmed(false);
+            }, BALLOON_CONFIRMATION_MS);
 
             if (!motionUnlockedRef.current) {
               motionUnlockedRef.current = true;
-              setMotionUnlocked(true);
-              const stored = storedSessionRef.current;
-              if (stored) {
-                stored.hasKnocked = true;
-                if (stored.motionPreference === null) {
-                  const defaultOn = finePointerRef.current;
-                  stored.motionPreference = defaultOn ? "on" : "off";
-                  motionEnabledRef.current = defaultOn;
-                  setMotionEnabledState(defaultOn);
-                  if (defaultOn && !reducedMotionRef.current) {
-                    sendMotion(lastZoneRef.current, 0, true, true);
-                  }
-                }
-                writeStoredSession(stored);
-              }
             }
+            motionEnabledRef.current = true;
+            setMotionEnabledState(true);
+            const stored = storedSessionRef.current;
+            if (stored) {
+              stored.hasLeftBalloon = true;
+              stored.motionPreference = "on";
+              writeStoredSession(stored);
+            }
+            const activeRoom = roomRef.current;
+            sendMotion(
+              PARTY_HOUSE_ROOM_ZONES[activeRoom],
+              0,
+              activeRoom !== "lobby",
+              true,
+            );
           } else {
-            announcePeerEvent("Someone knocked. The house changed color.");
+            announcePeerEvent(
+              "Someone left a balloon. Its color joined the house.",
+            );
           }
           return;
         }
@@ -512,7 +570,7 @@ export function PartyHouseProvider({ children }: { children: ReactNode }) {
           return;
       }
     },
-    [addKnock, announceImmediately, announcePeerEvent, sendMotion],
+    [addBalloon, announceImmediately, announcePeerEvent, sendMotion],
   );
 
   useEffect(() => {
@@ -535,10 +593,11 @@ export function PartyHouseProvider({ children }: { children: ReactNode }) {
 
     storedSessionRef.current = readStoredSession();
     const restored = storedSessionRef.current;
-    motionUnlockedRef.current = restored?.hasKnocked ?? false;
+    hasLeftBalloonRef.current = restored?.hasLeftBalloon ?? false;
+    setHasLeftBalloon(hasLeftBalloonRef.current);
+    motionUnlockedRef.current = restored?.hasLeftBalloon ?? false;
     motionEnabledRef.current =
-      restored?.hasKnocked === true && restored.motionPreference === "on";
-    setMotionUnlocked(motionUnlockedRef.current);
+      restored?.hasLeftBalloon === true && restored.motionPreference === "on";
     setMotionEnabledState(motionEnabledRef.current);
 
     function clearSocketTimers() {
@@ -682,93 +741,17 @@ export function PartyHouseProvider({ children }: { children: ReactNode }) {
     hydrated,
   ]);
 
-  useEffect(() => {
-    if (!hydrated || !eligible) return;
-    const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)");
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    finePointerRef.current = finePointer.matches;
-    reducedMotionRef.current = reducedMotion.matches;
-    queueMicrotask(() => setMotionCapable(finePointer.matches));
-    queueMicrotask(() => setSystemReducedMotion(reducedMotion.matches));
-
-    function stopMotion() {
-      clearIdleMotionTimer();
-      disableOutgoingMotion();
-    }
-
-    function handleCapabilityChange() {
-      finePointerRef.current = finePointer.matches;
-      reducedMotionRef.current = reducedMotion.matches;
-      setMotionCapable(finePointer.matches);
-      setSystemReducedMotion(reducedMotion.matches);
-      if (!finePointer.matches || reducedMotion.matches) stopMotion();
-    }
-
-    function handlePointerMove(event: PointerEvent) {
-      if (event.pointerType === "touch") return;
-      const now = performance.now();
-      const zone = pointerZone(event.clientX, event.clientY);
-      lastZoneRef.current = zone;
-      const previous = lastPointerRef.current;
-      const elapsed = Math.max(1, now - previous.at);
-      const distance = Math.hypot(event.clientX - previous.x, event.clientY - previous.y);
-      const energy: PartyHouseEnergy =
-        previous.at === 0 ? 1 : distance / elapsed > 1.15 ? 2 : 1;
-      lastPointerRef.current = { x: event.clientX, y: event.clientY, at: now };
-
-      if (
-        !motionUnlockedRef.current ||
-        !motionEnabledRef.current ||
-        !finePointerRef.current ||
-        reducedMotionRef.current ||
-        document.visibilityState !== "visible"
-      ) {
-        return;
-      }
-      sendMotion(zone, energy, true);
-      if (idleMotionTimerRef.current !== null) {
-        window.clearTimeout(idleMotionTimerRef.current);
-      }
-      idleMotionTimerRef.current = window.setTimeout(() => {
-        idleMotionTimerRef.current = null;
-        if (
-          !motionUnlockedRef.current ||
-          !motionEnabledRef.current ||
-          !finePointerRef.current ||
-          reducedMotionRef.current ||
-          document.visibilityState !== "visible"
-        ) {
-          return;
-        }
-        sendMotion(lastZoneRef.current, 0, true, true);
-      }, MOTION_IDLE_MS);
-    }
-
-    window.addEventListener("pointermove", handlePointerMove, { passive: true });
-    finePointer.addEventListener("change", handleCapabilityChange);
-    reducedMotion.addEventListener("change", handleCapabilityChange);
-    return () => {
-      stopMotion();
-      window.removeEventListener("pointermove", handlePointerMove);
-      finePointer.removeEventListener("change", handleCapabilityChange);
-      reducedMotion.removeEventListener("change", handleCapabilityChange);
-    };
-  }, [
-    clearIdleMotionTimer,
-    disableOutgoingMotion,
-    eligible,
-    hydrated,
-    sendMotion,
-  ]);
-
   useEffect(
     () => () => {
-      knockTimersRef.current.forEach((timer) => window.clearTimeout(timer));
-      pendingKnockTimersRef.current.forEach((timer) =>
-        window.clearTimeout(timer),
-      );
-      if (feedbackTimerRef.current !== null) {
-        window.clearTimeout(feedbackTimerRef.current);
+      balloonTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+      pendingBalloonTimersRef.current.forEach((timer) => {
+        window.clearTimeout(timer);
+      });
+      if (confirmationTimerRef.current !== null) {
+        window.clearTimeout(confirmationTimerRef.current);
+      }
+      if (roomMotionTimerRef.current !== null) {
+        window.clearTimeout(roomMotionTimerRef.current);
       }
       if (peerAnnouncementTimerRef.current !== null) {
         window.clearTimeout(peerAnnouncementTimerRef.current);
@@ -776,92 +759,103 @@ export function PartyHouseProvider({ children }: { children: ReactNode }) {
       if (announcementTimerRef.current !== null) {
         window.clearTimeout(announcementTimerRef.current);
       }
-      if (idleMotionTimerRef.current !== null) {
-        window.clearTimeout(idleMotionTimerRef.current);
-      }
-      if (knockCooldownTimerRef.current !== null) {
-        window.clearTimeout(knockCooldownTimerRef.current);
-      }
     },
     [],
   );
 
-  const knock = useCallback((fromCenter = false) => {
+  const leaveBalloon = useCallback(() => {
     const socket = socketRef.current;
-    if (!isSocketOpen(socket) || modeRef.current !== "live") return;
-    const now = Date.now();
-    const remaining =
-      KNOCK_COOLDOWN_MS - (now - lastKnockSentAtRef.current);
-    if (remaining > 0) return;
-    lastKnockSentAtRef.current = now;
-    setKnockAvailable(false);
-    if (knockCooldownTimerRef.current !== null) {
-      window.clearTimeout(knockCooldownTimerRef.current);
+    if (
+      !isSocketOpen(socket) ||
+      modeRef.current !== "live" ||
+      balloonPendingRef.current ||
+      hasLeftBalloonRef.current
+    ) {
+      return;
     }
-    knockCooldownTimerRef.current = window.setTimeout(() => {
-      knockCooldownTimerRef.current = null;
-      setKnockAvailable(true);
-    }, KNOCK_COOLDOWN_MS);
+    balloonPendingRef.current = true;
+    setBalloonPending(true);
     const requestId = crypto.randomUUID();
-    pendingKnocksRef.current.add(requestId);
     const pendingTimer = window.setTimeout(() => {
-      pendingKnocksRef.current.delete(requestId);
-      pendingKnockTimersRef.current.delete(pendingTimer);
-    },
-      KNOCK_COOLDOWN_MS * 2,
-    );
-    pendingKnockTimersRef.current.add(pendingTimer);
+      pendingBalloonTimersRef.current.delete(requestId);
+      balloonPendingRef.current = false;
+      setBalloonPending(false);
+      announceImmediately("The balloon did not leave. Try again.");
+    }, BALLOON_ACK_TIMEOUT_MS);
+    pendingBalloonTimersRef.current.set(requestId, pendingTimer);
     socket.send(
       JSON.stringify({
         type: "knock:send",
         requestId,
-        zone: fromCenter ? 4 : lastZoneRef.current,
+        zone: PARTY_HOUSE_ROOM_ZONES[roomRef.current],
       }),
     );
-  }, []);
+  }, [announceImmediately]);
+
+  const roomCounts = useMemo(() => {
+    const counts = { code: 0, writing: 0, games: 0 };
+    const cohort = new Map<string, PartyHouseLight>();
+    if (self) cohort.set(self.id, self);
+    for (const light of lights) cohort.set(light.id, light);
+    for (const light of cohort.values()) {
+      const lightRoom = partyHouseRoomForLight(light);
+      if (lightRoom !== "lobby") counts[lightRoom] += 1;
+    }
+    return counts;
+  }, [lights, self]);
+
+  const balloonAvailable =
+    connectionState === "live" &&
+    mode === "live" &&
+    !hasLeftBalloon &&
+    !balloonPending;
 
   const context = useMemo<PartyHouseContextValue>(
     () => ({
       afterglow,
+      balloonAvailable,
+      balloonConfirmed,
+      balloonPending,
+      balloons,
       configured,
       connectionState,
       eligible,
-      feedback,
+      hasLeftBalloon,
       hydrated,
-      knock,
-      knockAvailable,
-      knocks,
+      leaveBalloon,
       lights,
       mode,
-      motionCapable,
       motionEnabled,
-      motionUnlocked,
       presenceCount,
+      room,
+      roomCounts,
       self,
+      setRoom,
       setMotionEnabled,
       swell,
-      systemReducedMotion,
     }),
     [
       afterglow,
+      balloonAvailable,
+      balloonConfirmed,
+      balloonPending,
+      balloons,
       configured,
       connectionState,
       eligible,
-      feedback,
+      hasLeftBalloon,
       hydrated,
-      knock,
-      knockAvailable,
-      knocks,
+      leaveBalloon,
       lights,
       mode,
-      motionCapable,
       motionEnabled,
-      motionUnlocked,
       presenceCount,
+      room,
+      roomCounts,
       self,
+      setRoom,
       setMotionEnabled,
       swell,
-      systemReducedMotion,
     ],
   );
 
@@ -894,9 +888,7 @@ export function usePartyHouse(): PartyHouseContextValue {
 function visibleStatus(
   state: PartyHouseConnectionState,
   count: number | null,
-  feedback: string | null,
 ): string {
-  if (feedback) return feedback;
   if (state === "full") return "HOUSE IS FULL";
   if (state === "reconnecting") return "LIGHTS FLICKERING";
   if (state !== "live" || count === null) return "OPENING…";
@@ -913,8 +905,8 @@ export function PartySwitchboard({
   surface?: "home" | "site";
 }) {
   const house = usePartyHouse();
-  const latestKnockId = house.knocks.at(-1)?.eventId ?? "";
-  const pulsing = latestKnockId.length > 0;
+  const latestBalloonId = house.balloons.at(-1)?.eventId ?? "";
+  const pulsing = latestBalloonId.length > 0;
 
   if (
     disabled ||
@@ -928,7 +920,6 @@ export function PartySwitchboard({
   const status = visibleStatus(
     house.connectionState,
     house.presenceCount,
-    house.feedback,
   );
   const exactStatus =
     house.presenceCount === null
@@ -936,24 +927,10 @@ export function PartySwitchboard({
       : `${status}. ${house.presenceCount} anonymous ${
           house.presenceCount === 1 ? "light" : "lights"
         } currently on in the shared house.`;
-  const interactive =
-    house.connectionState === "live" && house.mode === "live";
-  const effectiveMotion =
-    house.motionEnabled &&
-    house.motionCapable &&
-    !house.systemReducedMotion;
   const serializedAfterglow = JSON.stringify({
     weights: house.afterglow.weights,
     intensity: house.afterglow.intensity,
   });
-
-  function handleKnock(event: ReactMouseEvent<HTMLButtonElement>) {
-    const nativeEvent = event.nativeEvent;
-    house.knock(
-      event.detail === 0 ||
-        ("pointerType" in nativeEvent && nativeEvent.pointerType !== "mouse"),
-    );
-  }
 
   return (
     <div
@@ -962,14 +939,15 @@ export function PartySwitchboard({
       data-connection={house.connectionState}
       data-party-house=""
       data-presence={house.presenceCount ?? ""}
+      data-room={house.room}
       data-testid="party-house"
     >
       <div
-        aria-label="Live party controls"
+        aria-label="Live party status"
         className={styles.switchboard}
         data-afterglow={serializedAfterglow}
+        data-balloon-pulse={pulsing ? "true" : "false"}
         data-connection={house.connectionState}
-        data-knock-pulse={pulsing ? "true" : "false"}
         data-party-surface={surface}
         data-presence={house.presenceCount ?? ""}
         data-testid="party-switchboard"
@@ -983,32 +961,6 @@ export function PartySwitchboard({
           <span aria-hidden="true" className={styles.statusLight} />
           <span>{status}</span>
         </span>
-        {interactive ? (
-          <button
-            className={styles.action}
-            data-testid="party-knock"
-            disabled={!house.knockAvailable}
-            onClick={handleKnock}
-            type="button"
-          >
-            KNOCK
-          </button>
-        ) : null}
-        {interactive && house.motionUnlocked ? (
-          <button
-            aria-label={`Coarse shared motion ${
-              effectiveMotion ? "on" : "off"
-            }. Shares only a three by three page zone.`}
-            aria-pressed={effectiveMotion}
-            className={styles.motion}
-            data-testid="party-motion"
-            disabled={!house.motionCapable || house.systemReducedMotion}
-            onClick={() => house.setMotionEnabled(!house.motionEnabled)}
-            type="button"
-          >
-            MOTION {effectiveMotion ? "ON" : "OFF"}
-          </button>
-        ) : null}
       </div>
     </div>
   );

@@ -44,7 +44,7 @@ export function SiteHeader({ currentPage, indexLink = false }: SiteHeaderProps) 
     const firstLink = menuRef.current?.querySelector<HTMLAnchorElement>("a");
     const backgroundElements = [
       ...document.querySelectorAll<HTMLElement>(
-        "main, footer, .skip-link, [data-party-house]",
+        "main, footer, .skip-link, [data-party-house], [data-party-guestbook]",
       ),
     ];
     const previousInertStates = backgroundElements.map((element) =>

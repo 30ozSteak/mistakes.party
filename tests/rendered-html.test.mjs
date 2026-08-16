@@ -100,7 +100,7 @@ function assertPartyPresence(html, { available = true } = {}) {
   assert.doesNotMatch(html, /<canvas\b/i);
 }
 
-test("renders the quiet external link index", async () => {
+test("renders the living external index with inline previews", async () => {
   const { headers, html } = await readRenderedPage("/");
 
   assertPartyPresence(html);
@@ -119,30 +119,33 @@ test("renders the quiet external link index", async () => {
   assert.doesNotMatch(html, /patreon\.com\/steaks|SUPPORT/);
   assert.match(html, /class="skip-link" href="#elsewhere">SKIP TO THE LINKS/);
   assert.match(html, /<nav aria-label="Elsewhere"/);
-  assert.equal((html.match(/data-portal-section=/g) || []).length, 3);
-  assert.equal((html.match(/class="portal-link"/g) || []).length, 3);
-  assert.equal((html.match(/class="portal-arrow"/g) || []).length, 3);
+  assert.equal((html.match(/data-portal-section=/g) || []).length, 2);
+  assert.equal((html.match(/class="portal-link"/g) || []).length, 2);
+  assert.equal((html.match(/class="portal-arrow"/g) || []).length, 2);
   assert.equal(
-    (html.match(/data-arrow-direction="up-right"/g) || []).length,
-    3,
+    (html.match(/data-arrow-direction="right"/g) || []).length,
+    2,
   );
   assert.doesNotMatch(html, /[↗→←↑]/);
   assert.doesNotMatch(html, /class="portal-number"/);
-  assert.doesNotMatch(html, /PUBLIC REPOS/);
-  assert.doesNotMatch(html, /<details|<summary|class="portal-panel"/i);
+  assert.equal((html.match(/class="portal-panel"/g) || []).length, 2);
+  assert.doesNotMatch(html, /portal-knock|LEAVE A MARK|KNOCK/);
+  assert.equal((html.match(/ROOM QUIET/g) || []).length, 2);
   assert.match(
     html,
-    /aria-label="GITHUB" class="portal-link" href="https:\/\/github\.com\/30ozSteak"/,
+    /class="portal-external" href="https:\/\/github\.com\/30ozSteak">OPEN (?:<!-- -->)?GITHUB/,
   );
   assert.match(
     html,
-    /aria-label="MEDIUM" class="portal-link" href="https:\/\/medium\.com\/@30ozsteak"/,
+    /class="portal-external" href="https:\/\/medium\.com\/@30ozsteak">OPEN (?:<!-- -->)?MEDIUM/,
   );
-  assert.match(
-    html,
-    /aria-label="ITCH\.IO" class="portal-link" href="https:\/\/steaks\.itch\.io"/,
-  );
-  assert.doesNotMatch(html, /data-source-item=|UNTITLED GAME/);
+  assert.doesNotMatch(html, /href="\/code\//);
+  assert.match(html, /FRESH-REPO|fresh-repo/);
+  assert.doesNotMatch(html, /href="\/blogs\//);
+  assert.match(html, /MEDIUM POST 01/);
+  assert.match(html, /RECENT REPOSITORIES/);
+  assert.match(html, /RECENT POSTS/);
+  assert.doesNotMatch(html, /portal-description|ITCH\.IO|steaks\.itch\.io/);
   assert.match(html, /DENVER/);
   assert.match(html, /href="mailto:hello@mistakes\.party">HELLO@MISTAKES\.PARTY<\/a>/);
   assert.doesNotMatch(html, /Open primary navigation|mobile-navigation/);
@@ -150,7 +153,7 @@ test("renders the quiet external link index", async () => {
   assert.doesNotMatch(html, /aria-label="PATREON"/i);
   assert.doesNotMatch(html, /<span aria-hidden="true">MXP<\/span>/);
   assert.doesNotMatch(html, /FOUR BAD DOORS|THE OCCASIONAL USEFUL MISTAKE/i);
-  assert.doesNotMatch(html, /href="\/(?:work|archive|blogs|code)\//);
+  assert.doesNotMatch(html, /href="\/(?:work|archive)\//);
   assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
   assert.match(
     html,
@@ -241,30 +244,17 @@ test("renders internal source detail pages with prominent external CTAs", async 
   );
 });
 
-test("rejects unindexed GitHub detail slugs without a detail fetch", async () => {
-  const response = await fetch(
-    new URL("/code/attacker-generated-repository-name/", testBaseUrl),
-    { headers: { accept: "text/html" } },
-  );
+test("removed source detail routes return not found", async () => {
+  for (const pathname of [
+    "/code/fresh-repo/",
+    "/blogs/medium-post-01/",
+  ]) {
+    const response = await fetch(new URL(pathname, testBaseUrl), {
+      headers: { accept: "text/html" },
+    });
 
-  assert.equal(response.status, 404);
-});
-
-test("renders a Medium fixture detail page with its authoritative source CTA", async () => {
-  const { headers, html } = await readRenderedPage("/blogs/medium-post-01/");
-
-  assertPartyPresence(html);
-  assertSecurityHeaders(headers, html);
-  assert.match(html, /<title>MEDIUM POST 01 — MISTAKES\.PARTY<\/title>/i);
-  assert.match(html, /<h1>MEDIUM POST 01<\/h1>/);
-  assert.match(
-    html,
-    /href="https:\/\/medium\.com\/@30ozsteak\/medium-post-01">READ ON MEDIUM(?:<!-- -->)? <svg/,
-  );
-  assert.doesNotMatch(
-    html,
-    /<script>globalThis\.__mediumXssExecuted=1<\/script>/,
-  );
+    assert.equal(response.status, 404);
+  }
 });
 
 test("ships the custom display font and viewport-contained link portal", async () => {
@@ -297,7 +287,7 @@ test("ships the custom display font and viewport-contained link portal", async (
   );
   assert.match(
     styles,
-    /\.portal-home\s*\{[^}]*min-height:\s*100vh;[^}]*min-height:\s*100dvh;[^}]*grid-template-rows:\s*auto minmax\(min-content, 1fr\) auto;[^}]*overflow:\s*clip;/s,
+    /\.portal-home\s*\{[^}]*min-height:\s*100vh;[^}]*min-height:\s*100dvh;[^}]*grid-template-rows:\s*auto minmax\(min-content, 1fr\) auto;[^}]*overflow-x:\s*clip;/s,
   );
   assert.doesNotMatch(styles, /\.portal-link(?::[^\s,{]+)?::before/);
   assert.match(styles, /\.portal-arrow\s*\{[^}]*font-size:\s*clamp/s);
@@ -305,7 +295,7 @@ test("ships the custom display font and viewport-contained link portal", async (
   assert.doesNotMatch(styles, /::details-content|\.portal-section\[open\]/);
   assert.match(
     styles,
-    /\.portal-home a\s*\{[^}]*-webkit-tap-highlight-color:\s*transparent/s,
+    /\.portal-home a,\s*\.portal-home button\s*\{[^}]*-webkit-tap-highlight-color:\s*transparent/s,
   );
   assert.match(
     styles,

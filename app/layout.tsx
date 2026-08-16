@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { connection } from "next/server";
 import { Analytics } from "@vercel/analytics/next";
+import { BalloonGuestbook } from "./components/BalloonGuestbook";
 import { PartyHouseProvider } from "./components/PartyHouse";
 import "./globals.css";
 
@@ -61,7 +62,10 @@ export default async function RootLayout({
         />
       </head>
       <body>
-        <PartyHouseProvider>{children}</PartyHouseProvider>
+        <PartyHouseProvider>
+          {children}
+          <BalloonGuestbook />
+        </PartyHouseProvider>
         <Analytics mode="production" />
       </body>
     </html>

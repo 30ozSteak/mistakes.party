@@ -54,9 +54,6 @@
       "observability": {
         "enabled": true
       },
-      "limits": {
-        "cpu_ms": 100
-      },
       "ratelimits": [
         {
           "name": "PARTY_HANDSHAKE_RATE_LIMITER",
@@ -82,7 +79,7 @@
       "vars": {
         "ALLOWED_ORIGINS": "https://www.mistakes.party",
         "PARTY_MODE": "live",
-        "PARTY_HOUSE_MODE": "presence",
+        "PARTY_HOUSE_MODE": "live",
         "PARTY_GENERATION": "v1"
       }
     }

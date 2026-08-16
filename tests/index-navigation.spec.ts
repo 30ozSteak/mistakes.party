@@ -3,7 +3,6 @@ import { expect, test, type Page } from "@playwright/test";
 const destinations = [
   ["github", "GITHUB", "https://github.com/30ozSteak"],
   ["medium", "MEDIUM", "https://medium.com/@30ozsteak"],
-  ["itch", "ITCH.IO", "https://steaks.itch.io"],
 ] as const;
 
 async function waitForHome(page: Page) {
@@ -14,7 +13,7 @@ async function waitForHome(page: Page) {
   );
 }
 
-test("the homepage is a three-link external index", async ({ page }) => {
+test("the homepage is a two-room living index", async ({ page }) => {
   await waitForHome(page);
 
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
@@ -23,25 +22,31 @@ test("the homepage is a three-link external index", async ({ page }) => {
   await expect(
     page.getByRole("navigation", { name: "Elsewhere" }),
   ).toBeVisible();
-  await expect(page.locator("[data-portal-section]")).toHaveCount(3);
-  await expect(page.locator(".portal-link")).toHaveCount(3);
-  await expect(page.locator(".portal-arrow")).toHaveCount(3);
+  await expect(page.locator("[data-portal-section]")).toHaveCount(2);
+  await expect(page.locator(".portal-link")).toHaveCount(2);
+  await expect(page.locator(".portal-arrow")).toHaveCount(2);
   await expect(
-    page.locator('.portal-arrow svg[data-arrow-direction="up-right"]'),
-  ).toHaveCount(3);
+    page.locator('.portal-arrow svg[data-arrow-direction="right"]'),
+  ).toHaveCount(2);
 
   for (const [source, label, href] of destinations) {
     const row = page.locator(`[data-portal-section="${source}"]`);
-    const link = row.getByRole("link", { name: label, exact: true });
-    await expect(link).toHaveAttribute("href", href);
-    await expect(link).toBeVisible();
+    const trigger = row.getByRole("button", { name: new RegExp(`^${label}`) });
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await trigger.click();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+    await expect(
+      row.getByRole("link", { name: new RegExp(`^OPEN ${label}`) }),
+    ).toHaveAttribute("href", href);
+    await expect(row.getByRole("button", { name: "LEAVE A MARK" })).toHaveCount(0);
   }
 
-  await expect(page.locator("details, summary, .portal-panel")).toHaveCount(0);
-  await expect(page.getByText(/PUBLIC REPOS/)).toHaveCount(0);
-  await expect(page.getByText("UNTITLED GAME 01", { exact: true })).toHaveCount(
-    0,
-  );
+  await expect(page.locator(".portal-panel")).toHaveCount(2);
+  await expect(page.getByText("RECENT REPOSITORIES")).toHaveCount(1);
+  await expect(page.getByText("RECENT POSTS")).toHaveCount(1);
+  await expect(page.locator(".portal-preview a")).toHaveCount(0);
+  await expect(page.locator(".portal-description")).toHaveCount(0);
+  await expect(page.getByText("ITCH.IO", { exact: true })).toHaveCount(0);
 
   await expect(
     page.getByRole("link", { name: "SUPPORT", exact: true }),
@@ -231,7 +236,7 @@ test("the desktop links stay balanced without labels colliding with arrows", asy
     });
 
     const contentWidth = geometry.contentRight - geometry.contentLeft;
-    const expectedWidth = Math.min(contentWidth, 90 * geometry.rootFontSize);
+    const expectedWidth = contentWidth;
     const leftInset = geometry.destinations.left - geometry.contentLeft;
     const rightInset = geometry.contentRight - geometry.destinations.right;
 
@@ -334,10 +339,10 @@ test("the direct links stay usable and contained on small phones", async ({
     ).toBeLessThanOrEqual(1);
 
     for (const [, label] of destinations) {
-      const link = page.getByRole("link", { name: label, exact: true });
+      const trigger = page.getByRole("button", { name: new RegExp(`^${label}`) });
       const [linkBox, nameBox] = await Promise.all([
-        link.boundingBox(),
-        link.locator(".portal-name").boundingBox(),
+        trigger.boundingBox(),
+        trigger.locator(".portal-name").boundingBox(),
       ]);
       expect(linkBox).not.toBeNull();
       expect(nameBox).not.toBeNull();
@@ -348,7 +353,7 @@ test("the direct links stay usable and contained on small phones", async ({
     }
   }
 
-  const githubLink = page.getByRole("link", { name: "GITHUB", exact: true });
+  const githubLink = page.getByRole("button", { name: /^GITHUB/ });
   await page.mouse.move(0, 0);
   const restingBackground = await githubLink.evaluate(
     (element) => getComputedStyle(element).backgroundColor,
@@ -361,19 +366,19 @@ test("the direct links stay usable and contained on small phones", async ({
   await expect(githubLink).toHaveCSS("outline-style", "solid");
   await expect(githubLink).toHaveCSS("background-color", restingBackground);
 
-  const partySwitchboard = page.getByTestId("party-switchboard");
+  const balloonTrigger = page.getByTestId("party-balloon-trigger");
   const email = page.getByRole("link", { name: "HELLO@MISTAKES.PARTY" });
-  const [partyBox, emailBox] = await Promise.all([
-    partySwitchboard.boundingBox(),
+  const [balloonBox, emailBox] = await Promise.all([
+    balloonTrigger.boundingBox(),
     email.boundingBox(),
   ]);
-  expect(partyBox).not.toBeNull();
+  expect(balloonBox).not.toBeNull();
   expect(emailBox).not.toBeNull();
   const overlaps = !(
-    partyBox!.x >= emailBox!.x + emailBox!.width ||
-    emailBox!.x >= partyBox!.x + partyBox!.width ||
-    partyBox!.y >= emailBox!.y + emailBox!.height ||
-    emailBox!.y >= partyBox!.y + partyBox!.height
+    balloonBox!.x >= emailBox!.x + emailBox!.width ||
+    emailBox!.x >= balloonBox!.x + balloonBox!.width ||
+    balloonBox!.y >= emailBox!.y + emailBox!.height ||
+    emailBox!.y >= balloonBox!.y + balloonBox!.height
   );
   expect(overlaps).toBe(false);
 
@@ -381,7 +386,12 @@ test("the direct links stay usable and contained on small phones", async ({
     "data-connection",
     "live",
   );
-  await page.getByTestId("party-knock").click();
-  await expect(page.getByTestId("party-knock-wave")).toHaveCount(1);
+  const balloon = page.getByTestId("party-balloon-trigger");
+  await expect(balloon).toContainText("1 HERE");
+  await balloon.click();
+  await expect(page.getByTestId("party-balloon")).toHaveCount(1);
+  await expect(page.getByTestId("party-balloon-confirmation")).toBeVisible();
+  await balloon.click();
+  await expect(page.getByTestId("party-balloon-dialog")).toBeVisible();
   await expect(page.getByTestId("party-motion")).toBeVisible();
 });

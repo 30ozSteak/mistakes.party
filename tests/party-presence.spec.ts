@@ -95,7 +95,7 @@ test("counts distinct tabs in one sitewide house across public routes", async ({
     expect(homeSession).toMatchObject({
       generation: expect.any(String),
       sessionId: expect.any(String),
-      hasKnocked: false,
+      hasLeftBalloon: false,
       motionPreference: null,
     });
 
@@ -114,7 +114,7 @@ test("counts distinct tabs in one sitewide house across public routes", async ({
   }
 });
 
-test("KNOCK echoes once to the house and persists its 24-hour afterglow", async ({
+test("a balloon echoes once to the house and persists its 24-hour afterglow", async ({
   browser,
 }) => {
   const sender = await openHousePage(browser, "/");
@@ -126,25 +126,33 @@ test("KNOCK echoes once to the house and persists its 24-hour afterglow", async 
       .getByTestId("portal-atmosphere")
       .getAttribute("data-afterglow");
 
-    await sender.page.getByTestId("party-knock").click();
+    const trigger = sender.page.getByTestId("party-balloon-trigger");
+    await expect(trigger).toContainText("2 HERE");
+    await trigger.click();
 
-    const selfWave = sender.page.locator(
-      '[data-testid="party-knock-wave"][data-self="true"]',
+    const selfBalloon = sender.page.locator(
+      '[data-testid="party-balloon"][data-self="true"]',
     );
-    const peerWave = peer.page.locator(
-      '[data-testid="party-knock-wave"][data-self="false"]',
+    const peerBalloon = peer.page.locator(
+      '[data-testid="party-balloon"][data-self="false"]',
     );
-    await expect(selfWave).toHaveCount(1);
-    await expect(peerWave).toHaveCount(1);
-    await expect(selfWave).toHaveAttribute("data-color", /^[0-3]$/);
-    await expect(selfWave).toHaveAttribute("data-zone", /^[0-8]$/);
-    const knockColor = Number(await selfWave.getAttribute("data-color"));
+    await expect(selfBalloon).toHaveCount(1);
+    await expect(peerBalloon).toHaveCount(1);
+    await expect(selfBalloon).toHaveAttribute("data-color", /^[0-3]$/);
+    const balloonColor = Number(await selfBalloon.getAttribute("data-color"));
+    await expect(sender.page.getByTestId("party-balloon-confirmation")).toContainText(
+      "THE COLOR LINGERS FOR 24 HOURS",
+    );
 
     const session = await readSession(sender.page);
     expect(session).toMatchObject({
-      hasKnocked: true,
+      hasLeftBalloon: true,
       motionPreference: "on",
     });
+    await trigger.click();
+    await expect(sender.page.getByTestId("party-balloon-dialog")).toBeVisible();
+    await sender.page.keyboard.press("Escape");
+    await expect(trigger).toBeFocused();
 
     const atmosphere = sender.page.getByTestId("portal-atmosphere");
     await expect
@@ -153,7 +161,7 @@ test("KNOCK echoes once to the house and persists its 24-hour afterglow", async 
     const after = parseAfterglow(await atmosphere.getAttribute("data-afterglow"));
     if (!after) throw new Error("Expected serialized Living Glass afterglow");
     expect(after.intensity).toBeGreaterThan(0);
-    expect(after.weights[knockColor]).toBeGreaterThan(0);
+    expect(after.weights[balloonColor]).toBeGreaterThan(0);
 
     const late = await openHousePage(browser, "/code/");
     try {
@@ -168,27 +176,45 @@ test("KNOCK echoes once to the house and persists its 24-hour afterglow", async 
       const lateAfterglow = parseAfterglow(
         await late.page.getByTestId("party-house").getAttribute("data-afterglow"),
       );
-      expect(lateAfterglow?.weights[knockColor]).toBeGreaterThan(0);
+      expect(lateAfterglow?.weights[balloonColor]).toBeGreaterThan(0);
       await expect(late.page.getByTestId("portal-atmosphere")).toHaveCount(0);
-      await expect(late.page.getByTestId("party-knock-wave")).toHaveCount(0);
+      await expect(late.page.getByTestId("party-balloon")).toHaveCount(0);
     } finally {
       await late.context.close();
     }
 
-    // One knock produces one event per client; a late tab gets state, not history.
-    await expect(sender.page.getByTestId("party-knock-wave")).toHaveCount(0, {
-      timeout: 3_000,
+    // One balloon produces one event per client; a late tab gets state, not history.
+    await expect(sender.page.getByTestId("party-balloon")).toHaveCount(0, {
+      timeout: 6_000,
     });
-    await expect(peer.page.getByTestId("party-knock-wave")).toHaveCount(0, {
-      timeout: 3_000,
+    await expect(peer.page.getByTestId("party-balloon")).toHaveCount(0, {
+      timeout: 6_000,
     });
+
+    await sender.page.evaluate((key) => {
+      const value = JSON.parse(sessionStorage.getItem(key) ?? "null");
+      value.hasKnocked = value.hasLeftBalloon;
+      delete value.hasLeftBalloon;
+      sessionStorage.setItem(key, JSON.stringify(value));
+    }, HOUSE_SESSION_KEY);
+    await sender.page.reload();
+    await expect(sender.page.getByTestId("party-house")).toHaveAttribute(
+      "data-connection",
+      "live",
+    );
+    await expect.poll(() => readSession(sender.page)).toMatchObject({
+      hasLeftBalloon: true,
+      motionPreference: "on",
+    });
+    await sender.page.getByTestId("party-balloon-trigger").click();
+    await expect(sender.page.getByTestId("party-balloon-dialog")).toBeVisible();
   } finally {
     await sender.context.close();
     await peer.context.close();
   }
 });
 
-test("coarse motion stays locked until KNOCK and remembers the off toggle", async ({
+test("MY LIGHT unlocks after a balloon and remembers the off toggle", async ({
   browser,
 }) => {
   const visitor = await openHousePage(browser);
@@ -197,38 +223,40 @@ test("coarse motion stays locked until KNOCK and remembers the off toggle", asyn
     const motion = visitor.page.getByTestId("party-motion");
     await expect(motion).toHaveCount(0);
 
-    await visitor.page.mouse.move(1, 1);
-    await visitor.page.mouse.move(1200, 700);
+    const github = visitor.page.locator('[data-portal-section="github"]');
+    await github.getByRole("button", { name: /^GITHUB/ }).click();
     await expect(
       visitor.page.locator(
         '[data-testid="party-light"][data-self="true"]',
       ),
     ).toHaveAttribute("data-sharing", "false");
 
-    await visitor.page.getByTestId("party-knock").click();
+    await visitor.page.getByTestId("party-balloon-trigger").click();
+    await visitor.page.getByTestId("party-balloon-trigger").click();
+    await expect(visitor.page.getByTestId("party-balloon-dialog")).toBeVisible();
     await expect(motion).toBeVisible();
     await expect(motion).toHaveAttribute("aria-pressed", "true");
-    await visitor.page.mouse.move(1, 1);
-    await visitor.page.waitForTimeout(550);
-    await visitor.page.mouse.move(1200, 700);
-    await expect(
-      visitor.page.locator(
-        '[data-testid="party-light"][data-self="true"]',
-      ),
-    ).toHaveAttribute("data-sharing", "true");
-
-    await motion.click();
-    await expect(motion).toHaveAttribute("aria-pressed", "false");
     const selfLight = visitor.page.locator(
       '[data-testid="party-light"][data-self="true"]',
     );
-    await expect(selfLight).toHaveAttribute("data-sharing", "false");
-    // A pointer move schedules an idle frame. Turning motion off must cancel
-    // that frame instead of silently re-enabling sharing 900ms later.
-    await visitor.page.waitForTimeout(1_050);
+    await expect(selfLight).toHaveAttribute("data-sharing", "true");
+    await expect(selfLight).toHaveAttribute("data-zone", "1");
+    await expect(selfLight).toHaveAttribute("data-room", "code");
+    await visitor.page.getByRole("button", {
+      name: "Close balloon guestbook",
+    }).click();
+
+    const medium = visitor.page.locator('[data-portal-section="medium"]');
+    await medium.getByRole("button", { name: /^MEDIUM/ }).click();
+    await expect(selfLight).toHaveAttribute("data-zone", "3");
+    await expect(selfLight).toHaveAttribute("data-room", "writing");
+
+    await visitor.page.getByTestId("party-balloon-trigger").click();
+    await motion.click();
+    await expect(motion).toHaveAttribute("aria-pressed", "false");
     await expect(selfLight).toHaveAttribute("data-sharing", "false");
     await expect.poll(() => readSession(visitor.page)).toMatchObject({
-      hasKnocked: true,
+      hasLeftBalloon: true,
       motionPreference: "off",
     });
 
@@ -237,6 +265,8 @@ test("coarse motion stays locked until KNOCK and remembers the off toggle", asyn
       "data-connection",
       "live",
     );
+    await visitor.page.getByTestId("party-balloon-trigger").click();
+    await expect(visitor.page.getByTestId("party-balloon-dialog")).toBeVisible();
     await expect(visitor.page.getByTestId("party-motion")).toBeVisible();
     await expect(visitor.page.getByTestId("party-motion")).toHaveAttribute(
       "aria-pressed",
@@ -247,7 +277,7 @@ test("coarse motion stays locked until KNOCK and remembers the off toggle", asyn
   }
 });
 
-test("keeps Living Glass keyboard and thumb friendly at 320px", async ({
+test("keeps the balloon guestbook keyboard and thumb friendly at 320px", async ({
   browser,
 }) => {
   const context = await browser.newContext({
@@ -268,21 +298,36 @@ test("keeps Living Glass keyboard and thumb friendly at 320px", async ({
     expect(switchboardBox!.x).toBeGreaterThanOrEqual(0);
     expect(switchboardBox!.x + switchboardBox!.width).toBeLessThanOrEqual(320);
 
-    const knockBox = await page.getByTestId("party-knock").boundingBox();
-    expect(knockBox).not.toBeNull();
-    expect(knockBox!.width).toBeGreaterThanOrEqual(44);
-    expect(knockBox!.height).toBeGreaterThanOrEqual(44);
+    const trigger = page.getByTestId("party-balloon-trigger");
+    const triggerBox = await trigger.boundingBox();
+    expect(triggerBox).not.toBeNull();
+    expect(triggerBox!.width).toBeGreaterThanOrEqual(44);
+    expect(triggerBox!.height).toBeGreaterThanOrEqual(44);
+    expect(triggerBox!.x).toBeGreaterThanOrEqual(0);
+    expect(triggerBox!.x + triggerBox!.width).toBeLessThanOrEqual(320);
+    expect(triggerBox!.y + triggerBox!.height).toBeLessThanOrEqual(640);
 
-    await page.getByTestId("party-knock").focus();
-    await expect(page.getByTestId("party-knock")).toBeFocused();
+    await trigger.focus();
+    await expect(trigger).toBeFocused();
     await page.keyboard.press("Enter");
-    await expect(page.getByTestId("party-knock-wave")).toHaveCount(1);
+    await expect(page.getByTestId("party-balloon")).toHaveCount(1);
+    await trigger.click();
+    await expect(page.getByTestId("party-balloon-dialog")).toBeVisible();
+    const dialogBox = await page.getByTestId("party-balloon-dialog").boundingBox();
+    expect(dialogBox).not.toBeNull();
+    expect(dialogBox!.x).toBe(0);
+    expect(dialogBox!.width).toBe(320);
     const motionBox = await page.getByTestId("party-motion").boundingBox();
     expect(motionBox).not.toBeNull();
     expect(motionBox!.width).toBeGreaterThanOrEqual(44);
     expect(motionBox!.height).toBeGreaterThanOrEqual(44);
-    await page.keyboard.press("Tab");
     await expect(page.getByTestId("party-motion")).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("party-balloon-dialog")).not.toBeVisible();
+    await expect(trigger).toBeFocused();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(320);
   } finally {
     await context.close();
   }
@@ -302,16 +347,16 @@ test("honors reduced motion and forced colors without hiding controls", async ({
       "data-connection",
       "live",
     );
-    await page.getByTestId("party-knock").click();
-    const wave = page.getByTestId("party-knock-wave");
-    await expect(wave).toHaveCount(1);
-    expect(await wave.evaluate((element) => element.getAnimations().length)).toBe(
-      0,
-    );
+    await page.getByTestId("party-balloon-trigger").click();
+    const balloon = page.getByTestId("party-balloon");
+    await expect(balloon).toHaveCount(1);
+    await expect(balloon).toHaveCSS("animation-name", /balloon-static/);
 
     await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
     await expect(page.getByTestId("party-switchboard")).toBeVisible();
-    await expect(page.getByTestId("party-knock")).toBeVisible();
+    await expect(page.getByTestId("party-balloon-trigger")).toBeVisible();
+    await page.getByTestId("party-balloon-trigger").click();
+    await expect(page.getByTestId("party-balloon-dialog")).toBeVisible();
     await expect(page.getByTestId("party-motion")).toBeVisible();
     await expect(page.getByTestId("portal-atmosphere")).toBeHidden();
     await expect(page.getByTestId("party-light").first()).toBeHidden();
@@ -320,33 +365,85 @@ test("honors reduced motion and forced colors without hiding controls", async ({
   }
 });
 
-test("uses a static inner-header color step under reduced motion", async ({
+test("the guestbook closes on its backdrop and restores trigger focus", async ({
   browser,
 }) => {
   const context = await browser.newContext({ reducedMotion: "reduce" });
   const home = await context.newPage();
-  const inner = await context.newPage();
 
   try {
     await home.goto("/");
-    await inner.goto("/blogs/");
     await expect(home.getByTestId("party-house")).toHaveAttribute(
       "data-connection",
       "live",
     );
-    await expect(inner.getByTestId("party-house")).toHaveAttribute(
+    const trigger = home.getByTestId("party-balloon-trigger");
+    await trigger.click();
+    await trigger.click();
+    const dialog = home.getByTestId("party-balloon-dialog");
+    await expect(dialog).toBeVisible();
+    await home.mouse.click(10, 10);
+    await expect(dialog).not.toBeVisible();
+    await expect(trigger).toBeFocused();
+  } finally {
+    await context.close();
+  }
+});
+
+test("a completed guestbook stays available while reconnecting", async ({
+  browser,
+}) => {
+  const context = await browser.newContext();
+  await context.addInitScript(() => {
+    const NativeWebSocket = window.WebSocket;
+    const sockets: WebSocket[] = [];
+    class ObservableWebSocket extends NativeWebSocket {
+      constructor(url: string | URL, protocols?: string | string[]) {
+        if (
+          (window as Window & { __blockPartySockets?: boolean })
+            .__blockPartySockets
+        ) {
+          throw new Error("Test reconnect");
+        }
+        super(url, protocols);
+        if (new URL(String(url), window.location.href).pathname === "/v2/house") {
+          sockets.push(this);
+        }
+      }
+    }
+    Object.defineProperty(window, "WebSocket", { value: ObservableWebSocket });
+    Object.defineProperty(window, "__partySockets", { value: sockets });
+  });
+  const page = await context.newPage();
+  await page.goto("/");
+  await expect(page.getByTestId("party-house")).toHaveAttribute(
+    "data-connection",
+    "live",
+  );
+
+  try {
+    const trigger = page.getByTestId("party-balloon-trigger");
+    await trigger.click();
+    await expect(trigger).toHaveAttribute("data-balloon-left", "true");
+    await page.evaluate(() => {
+      const testWindow = window as Window & {
+        __blockPartySockets?: boolean;
+        __partySockets?: WebSocket[];
+      };
+      testWindow.__blockPartySockets = true;
+      const sockets = testWindow.__partySockets;
+      sockets?.at(-1)?.dispatchEvent(
+        new CloseEvent("close", { code: 4000, reason: "Test reconnect" }),
+      );
+    });
+    await expect(page.getByTestId("party-house")).toHaveAttribute(
       "data-connection",
-      "live",
+      "reconnecting",
+      { timeout: 10_000 },
     );
-    await home.getByTestId("party-knock").click();
-    await expect(inner.locator(".site-header")).toHaveCSS(
-      "border-bottom-color",
-      "rgb(43, 222, 203)",
-    );
-    await expect(inner.locator(".brand-mark")).toHaveCSS(
-      "background-color",
-      "rgb(43, 222, 203)",
-    );
+    await trigger.click();
+    await expect(page.getByTestId("party-balloon-dialog")).toBeVisible();
+    await expect(page.getByTestId("party-motion")).toBeDisabled();
   } finally {
     await context.close();
   }
@@ -378,6 +475,7 @@ test("never mounts or opens Living Glass anywhere under Patreon", async ({
     await expect(page.getByTestId("party-house")).toHaveCount(0);
     await expect(page.getByTestId("party-switchboard")).toHaveCount(0);
     await expect(page.getByTestId("party-light")).toHaveCount(0);
+    await expect(page.getByTestId("party-guestbook")).toHaveCount(0);
     expect(
       await page.evaluate(
         () =>
@@ -390,6 +488,7 @@ test("never mounts or opens Living Glass anywhere under Patreon", async ({
     await expect(page).toHaveURL(/\/patreon\/?\?returnTo=/);
     await expect(page.getByTestId("party-house")).toHaveCount(0);
     await expect(page.getByTestId("party-switchboard")).toHaveCount(0);
+    await expect(page.getByTestId("party-guestbook")).toHaveCount(0);
     expect(
       await page.evaluate(
         () =>

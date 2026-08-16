@@ -23,6 +23,7 @@ test("house-off mode removes Living Glass and rejects a v2 socket", async ({
   });
   await expect(page.getByTestId("party-switchboard")).toHaveCount(0);
   await expect(page.getByTestId("party-light")).toHaveCount(0);
+  await expect(page.getByTestId("party-guestbook")).toHaveCount(0);
 
   const result = await page.evaluate(async (baseUrl) => {
     return new Promise<PolicyClose>((resolve, reject) => {
