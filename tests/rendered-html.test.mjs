@@ -53,6 +53,7 @@ test("renders the static index with native disclosures and one ambient SVG", asy
   assert.equal((html.match(/data-portal-section=/g) || []).length, 5);
   assert.equal((html.match(/<details name="portal-directory">/g) || []).length, 5);
   assert.equal((html.match(/class="portal-link"/g) || []).length, 5);
+  assert.equal((html.match(/class="portal-preview-item"/g) || []).length, 25);
   assert.match(html, /data-testid="ambient-blob"/);
   assert.match(html, /class="portal-frost"/);
   assert.equal((html.match(/data-testid="ambient-blob"/g) || []).length, 1);
@@ -60,8 +61,12 @@ test("renders the static index with native disclosures and one ambient SVG", asy
   assert.doesNotMatch(html, /use client|portal-lava-blob/);
   assert.match(html, /href="\/code"/);
   assert.match(html, /href="https:\/\/steaks\.itch\.io"/);
-  assert.match(html, /BLOG \(DOGS\)/);
-  assert.match(html, /BLOG \(DEV\)/);
+  assert.match(html, /href="\/blogs"/);
+  assert.match(html, /UNTITLED PROJECT 01/);
+  assert.match(html, /UNTITLED GAME 05/);
+  assert.match(html, /UNTITLED WEBSITE 05/);
+  assert.match(html, /UNTITLED POST 05/);
+  assert.match(html, /UNTITLED OBJECT 05/);
   assert.match(html, /COLORADO/);
 });
 

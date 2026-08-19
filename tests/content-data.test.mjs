@@ -4,8 +4,21 @@ import test from "node:test";
 
 const contentUrl = new URL("../content/site-content.json", import.meta.url);
 
-test("keeps projects and posts in one local content source", async () => {
+test("keeps homepage, project, and post content in one local source", async () => {
   const content = JSON.parse(await readFile(contentUrl, "utf8"));
+
+  assert.equal(content.homeCategories.length, 5);
+  assert.deepEqual(
+    content.homeCategories.map(({ source }) => source),
+    ["projects", "games", "websites", "blogs", "shop"],
+  );
+  for (const category of content.homeCategories) {
+    assert.equal(category.items.length, 5);
+    assert.equal(
+      new Set(category.items.map(({ id }) => id)).size,
+      category.items.length,
+    );
+  }
 
   assert.ok(Array.isArray(content.projects));
   assert.ok(content.projects.length > 0);

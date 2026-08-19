@@ -270,8 +270,9 @@ button, a, summary { -webkit-tap-highlight-color: rgb(223 255 0 / 0.45); }
 }
 
 .portal-preview-list { padding: 0; margin: 0; list-style: none; }
-.portal-preview-list li:last-child .portal-preview-item,
-.portal-blog-group > .portal-preview-item { border-bottom: 1px solid rgb(9 10 8 / 0.22); }
+.portal-preview-list li:last-child .portal-preview-item {
+  border-bottom: 1px solid rgb(9 10 8 / 0.22);
+}
 
 .portal-preview strong {
   overflow-wrap: anywhere;
@@ -295,49 +296,10 @@ button, a, summary { -webkit-tap-highlight-color: rgb(223 255 0 / 0.45); }
   text-underline-offset: 0.16em;
 }
 
-.portal-blog-groups {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: clamp(1.5rem, 3.5vw, 3.5rem);
-}
-
-.portal-blog-group + .portal-blog-group {
-  padding-left: clamp(1.5rem, 3.5vw, 3.5rem);
-  border-left: 1px solid rgb(9 10 8 / 0.22);
-}
-
-.portal-blog-heading {
-  display: flex;
-  min-height: 2.4rem;
-  gap: 0.75rem;
-  align-items: baseline;
-  justify-content: space-between;
-}
-
-.portal-blog-heading h2 {
-  margin: 0;
-  font-size: clamp(0.84rem, 1.15vw, 1rem);
-  font-weight: 900;
-  letter-spacing: -0.02em;
-  line-height: 1;
-}
-
-.portal-blog-source, .portal-external, .portal-footer a {
+.portal-external, .portal-footer a {
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }
-
-.portal-blog-source {
-  display: inline-flex;
-  flex: 0 0 auto;
-  gap: 0.35rem;
-  font-size: clamp(0.55rem, 0.7vw, 0.64rem);
-  font-weight: 900;
-  letter-spacing: 0.04em;
-}
-
-.portal-blog-group .portal-preview-item > strong { font-size: clamp(0.88rem, 1.25vw, 1.12rem); }
-.portal-blog-group .portal-preview-item > span { font-size: clamp(0.55rem, 0.72vw, 0.64rem); }
 
 .portal-panel-actions {
   display: flex;
@@ -824,13 +786,6 @@ button, a, summary { -webkit-tap-highlight-color: rgb(223 255 0 / 0.45); }
 }
 
 @media (max-width: 760px) {
-  .portal-blog-groups { grid-template-columns: minmax(0, 1fr); gap: 1.35rem; }
-  .portal-blog-group + .portal-blog-group {
-    padding-top: 1.35rem;
-    padding-left: 0;
-    border-top: 1px solid rgb(9 10 8 / 0.22);
-    border-left: 0;
-  }
   .portal-preview-item { grid-template-columns: minmax(0, 1fr); gap: 0.25rem; }
   .portal-preview-item > span { text-align: left; }
 }

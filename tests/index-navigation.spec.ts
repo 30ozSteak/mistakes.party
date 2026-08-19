@@ -4,7 +4,7 @@ const destinations = [
   ["projects", "PROJECTS", "/code"],
   ["games", "GAMES", "https://steaks.itch.io"],
   ["websites", "WEBSITES", null],
-  ["blogs", "BLOGS", null],
+  ["blogs", "BLOGS", "/blogs"],
   ["shop", "SHOP", null],
 ] as const;
 
@@ -20,6 +20,7 @@ test("the homepage is a static five-section index", async ({ page }) => {
     const section = page.locator(`[data-portal-section="${source}"]`);
     await section.locator("summary").click();
     await expect(section.locator("details")).toHaveAttribute("open", "");
+    await expect(section.locator(".portal-preview-item")).toHaveCount(5);
 
     if (href) {
       await expect(
@@ -38,6 +39,7 @@ test("the homepage is a static five-section index", async ({ page }) => {
 
   await expect(page.getByText(/ROOM OPEN|LIGHTS? (?:ON|HERE)/)).toHaveCount(0);
   await expect(page.locator('[data-testid^="party-"]')).toHaveCount(0);
+  await expect(page.locator(".portal-preview-item")).toHaveCount(25);
 });
 
 test("the ambient SVG stays passive, slow, and motion-safe", async ({ page }) => {

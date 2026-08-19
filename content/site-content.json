@@ -3,6 +3,71 @@
     "github": "https://github.com/30ozSteak",
     "medium": "https://medium.com/@30ozsteak"
   },
+  "homeCategories": [
+    {
+      "source": "projects",
+      "label": "PROJECTS",
+      "href": "/code",
+      "previewLabel": "PROJECTS / PLACEHOLDERS",
+      "items": [
+        { "id": "project-01", "title": "UNTITLED PROJECT 01", "meta": "WEB / COMING SOON" },
+        { "id": "project-02", "title": "UNTITLED PROJECT 02", "meta": "TOOL / COMING SOON" },
+        { "id": "project-03", "title": "UNTITLED PROJECT 03", "meta": "EXPERIMENT / COMING SOON" },
+        { "id": "project-04", "title": "UNTITLED PROJECT 04", "meta": "CODE / COMING SOON" },
+        { "id": "project-05", "title": "UNTITLED PROJECT 05", "meta": "IDEA / COMING SOON" }
+      ]
+    },
+    {
+      "source": "games",
+      "label": "GAMES",
+      "href": "https://steaks.itch.io",
+      "previewLabel": "GAMES / PLACEHOLDERS",
+      "items": [
+        { "id": "game-01", "title": "UNTITLED GAME 01", "meta": "PLAYABLE / COMING SOON" },
+        { "id": "game-02", "title": "UNTITLED GAME 02", "meta": "PROTOTYPE / COMING SOON" },
+        { "id": "game-03", "title": "UNTITLED GAME 03", "meta": "BROWSER / COMING SOON" },
+        { "id": "game-04", "title": "UNTITLED GAME 04", "meta": "DESKTOP / COMING SOON" },
+        { "id": "game-05", "title": "UNTITLED GAME 05", "meta": "EXPERIMENT / COMING SOON" }
+      ]
+    },
+    {
+      "source": "websites",
+      "label": "WEBSITES",
+      "previewLabel": "WEBSITES / PLACEHOLDERS",
+      "items": [
+        { "id": "website-01", "title": "UNTITLED WEBSITE 01", "meta": "SITE / COMING SOON" },
+        { "id": "website-02", "title": "UNTITLED WEBSITE 02", "meta": "PORTFOLIO / COMING SOON" },
+        { "id": "website-03", "title": "UNTITLED WEBSITE 03", "meta": "EDITORIAL / COMING SOON" },
+        { "id": "website-04", "title": "UNTITLED WEBSITE 04", "meta": "COMMERCE / COMING SOON" },
+        { "id": "website-05", "title": "UNTITLED WEBSITE 05", "meta": "EXPERIMENT / COMING SOON" }
+      ]
+    },
+    {
+      "source": "blogs",
+      "label": "BLOGS",
+      "href": "/blogs",
+      "previewLabel": "BLOGS / PLACEHOLDERS",
+      "items": [
+        { "id": "blog-01", "title": "UNTITLED POST 01", "meta": "DEV / COMING SOON" },
+        { "id": "blog-02", "title": "UNTITLED POST 02", "meta": "DOGS / COMING SOON" },
+        { "id": "blog-03", "title": "UNTITLED POST 03", "meta": "NOTES / COMING SOON" },
+        { "id": "blog-04", "title": "UNTITLED POST 04", "meta": "DISPATCH / COMING SOON" },
+        { "id": "blog-05", "title": "UNTITLED POST 05", "meta": "PROCESS / COMING SOON" }
+      ]
+    },
+    {
+      "source": "shop",
+      "label": "SHOP",
+      "previewLabel": "SHOP / PLACEHOLDERS",
+      "items": [
+        { "id": "shop-01", "title": "UNTITLED OBJECT 01", "meta": "OBJECT / COMING SOON" },
+        { "id": "shop-02", "title": "UNTITLED OBJECT 02", "meta": "PRINT / COMING SOON" },
+        { "id": "shop-03", "title": "UNTITLED OBJECT 03", "meta": "APPAREL / COMING SOON" },
+        { "id": "shop-04", "title": "UNTITLED OBJECT 04", "meta": "DIGITAL / COMING SOON" },
+        { "id": "shop-05", "title": "UNTITLED OBJECT 05", "meta": "ODDITY / COMING SOON" }
+      ]
+    }
+  ],
   "projects": [
     {
       "slug": "mistakes-party",

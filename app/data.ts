@@ -28,6 +28,28 @@ export type BlogPost = {
   url?: string;
 };
 
+export type HomeCategorySource =
+  | "projects"
+  | "games"
+  | "websites"
+  | "blogs"
+  | "shop";
+
+export type HomeCategoryItem = {
+  id: string;
+  title: string;
+  meta: string;
+  href?: string;
+};
+
+export type HomeCategory = {
+  source: HomeCategorySource;
+  label: string;
+  href?: string;
+  previewLabel: string;
+  items: HomeCategoryItem[];
+};
+
 export type ArchiveSourceProvider = "GITHUB" | "X" | "EMAIL";
 
 export type ArchiveLink = {
@@ -46,6 +68,7 @@ type SiteContent = {
     github: string;
     medium: string;
   };
+  homeCategories: HomeCategory[];
   projects: Project[];
   blogPosts: BlogPost[];
   archiveLinks: ArchiveLink[];
@@ -71,9 +94,25 @@ function assertUniqueSlugs(items: readonly { slug: string }[], label: string) {
 assertUniqueSlugs(content.projects, "project");
 assertUniqueSlugs(content.archiveLinks, "archive");
 
+const homeSources = new Set<HomeCategorySource>();
+for (const category of content.homeCategories) {
+  if (homeSources.has(category.source)) {
+    throw new Error(`Duplicate homepage category: ${category.source}`);
+  }
+  homeSources.add(category.source);
+
+  const itemIds = new Set<string>();
+  for (const item of category.items) {
+    if (itemIds.has(item.id)) {
+      throw new Error(`Duplicate homepage item: ${category.source}/${item.id}`);
+    }
+    itemIds.add(item.id);
+  }
+}
+
 export const profiles = content.profiles;
+export const homeCategories = content.homeCategories;
 export const projects = content.projects;
-export const featuredProjects = projects.filter((project) => project.featured);
 export const blogPosts = [...content.blogPosts].sort(
   (a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt),
 );
