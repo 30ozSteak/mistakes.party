@@ -85,7 +85,7 @@ export default async function PatreonPage({ searchParams }: PatreonPageProps) {
       <a className="skip-link" href="#patreon-content">
         SKIP TO MEMBER ACCESS
       </a>
-      <SiteHeader currentPage="patreon" indexLink />
+      <SiteHeader currentPage="patreon" />
 
       <main className="patreon-page" id="patreon-content">
         <div className="patreon-status mono-label">

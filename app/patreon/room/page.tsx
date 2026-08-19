@@ -19,7 +19,7 @@ export default async function PatreonRoomPage() {
       <a className="skip-link" href="#patreon-room-content">
         SKIP TO THE PATRON ROOM
       </a>
-      <SiteHeader currentPage="patreon" indexLink />
+      <SiteHeader currentPage="patreon" />
 
       <main className="patreon-room-page" id="patreon-room-content">
         <section className="patreon-room-hero">

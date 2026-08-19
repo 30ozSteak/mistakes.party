@@ -1,37 +1,33 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowIcon } from "../components/ArrowIcon";
-import { MediumPostList } from "../components/MediumPostList";
+import { BlogPostList } from "../components/BlogPostList";
 import { SiteHeader } from "../components/SiteHeader";
-import { getMediumPosts, MEDIUM_PROFILE_URL } from "../lib/medium";
+import { blogPosts, profiles } from "../data";
 
 export const metadata: Metadata = {
   title: "Blogs — MISTAKES.PARTY",
-  description: "Writing and updates from Mistakes.party, published on Medium.",
+  description: "Writing and updates selected by Mistakes.party.",
 };
 
-export const revalidate = 900;
-
-export default async function BlogsPage() {
-  const posts = await getMediumPosts();
-
+export default function BlogsPage() {
   return (
     <>
       <a className="skip-link" href="#blog-content">
         SKIP TO THE BLOGS
       </a>
-      <SiteHeader currentPage="blogs" indexLink />
+      <SiteHeader currentPage="blogs" />
 
       <main className="blogs-page" id="blog-content">
         <header className="blogs-hero">
           <h1>BLOGS</h1>
-          <a className="blogs-source mono-label" href={MEDIUM_PROFILE_URL}>
+          <a className="blogs-source mono-label" href={profiles.medium}>
             READ ON MEDIUM <ArrowIcon />
           </a>
         </header>
 
-        <section className="blogs-index" aria-label="Posts from Medium">
-          <MediumPostList headingLevel="h2" posts={posts} />
+        <section className="blogs-index" aria-label="Published posts">
+          <BlogPostList headingLevel="h2" posts={blogPosts} />
         </section>
       </main>
 

@@ -8,42 +8,28 @@
   "scripts": {
     "audit:production": "npm audit --omit=dev --audit-level=high",
     "dev": "next dev",
-    "dev:realtime": "wrangler dev --config worker/wrangler.jsonc",
     "build": "next build --webpack",
-    "check:realtime": "tsc -p worker/tsconfig.json --noEmit",
-    "deploy:realtime": "wrangler deploy --config worker/wrangler.jsonc --env production",
     "start": "next start",
-    "test": "npm run test:worker && node tests/run-production-tests.mjs",
+    "test": "node tests/run-production-tests.mjs",
     "test:e2e": "playwright test",
-    "test:party": "playwright test tests/party-presence.spec.ts",
-    "test:party:off": "playwright test --config playwright.off.config.ts",
     "test:security": "playwright test tests/security.spec.ts",
-    "test:unit": "node --test tests/medium-feed.test.mjs tests/github-feed.test.mjs tests/party-protocol.test.mjs tests/party-house-protocol.test.mjs",
-    "test:worker": "vitest run --config vitest.config.ts",
+    "test:unit": "node --test tests/content-data.test.mjs",
     "lint": "eslint . --ignore-pattern .next --ignore-pattern '.next-playwright-*'",
-    "smoke:party:production": "node tests/party-production-smoke.mjs"
+    "smoke:production": "node tests/run-production-tests.mjs"
   },
   "dependencies": {
-    "@vercel/analytics": "^2.0.1",
-    "fast-xml-parser": "^5.10.1",
     "next": "16.3.0",
     "react": "19.2.6",
     "react-dom": "19.2.6"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.21.3",
-    "@cloudflare/workers-types": "^5.20260812.1",
     "@playwright/test": "^1.62.1",
-    "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "eslint": "9.39.4",
     "eslint-config-next": "16.3.0",
-    "tailwindcss": "4.2.1",
-    "typescript": "5.9.3",
-    "vitest": "^4.1.10",
-    "wrangler": "^4.122.0"
+    "typescript": "5.9.3"
   },
   "type": "module"
 }

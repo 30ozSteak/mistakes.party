@@ -1,33 +1,60 @@
 import type { Metadata } from "next";
-import { SourceDetail } from "../components/SourceDetail";
-import { GITHUB_OWNER } from "../lib/github";
-
-const GITHUB_REPOSITORIES_URL =
-  `https://github.com/${GITHUB_OWNER}?tab=repositories`;
+import Link from "next/link";
+import { ArrowIcon } from "../components/ArrowIcon";
+import { SiteHeader } from "../components/SiteHeader";
+import { projects } from "../data";
 
 export const metadata: Metadata = {
-  title: "Public Code — MISTAKES.PARTY",
-  description:
-    "Public repositories, experiments, utilities, and useful mistakes from Mistakes.party.",
+  title: "Projects — MISTAKES.PARTY",
+  description: "A curated index of public and private Mistakes.party projects.",
 };
 
 export default function CodePage() {
   return (
-    <SourceDetail
-      backHref="/"
-      description="Public repositories, experiments, utilities, and useful mistakes—kept open for inspection, reuse, and the next attempt."
-      facts={[
-        { label: "OWNER", value: GITHUB_OWNER.toUpperCase() },
-        { label: "PLATFORM", value: "GITHUB" },
-        { label: "ACCESS", value: "PUBLIC" },
-      ]}
-      kicker="PUBLIC CODE / INDEX"
-      kind="GITHUB / REPOSITORIES"
-      note="This index highlights a small, changing selection. GitHub holds the complete working archive, including projects that are unfinished, narrowly useful, or preserved simply because the attempt mattered."
-      noteTitle="THE WORKING ARCHIVE"
-      sourceHref={GITHUB_REPOSITORIES_URL}
-      sourceLabel="BROWSE GITHUB"
-      title="ALL REPOS"
-    />
+    <>
+      <a className="skip-link" href="#project-index">
+        SKIP TO THE PROJECTS
+      </a>
+      <SiteHeader />
+
+      <main className="blogs-page" id="project-index">
+        <header className="blogs-hero">
+          <h1>PROJECTS</h1>
+          <p className="projects-intro mono-label">
+            PUBLIC WORK, PRIVATE WORK, AND USEFUL ATTEMPTS—CURATED HERE.
+          </p>
+        </header>
+
+        <section className="blogs-index" aria-label="Project index">
+          <div className="index-list">
+            {projects.map((project) => (
+              <Link
+                aria-label={project.title}
+                className="index-row"
+                data-project
+                href={`/work/${project.slug}`}
+                key={project.slug}
+              >
+                <div className="index-main">
+                  <h2 className="index-title">{project.title}</h2>
+                </div>
+                <span className="index-meta">
+                  <span>{project.category}</span>
+                  <span>{project.visibility}</span>
+                  <span>{project.status}</span>
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      </main>
+
+      <footer className="site-footer">
+        <span>MISTAKES.PARTY © 2026</span>
+        <Link href="/">
+          BACK TO THE INDEX <ArrowIcon direction="up" />
+        </Link>
+      </footer>
+    </>
   );
 }

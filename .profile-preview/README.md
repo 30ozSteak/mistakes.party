@@ -8,7 +8,7 @@
 
 **WEB / APPS / XR / GAMES / ART + THE OCCASIONAL USEFUL MISTAKE.**
 
-Denver-based developer making sharp interfaces, small tools, public experiments, and enough room to get something wrong on the way to getting it right.
+Colorado-based developer making sharp interfaces, small tools, public experiments, and enough room to get something wrong on the way to getting it right.
 
 ## SELECTED WORK
 
@@ -30,5 +30,5 @@ Denver-based developer making sharp interfaces, small tools, public experiments,
 **[MISTAKES.PARTY ↗](https://www.mistakes.party)** / **[EMAIL ↗](mailto:hello@mistakes.party)** / **[X ↗](https://x.com/iaaafm)** / **[MEDIUM ↗](https://medium.com/@30ozsteak)** / **[GISTS ↗](https://gist.github.com/30ozSteak)**
 
 <p align="center">
-  <sub>MISTAKES.PARTY / DENVER, COLORADO / KEEP THE EVIDENCE</sub>
+  <sub>MISTAKES.PARTY / COLORADO / KEEP THE EVIDENCE</sub>
 </p>

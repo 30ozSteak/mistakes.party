@@ -94,20 +94,16 @@ test("fails closed for a tampered grant and can lock a shared browser", async ({
   ).toBe(false);
 });
 
-test("never exposes Living Glass on Patreon pages", async ({ page }) => {
+test("keeps the ambient home background off Patreon pages", async ({ page }) => {
   await page.goto("/patreon/");
-  await expect(page.getByTestId("party-house")).toHaveCount(0);
-  await expect(page.getByTestId("party-switchboard")).toHaveCount(0);
-  await expect(page.getByTestId("party-guestbook")).toHaveCount(0);
-  await expect(page.getByTestId("party-light")).toHaveCount(0);
+  await expect(page.getByTestId("portal-atmosphere")).toHaveCount(0);
 
   await page.goto("/patreon/room/");
   await expect(page).toHaveURL(/\/patreon\/?\?returnTo=/);
-  await expect(page.getByTestId("party-house")).toHaveCount(0);
-  await expect(page.getByTestId("party-switchboard")).toHaveCount(0);
-  await expect(page.getByTestId("party-guestbook")).toHaveCount(0);
+  await expect(page.getByTestId("portal-atmosphere")).toHaveCount(0);
 
   await page.getByRole("link", { name: "MISTAKES.PARTY", exact: true }).click();
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByTestId("party-house")).toBeVisible();
+  await expect(page.getByTestId("portal-atmosphere")).toBeVisible();
+  await expect(page.getByTestId("ambient-blob")).toHaveCount(1);
 });

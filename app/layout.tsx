@@ -1,15 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { connection } from "next/server";
-import { Analytics } from "@vercel/analytics/next";
-import { BalloonGuestbook } from "./components/BalloonGuestbook";
-import { PartyHouseProvider } from "./components/PartyHouse";
 import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://mistakes.party"),
   title: "MXP — Mistakes.party",
   description:
-    "An expandable index of public code, recent writing, and games by Mistakes.party.",
+    "A quiet index of projects, writing, games, and work by Mistakes.party.",
   openGraph: {
     type: "website",
     title: "MXP — Mistakes.party",
@@ -37,37 +33,14 @@ export const viewport: Viewport = {
   colorScheme: "light",
 };
 
-// All pages are intentionally request-rendered for the per-response CSP nonce.
-// Bound unexpected work rather than inheriting the platform's longer default.
-export const maxDuration = 10;
-
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // A fresh CSP nonce must be generated and applied for every HTML response.
-  // Data fetches may still use their own Next.js revalidation caches.
-  await connection();
-
   return (
     <html data-scroll-behavior="smooth" lang="en">
-      <head>
-        <link
-          as="font"
-          crossOrigin="anonymous"
-          href="/fonts/kill-the-noise.otf"
-          rel="preload"
-          type="font/otf"
-        />
-      </head>
-      <body>
-        <PartyHouseProvider>
-          {children}
-          <BalloonGuestbook />
-        </PartyHouseProvider>
-        <Analytics mode="production" />
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
