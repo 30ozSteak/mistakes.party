@@ -56,6 +56,8 @@ test("renders the static index with native disclosures and one ambient SVG", asy
   assert.equal((html.match(/class="portal-preview-item"/g) || []).length, 25);
   assert.match(html, /data-testid="ambient-blob"/);
   assert.match(html, /class="portal-frost"/);
+  assert.match(html, /id="ambient-color-phase"/);
+  assert.match(html, /mxp:ambient-color-phase/);
   assert.equal((html.match(/data-testid="ambient-blob"/g) || []).length, 1);
   assert.doesNotMatch(html, /<canvas\b/i);
   assert.doesNotMatch(html, /use client|portal-lava-blob/);
@@ -125,8 +127,20 @@ test("the atmosphere is CSS-only, slow, and motion-safe", async () => {
   assert.match(styles, /portal-blob-drift 190s/);
   assert.match(styles, /portal-blob-morph 137s/);
   assert.match(styles, /portal-blob-color 260s/);
+  assert.match(
+    styles,
+    /portal-blob-color 260s linear var\(--portal-color-delay\) infinite/,
+  );
   assert.match(styles, /\.portal-frost\s*\{[^}]*backdrop-filter:/s);
   assert.match(styles, /@keyframes portal-blob-color\s*\{/);
+  assert.match(
+    styles,
+    /\.portal-panel-shell\s*\{[^}]*grid-template-rows:\s*0fr;[^}]*480ms/s,
+  );
+  assert.match(
+    styles,
+    /details\[open\] \.portal-panel-shell\s*\{[^}]*grid-template-rows:\s*1fr;[^}]*560ms/s,
+  );
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)/);
   assert.doesNotMatch(styles, /--party-|party-house|balloon/i);
 });

@@ -2,6 +2,7 @@
   --paper: #f2f1e9;
   --ink: #090a08;
   --acid: #dfff00;
+  --portal-color-delay: 0ms;
   --muted: #51524d;
   --gutter: clamp(1.25rem, 4.5vw, 5rem);
   --rule: clamp(2px, 0.24vw, 4px);
@@ -128,7 +129,7 @@ button, a, summary { -webkit-tap-highlight-color: rgb(223 255 0 / 0.45); }
     animation:
       portal-blob-drift 190s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate,
       portal-blob-morph 137s ease-in-out infinite alternate,
-      portal-blob-color 260s linear infinite;
+      portal-blob-color 260s linear var(--portal-color-delay) infinite;
     will-change: border-radius, color, transform;
   }
   .portal-name, .portal-arrow {
@@ -240,6 +241,32 @@ button, a, summary { -webkit-tap-highlight-color: rgb(223 255 0 / 0.45); }
 .portal-arrow .arrow-icon { display: block; width: 1em; height: 1em; }
 .portal-destinations details[open] .portal-arrow { transform: rotate(90deg); }
 
+.portal-panel-shell {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    grid-template-rows 480ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 180ms ease-out,
+    visibility 0s linear 480ms;
+}
+
+.portal-destinations details[open] .portal-panel-shell {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+  transition:
+    grid-template-rows 560ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 260ms ease-out 70ms,
+    visibility 0s linear;
+}
+
+.portal-panel-clip {
+  min-height: 0;
+  overflow: hidden;
+}
+
 .portal-panel {
   display: grid;
   width: 100%;
@@ -247,7 +274,11 @@ button, a, summary { -webkit-tap-highlight-color: rgb(223 255 0 / 0.45); }
   gap: 1.25rem;
   padding: clamp(1.15rem, 2vw, 1.75rem) 0 clamp(1.75rem, 3vw, 2.75rem);
   font-family: var(--mono);
+  transform: translateY(-0.65rem);
+  transition: transform 480ms cubic-bezier(0.22, 1, 0.36, 1);
 }
+
+.portal-destinations details[open] .portal-panel { transform: translateY(0); }
 
 .portal-preview { min-width: 0; grid-area: preview; }
 

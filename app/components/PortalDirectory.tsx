@@ -48,27 +48,31 @@ export function PortalDirectory({
                   </span>
                 </summary>
 
-                <div className="portal-panel" id={panelId}>
-                  <div className="portal-preview">
-                    <span className="portal-preview-label">
-                      {category.previewLabel}
-                    </span>
-                    <ol className="portal-preview-list">
-                      {category.items.map((item) => (
-                        <li key={item.id}>
-                          <CategoryItem item={item} />
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
+                <div className="portal-panel-shell">
+                  <div className="portal-panel-clip">
+                    <div className="portal-panel" id={panelId}>
+                      <div className="portal-preview">
+                        <span className="portal-preview-label">
+                          {category.previewLabel}
+                        </span>
+                        <ol className="portal-preview-list">
+                          {category.items.map((item) => (
+                            <li key={item.id}>
+                              <CategoryItem item={item} />
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
 
-                  {category.href ? (
-                    <div className="portal-panel-actions">
-                      <a className="portal-external" href={category.href}>
-                        OPEN {category.label} <ArrowIcon />
-                      </a>
+                      {category.href ? (
+                        <div className="portal-panel-actions">
+                          <a className="portal-external" href={category.href}>
+                            OPEN {category.label} <ArrowIcon />
+                          </a>
+                        </div>
+                      ) : null}
                     </div>
-                  ) : null}
+                  </div>
                 </div>
               </details>
             </li>
